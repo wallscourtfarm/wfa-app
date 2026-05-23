@@ -444,3 +444,34 @@ body {
   color:#856400; border-radius:99px; padding:4px 12px; font-size:12px;
   font-weight:600; margin-bottom:16px; }
 .stub-coming { font-size:13px; color:var(--muted); }
+
+/* ── Home Learning ───────────────────────────────────────────────────── */
+.hl-meta { display:flex; gap:16px; font-size:13px; color:var(--muted); margin-bottom:16px; flex-wrap:wrap; }
+.hl-meta strong, .hl-meta em { color:var(--text); }
+
+.hl-form-wrap { background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:24px; max-width:700px; display:flex;
+  flex-direction:column; gap:16px; }
+
+.hl-field { display:flex; flex-direction:column; gap:4px; }
+.hl-label { font-size:13px; font-weight:600; color:var(--text); }
+.req  { color:var(--error); }
+.opt  { font-weight:400; color:var(--muted); }
+.hl-input { padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius);
+  font-size:14px; font-family:var(--font); width:100%; }
+.hl-input:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 2px rgba(23,152,211,.2); }
+.hl-textarea { resize:vertical; min-height:72px; }
+.hl-hint { font-size:12px; color:var(--muted); margin:0; }
+
+.hl-generate-row { display:flex; align-items:center; gap:16px; padding-top:4px; }
+.btn-lg { padding:11px 20px; font-size:14px; }
+
+.hl-progress { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
+.hl-spinner { width:18px; height:18px; border:2px solid var(--border);
+  border-top-color:var(--brand); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.hl-results { margin-top:20px; background:var(--surface); border:1px solid var(--border);
+  border-left:4px solid var(--success); border-radius:var(--radius); padding:20px; max-width:700px; }
+.hl-downloads { display:flex; gap:10px; margin:12px 0 10px; flex-wrap:wrap; }
+.hl-results-meta { font-size:12px; color:var(--muted); margin:0; }
