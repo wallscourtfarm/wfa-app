@@ -29,14 +29,6 @@ def digital_ipad():
         description='Create iPad spelling sessions for pupils to self-assess. Results import automatically.',
         coming='Session creation and result import')
 
-@stubs_bp.route('/home-learning')
-def home_learning():
-    r = _auth()
-    if r: return r
-    return render_template('stub.html', title='Home Learning', icon='🏠',
-        description='Generate weekly home learning PDFs for standard and adapted pupils.',
-        coming='PDF generation with column method grids')
-
 @stubs_bp.route('/print')
 def print_tools():
     r = _auth()
