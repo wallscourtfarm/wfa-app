@@ -477,3 +477,10 @@ body {
   border-left:4px solid var(--success); border-radius:var(--radius); padding:20px; max-width:700px; }
 .hl-downloads { display:flex; gap:10px; margin:12px 0 10px; flex-wrap:wrap; }
 .hl-results-meta { font-size:12px; color:var(--muted); margin:0; }
+
+/* ── Bee filter bar ──────────────────────────────────────────────────── */
+.bee-filters    { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.filter-group   { display:flex; align-items:center; gap:6px; }
+.filter-label   { font-size:12px; color:rgba(255,255,255,.7); font-weight:500;
+                  white-space:nowrap; padding-right:2px; }
+.filter-sep     { width:1px; height:24px; background:rgba(255,255,255,.3); margin:0 4px; }
