@@ -189,9 +189,32 @@ def save_bee_assessment(class_id, assessments):
 # ── Learners ──────────────────────────────────────────────────────────────────
 
 def load_learners(class_id='Y4_IM'):
-    data = load_class(class_id)
-    if not data: return []
-    return data.get('pupils', [])
+    # Build cross-class id->name map for partner resolution
+    all_data = {}
+    for cid in ALL_CLASSES:
+        d = load_class(cid)
+        if d:
+            for p in d.get('pupils', []):
+                all_data[p['id']] = p.get('first') or '?'
+
+    if class_id == 'all':
+        pupils = []
+        for cid in ALL_CLASSES:
+            d = load_class(cid)
+            if d:
+                pupils.extend(d.get('pupils', []))
+    else:
+        d = load_class(class_id)
+        if not d:
+            return []
+        pupils = d.get('pupils', [])
+
+    result = []
+    for p in pupils:
+        pid = p.get('pair_id', '')
+        partner = all_data.get(pid, '—') if pid else '—'
+        result.append({**p, 'partner_name': partner})
+    return result
 
 def save_weekly_config(data):
     """Save weekly_config.json back to GitHub."""
