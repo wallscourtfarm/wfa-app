@@ -39,6 +39,27 @@ def home_learning():
         main_rule_title=main_rule[2] if main_rule else '—')
 
 
+
+@hl_bp.route('/api/hl/ping')
+def api_hl_ping():
+    if not session.get('authenticated'):
+        return jsonify({'ok': False}), 401
+    errors = []
+    try:
+        import hl_generator
+    except Exception as e:
+        errors.append(f'hl_generator: {e}')
+    try:
+        import pdf_builder
+    except Exception as e:
+        errors.append(f'pdf_builder: {e}')
+    try:
+        import anthropic
+        anthropic.Anthropic()
+    except Exception as e:
+        errors.append(f'anthropic: {e}')
+    return jsonify({'ok': len(errors)==0, 'errors': errors})
+
 @hl_bp.route('/api/hl/generate', methods=['POST'])
 def api_hl_generate():
     if not session.get('authenticated'):
@@ -126,3 +147,4 @@ def api_hl_generate():
         'n_adp':    len(adp_pupils),
     }
     return jsonify(result)
+
