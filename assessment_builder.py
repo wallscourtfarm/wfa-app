@@ -84,7 +84,8 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
 
     # Column widths
     NUM_W  = 8  * mm
-    SENT_W = UW - NUM_W
+    MARK_W = 8  * mm   # marking box column
+    SENT_W = UW - NUM_W - MARK_W
 
     all_words_flat = []
     for label, words in sections:
@@ -167,19 +168,26 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
                     c.setFont("Helvetica-Bold", 8)
                     c.drawCentredString(M + NUM_W / 2, mid_y - 8 * 0.35, str(num))
 
-                    # Writing line — full remaining width
+                    # Writing line — stops before marking box
                     line_y = row_bot + 2.2 * mm
                     c.setStrokeColorRGB(0.50, 0.50, 0.50)
                     c.setLineWidth(0.5)
-                    c.line(M + NUM_W, line_y, M + UW, line_y)
+                    c.line(M + NUM_W, line_y, M + UW - MARK_W - 2 * mm, line_y)
 
                     # Sentence — sits just above the writing line, 8pt
                     c.setFillColorRGB(*BLACK)
                     c.setFont("Helvetica", 8)
                     sent_x  = M + NUM_W + 2 * mm
-                    # Baseline just above the line
                     sent_bl = line_y + 1.2 * mm
                     c.drawString(sent_x, sent_bl, sentence)
+
+                    # Marking box — right-aligned, vertically centred
+                    BOX_SZ = 6 * mm
+                    box_x  = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
+                    box_y  = row_bot + (ROW_H - BOX_SZ) / 2
+                    c.setStrokeColorRGB(0.35, 0.35, 0.35)
+                    c.setLineWidth(0.7)
+                    c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
 
                     cy -= ROW_H
 
