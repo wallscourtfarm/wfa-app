@@ -23,20 +23,29 @@
 
 <div id="status-bar" class="status-bar hidden"></div>
 
-<!-- ── Spelling pages ──────────────────────────────────────────────────── -->
+<!-- ── Handwriting practice ────────────────────────────────────────────── -->
 <div class="print-card">
   <div class="print-card-header">
-    <span class="print-card-icon">📄</span>
+    <span class="print-card-icon">✏️</span>
     <div>
-      <h3 class="print-card-title">Spelling Pages</h3>
-      <p class="print-card-desc">One A5 page per child — their 5 key spellings and this week's rule words. Downloads as a ZIP.</p>
+      <h3 class="print-card-title">Handwriting Practice</h3>
+      <p class="print-card-desc">Dotted XCCW cursive — one shared sheet. Defaults to this week's rule words.</p>
     </div>
   </div>
-  <div class="print-card-footer">
-    <button class="btn btn-primary" onclick="generate('spelling-pages', 'Spelling_Pages')">
-      ⬇ Download spelling pages ZIP
+
+  <details class="print-word-options">
+    <summary>⚙ Word options</summary>
+    <div class="print-word-options-body">
+      <label class="print-variant-label">Custom words <span class="print-opt">(one per line, or comma-separated — leave blank to use rule words)</span></label>
+      <textarea id="hw-words" class="print-textarea" rows="4" placeholder="e.g.&#10;centre&#10;circle&#10;cycle"></textarea>
+    </div>
+  </details>
+
+  <div class="print-card-footer" style="margin-top:12px">
+    <button class="btn btn-primary" onclick="generateHandwriting()">
+      ⬇ Download handwriting sheet PDF
     </button>
-    <span class="print-spinner hidden" id="spin-spelling-pages"></span>
+    <span class="print-spinner hidden" id="spin-handwriting"></span>
   </div>
 </div>
 
@@ -126,6 +135,25 @@ function showError(msg) {
   bar.className   = 'status-bar status-error';
   bar.classList.remove('hidden');
   setTimeout(() => bar.classList.add('hidden'), 6000);
+}
+
+async function generateHandwriting() {
+  const words = document.getElementById('hw-words')?.value || '';
+  showSpin('handwriting', true);
+  try {
+    const resp = await fetch('/api/print/handwriting', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ cls: CLS, words }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error); return; }
+    triggerDownload(d.data, d.mime, d.filename);
+  } catch(e) {
+    showError('Request failed: ' + e.message);
+  } finally {
+    showSpin('handwriting', false);
+  }
 }
 
 async function generate(endpoint, labelKey) {

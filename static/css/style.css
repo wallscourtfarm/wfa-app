@@ -732,3 +732,50 @@ body {
 .print-spinner::after {
   content: '⏳ Generating…';
 }
+
+/* ── Print tab — word options collapsible ───────────────────────── */
+.print-word-options {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.print-word-options summary {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  background: var(--bg);
+  list-style: none;
+}
+.print-word-options summary::-webkit-details-marker { display: none; }
+.print-word-options[open] summary {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.print-word-options-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.print-opt {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12px;
+}
+.print-textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: var(--font);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.print-textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+}

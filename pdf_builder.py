@@ -1809,3 +1809,205 @@ def build_hl_pdf(pupils, hl_config, weekly_config, version='standard',
     c.save()
     buf.seek(0)
     return buf.read()
+
+# ── Handwriting practice sheet ─────────────────────────────────────────────────
+
+_XCCW_DOT_REGISTERED = False
+
+def _ensure_xccw_dotted():
+    global _XCCW_DOT_REGISTERED
+    if _XCCW_DOT_REGISTERED:
+        return
+    from reportlab.pdfbase.ttfonts import TTFont
+    for name in ('XCCW_Joined_Dotted_4a', 'XCCW_Joined_Dotted_4b'):
+        path = _os_hl.path.join(_FONT_DIR_HL, f'{name}.ttf')
+        if _os_hl.path.exists(path):
+            try:
+                pdfmetrics.registerFont(TTFont(name, path))
+            except Exception:
+                pass
+    _XCCW_DOT_REGISTERED = True
+
+
+def _draw_xccw_dotted(c, x, y, text, size):
+    """Draw text using dotted XCCW cursive with correct 4a/4b join variants."""
+    _ensure_xccw_dotted()
+    prev = None
+    for ch in text:
+        if prev and prev.lower() in _TOP_EXIT:
+            font = 'XCCW_Joined_Dotted_4b'
+        else:
+            font = 'XCCW_Joined_Dotted_4a'
+        try:
+            c.setFont(font, size)
+        except Exception:
+            c.setFont('Helvetica', size)
+        c.drawString(x, y, ch)
+        try:
+            x += pdfmetrics.stringWidth(ch, font, size)
+        except Exception:
+            x += pdfmetrics.stringWidth(ch, 'Helvetica', size)
+        prev = ch if ch.strip() else None
+
+
+def _xccw_dotted_width(text, size):
+    _ensure_xccw_dotted()
+    w = 0
+    prev = None
+    for ch in text:
+        font = ('XCCW_Joined_Dotted_4b'
+                if prev and prev.lower() in _TOP_EXIT
+                else 'XCCW_Joined_Dotted_4a')
+        try:
+            w += pdfmetrics.stringWidth(ch, font, size)
+        except Exception:
+            w += pdfmetrics.stringWidth(ch, 'Helvetica', size)
+        prev = ch if ch.strip() else None
+    return w
+
+
+def build_handwriting_sheet(words, week_ref, title='Handwriting Practice'):
+    """
+    A4 portrait. One ruled row per word — ascender guide + baseline.
+    Dotted XCCW cursive at 26pt (8mm ascenders). Returns PDF bytes.
+    """
+    _ensure_xccw_dotted()
+
+    buf = io.BytesIO()
+    W, H = A4
+    M    = 50   # pt margin left/right
+    UW   = W - 2 * M
+
+    # Row geometry — matches exercise book ruling
+    FONT_SIZE  = 26       # pt
+    ASC_H      = 22.86    # pt  ≈ 8.07 mm
+    DESC_D     = 10.06    # pt  ≈ 3.55 mm
+    LINE_GAP   = 7.09     # pt  ≈ 2.5 mm
+    WORD_GAP   = 5.67     # pt  ≈ 2.0 mm
+
+    # Row height: ascender + descent + gaps
+    ROW_H = ASC_H + DESC_D + LINE_GAP + WORD_GAP
+
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    # ── Header bar ────────────────────────────────────────────────────────
+    HDR_H = 14 * mm
+    c.setFillColorRGB(*BLUE)
+    c.rect(0, H - HDR_H, W, HDR_H, fill=1, stroke=0)
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(M, H - HDR_H + (HDR_H - 10) / 2, title)
+    c.setFont('Helvetica', 8)
+    c.drawRightString(W - M, H - HDR_H + (HDR_H - 8) / 2,
+                      f'{week_ref}  ·  Dotted XCCW cursive')
+
+    TOP_Y = H - HDR_H - 10 * mm   # first ascender guide baseline
+
+    page_words = []
+    all_words  = list(words)
+
+    def flush_page(page_words, is_first):
+        nonlocal TOP_Y
+        y = TOP_Y if is_first else H - HDR_H - 10 * mm
+        for word in page_words:
+            asc_y  = y               # ascender guide line
+            base_y = y - ASC_H       # writing baseline
+
+            # Ascender guide — light
+            c.setStrokeColorRGB(0.75, 0.75, 0.75)
+            c.setLineWidth(0.5)
+            c.line(M, asc_y, M + UW, asc_y)
+
+            # Baseline — slightly darker
+            c.setStrokeColorRGB(0.50, 0.50, 0.50)
+            c.setLineWidth(0.6)
+            c.line(M, base_y, M + UW, base_y)
+
+            # Dotted XCCW word
+            c.setFillColorRGB(*NAVY)
+            _draw_xccw_dotted(c, M, base_y, word, FONT_SIZE)
+
+            y -= ROW_H
+
+        c.showPage()
+
+        # Re-draw header on subsequent pages
+        c.setFillColorRGB(*BLUE)
+        c.rect(0, H - HDR_H, W, HDR_H, fill=1, stroke=0)
+        c.setFillColorRGB(*WHITE)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(M, H - HDR_H + (HDR_H - 10) / 2, title)
+        c.setFont('Helvetica', 8)
+        c.drawRightString(W - M, H - HDR_H + (HDR_H - 8) / 2,
+                          f'{week_ref}  ·  Dotted XCCW cursive')
+
+    # Work out how many rows fit per page
+    usable_h   = TOP_Y - (M + 10)
+    rows_p1    = max(1, int(usable_h / ROW_H))
+    usable_h2  = (H - HDR_H - 10 * mm) - (M + 10)
+    rows_rest  = max(1, int(usable_h2 / ROW_H))
+
+    # Paginate
+    first_batch = all_words[:rows_p1]
+    remaining   = all_words[rows_p1:]
+
+    # Draw first page
+    y = TOP_Y
+    for word in first_batch:
+        asc_y  = y
+        base_y = y - ASC_H
+
+        c.setStrokeColorRGB(0.75, 0.75, 0.75)
+        c.setLineWidth(0.5)
+        c.line(M, asc_y, M + UW, asc_y)
+
+        c.setStrokeColorRGB(0.50, 0.50, 0.50)
+        c.setLineWidth(0.6)
+        c.line(M, base_y, M + UW, base_y)
+
+        c.setFillColorRGB(*NAVY)
+        _draw_xccw_dotted(c, M, base_y, word, FONT_SIZE)
+
+        y -= ROW_H
+
+    if first_batch:
+        c.showPage()
+
+    # Subsequent pages
+    idx = 0
+    while idx < len(remaining):
+        batch = remaining[idx:idx + rows_rest]
+        idx  += rows_rest
+
+        c.setFillColorRGB(*BLUE)
+        c.rect(0, H - HDR_H, W, HDR_H, fill=1, stroke=0)
+        c.setFillColorRGB(*WHITE)
+        c.setFont('Helvetica-Bold', 10)
+        c.drawString(M, H - HDR_H + (HDR_H - 10) / 2, title)
+        c.setFont('Helvetica', 8)
+        c.drawRightString(W - M, H - HDR_H + (HDR_H - 8) / 2,
+                          f'{week_ref}  ·  Dotted XCCW cursive')
+
+        y = H - HDR_H - 10 * mm
+        for word in batch:
+            asc_y  = y
+            base_y = y - ASC_H
+
+            c.setStrokeColorRGB(0.75, 0.75, 0.75)
+            c.setLineWidth(0.5)
+            c.line(M, asc_y, M + UW, asc_y)
+
+            c.setStrokeColorRGB(0.50, 0.50, 0.50)
+            c.setLineWidth(0.6)
+            c.line(M, base_y, M + UW, base_y)
+
+            c.setFillColorRGB(*NAVY)
+            _draw_xccw_dotted(c, M, base_y, word, FONT_SIZE)
+
+            y -= ROW_H
+
+        c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()

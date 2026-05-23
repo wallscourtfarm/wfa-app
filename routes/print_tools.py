@@ -68,35 +68,39 @@ def print_page():
     )
 
 
-# ── API: Spelling pages (ZIP of per-child PDFs) ───────────────────────────────
+# ── API: Handwriting sheet ────────────────────────────────────────────────────
 
-@print_bp.route('/api/print/spelling-pages', methods=['POST'])
-def api_spelling_pages():
+@print_bp.route('/api/print/handwriting', methods=['POST'])
+def api_handwriting():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
-
-    pupils     = _load_pupils(cls)
-    if not pupils:
-        return jsonify({'ok': False, 'error': 'No pupils found'})
+    body = request.get_json(force=True)
+    cls  = body.get('cls', DEFAULT_CLASS)
 
     main_rule, _, week_ref = _get_rules(cls)
-    rule_title  = main_rule[2] if main_rule else ''
-    rule_words  = list(main_rule[3]) if main_rule else []
-    key_words_map = _build_key_words_map(pupils)
+
+    # Custom words override; fall back to this week's rule words
+    custom_raw = body.get('words', '').strip()
+    if custom_raw:
+        words = [w.strip() for w in custom_raw.replace(',', '\n').splitlines() if w.strip()]
+    else:
+        words = list(main_rule[3]) if main_rule else []
+
+    if not words:
+        return jsonify({'ok': False, 'error': 'No words to practise — set a main rule in Settings or enter words manually'})
 
     try:
-        from pdf_builder import build_all_spelling_pages
-        data = build_all_spelling_pages(pupils, rule_title, rule_words, key_words_map, week_ref)
+        from pdf_builder import build_handwriting_sheet
+        data = build_handwriting_sheet(words, week_ref)
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 
     return jsonify({
         'ok':      True,
         'data':    base64.b64encode(data).decode(),
-        'mime':    'application/zip',
-        'filename': f'Spelling_Pages_{week_ref}_{cls}.zip',
-        'n':       len(pupils),
+        'mime':    'application/pdf',
+        'filename': f'Handwriting_{week_ref}.pdf',
+        'n':       len(words),
     })
 
 
