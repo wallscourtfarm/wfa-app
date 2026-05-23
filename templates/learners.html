@@ -21,7 +21,7 @@
         <th data-col="1">Last</th>
         <th data-col="2">Group</th>
         <th data-col="3">TT</th>
-        <th data-col="4">Words done</th>
+        <th data-col="4">Words learnt</th>
         <th data-col="5">Partner</th>
       </tr>
     </thead>
@@ -33,7 +33,7 @@
         <td><span class="group-pill group-{{ p.group or 'main' }}">{{ (p.group or 'main')|title }}</span></td>
         <td><span class="tt-badge tt-badge--{{ 'xd' if p.tt_mode=='xd' else 'x' }}">{{ p.tt_set }}{{ '×÷' if p.tt_mode=='xd' else '×' }}</span></td>
         <td>{{ p.word_pos }}</td>
-        <td>{{ p.pair_id or '—' }}</td>
+        <td>{{ p.partner_name or '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
