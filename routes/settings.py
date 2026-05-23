@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_weekly_config, save_weekly_config, list_plannable_rules, ALL_CLASSES
+from data_manager import load_weekly_config, save_weekly_config, list_plannable_rules, ALL_CLASSES, load_term_dates, term_dates_by_term
 
 settings_bp = Blueprint('settings', __name__)
 CLASS_OPTIONS = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
@@ -22,10 +22,11 @@ def api_debug_learners():
 def settings():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    wc      = load_weekly_config()
-    rules   = list_plannable_rules()   # [(id_str, label), ...]
+    wc         = load_weekly_config()
+    rules      = list_plannable_rules()   # [(id_str, label), ...]
+    term_dates = term_dates_by_term(load_term_dates())  # {'1': [{label,display,...}], ...}
     return render_template('settings.html',
-        wc=wc, rules=rules, class_options=CLASS_OPTIONS)
+        wc=wc, rules=rules, class_options=CLASS_OPTIONS, term_dates=term_dates)
 
 
 @settings_bp.route('/api/settings/save', methods=['POST'])

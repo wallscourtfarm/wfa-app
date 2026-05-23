@@ -17,24 +17,20 @@
       <label class="settings-label">Current week reference</label>
       <select id="week_ref" class="hl-input" style="max-width:150px">
         <option value="">— select —</option>
-        {% set term_weeks = [
-          ('Autumn 1', 1, 7),
-          ('Autumn 2', 2, 7),
-          ('Spring 1', 3, 6),
-          ('Spring 2', 4, 6),
-          ('Summer 1', 5, 6),
-          ('Summer 2', 6, 7)
-        ] %}
-        {% for label, t, wmax in term_weeks %}
-          <optgroup label="{{ label }} (T{{ t }})">
-            {% for w in range(1, wmax + 1) %}
-              <option value="T{{ t }}W{{ w }}"
-                {% if wc.get('week_ref', '') == 'T' ~ t ~ 'W' ~ w %}selected{% endif %}>
-                T{{ t }}W{{ w }}
-              </option>
-            {% endfor %}
-          </optgroup>
-        {% endfor %}
+        {% if term_dates %}
+          {% for term_num, weeks in term_dates.items() %}
+            <optgroup label="Term {{ term_num }}">
+              {% for w in weeks %}
+                <option value="{{ w.label }}"
+                  {% if wc.get('week_ref', '') == w.label %}selected{% endif %}>
+                  {{ w.label }} &ndash; {{ w.display }}
+                </option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        {% else %}
+          <option disabled>No term dates configured</option>
+        {% endif %}
       </select>
     </div>
   </div>

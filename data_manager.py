@@ -336,3 +336,23 @@ def update_rule_confidence_from_bee(assessments):
         conf[rule_id] = {'level': _level(total, conf_count)}
 
     return save_rule_confidence(conf)
+
+
+def load_term_dates():
+    """Load term weeks from data/term_dates.json.
+    Returns list of {label, iso, display, term, week} dicts, or [] on failure."""
+    content, _ = _get_file("data/term_dates.json")
+    return content or []
+
+
+def term_dates_by_term(term_dates):
+    """Group term_dates list into OrderedDict keyed by term number string.
+    e.g. {'1': [{label:'T1W1', ...}, ...], '2': [...], ...}"""
+    from collections import OrderedDict
+    grouped = OrderedDict()
+    for w in term_dates:
+        t = str(w.get('term', ''))
+        if t not in grouped:
+            grouped[t] = []
+        grouped[t].append(w)
+    return grouped
