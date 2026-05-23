@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>{{ icon }} {{ title }}</h2>
+</div>
+<div class="stub-card">
+  <p class="stub-desc">{{ description }}</p>
+  <div class="stub-badge">🚧 In progress</div>
+  <p class="stub-coming"><strong>Coming next:</strong> {{ coming }}</p>
+</div>
+{% endblock %}
