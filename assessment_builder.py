@@ -75,15 +75,15 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
     UW   = W - 2 * M
 
     # Row layout
-    ROW_H    = 19 * mm   # writing row height — enough for a child to write
-    SEC_H    = 8  * mm   # section header height
-    FIRST_Y  = H - 14 * mm - 6 * mm   # top of usable area (below header + gap)
-    SUBSEQ_Y = H - 14 * mm - 6 * mm   # same on continuation pages
+    ROW_H    = 9   * mm   # 0.9cm per row
+    SEC_H    = 6   * mm   # section header
+    FIRST_Y  = H - 14 * mm - 5 * mm
+    SUBSEQ_Y = H - 14 * mm - 5 * mm
 
     c = canvas.Canvas(buf, pagesize=A4)
 
-    # Sentence/number column widths
-    NUM_W  = 10 * mm
+    # Column widths
+    NUM_W  = 8  * mm
     SENT_W = UW - NUM_W
 
     all_words_flat = []
@@ -156,35 +156,30 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
                         c.setFillColorRGB(0.97, 0.97, 0.97)
                         c.rect(M, row_bot, UW, ROW_H, fill=1, stroke=0)
 
-                    # Row border (top line only, lighter)
-                    c.setStrokeColorRGB(0.80, 0.80, 0.80)
-                    c.setLineWidth(0.4)
+                    # Light top divider
+                    c.setStrokeColorRGB(0.82, 0.82, 0.82)
+                    c.setLineWidth(0.3)
                     c.line(M, row_top, M + UW, row_top)
 
-                    # Number
-                    c.setFillColorRGB(*DGREY)
-                    c.setFont("Helvetica-Bold", 9)
-                    num_baseline = row_bot + ROW_H * 0.55
-                    c.drawCentredString(M + NUM_W / 2, num_baseline, str(num))
+                    # Number — vertically centred
+                    mid_y = row_bot + ROW_H / 2
+                    c.setFillColorRGB(*NAVY)
+                    c.setFont("Helvetica-Bold", 8)
+                    c.drawCentredString(M + NUM_W / 2, mid_y - 8 * 0.35, str(num))
 
-                    # Sentence — may wrap; keep within row
-                    c.setFillColorRGB(*BLACK)
-                    c.setFont("Helvetica", 9)
-                    sent_x = M + NUM_W + 2 * mm
-                    sent_w = SENT_W - 4 * mm
-                    lines = simpleSplit(sentence, "Helvetica", 9, sent_w)
-                    # Draw up to 2 lines, centred vertically
-                    line_h = 9 * 1.3
-                    total_h = min(len(lines), 2) * line_h
-                    sent_start = row_bot + (ROW_H + total_h) / 2 - line_h * 0.85
-                    for li, ln in enumerate(lines[:2]):
-                        c.drawString(sent_x, sent_start - li * line_h, ln)
-
-                    # Writing line at bottom of row
-                    c.setStrokeColorRGB(0.60, 0.60, 0.60)
+                    # Writing line — full remaining width
+                    line_y = row_bot + 2.2 * mm
+                    c.setStrokeColorRGB(0.50, 0.50, 0.50)
                     c.setLineWidth(0.5)
-                    line_y = row_bot + 4 * mm
-                    c.line(M + NUM_W + 2 * mm, line_y, M + UW - 2 * mm, line_y)
+                    c.line(M + NUM_W, line_y, M + UW, line_y)
+
+                    # Sentence — sits just above the writing line, 8pt
+                    c.setFillColorRGB(*BLACK)
+                    c.setFont("Helvetica", 8)
+                    sent_x  = M + NUM_W + 2 * mm
+                    # Baseline just above the line
+                    sent_bl = line_y + 1.2 * mm
+                    c.drawString(sent_x, sent_bl, sentence)
 
                     cy -= ROW_H
 
