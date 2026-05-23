@@ -320,3 +320,14 @@ body {
 .tt-badge--xd { background: #c0157b; }   /* pink = multiply + divide stage */
 
 .next-label { color: var(--muted); font-size: 13px; }
+
+/* ── TT table: compact columns ──────────────────────────────────────── */
+.tt-table-wrap { max-width: 560px; }
+
+.tt-table .col-check { width: 36px; }
+.tt-table th:nth-child(2),
+.tt-table td:nth-child(2) { width: 180px; }   /* name */
+.tt-table th:nth-child(3),
+.tt-table td:nth-child(3) { width: 90px; }    /* stage */
+.tt-table th:nth-child(4),
+.tt-table td:nth-child(4) { width: 90px; }    /* next */
