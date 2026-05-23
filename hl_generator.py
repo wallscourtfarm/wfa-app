@@ -126,6 +126,68 @@ OUTPUT: Valid JSON only. No preamble. No markdown fences.
 }}
 """
 
+══ WORKED EXAMPLES — follow these patterns exactly ══
+
+EXAMPLE A — Geometry / Symmetry topic (uses grid):
+{
+  "maths_instruction": "Use the grid to answer questions 1, 2 and 3. Answer questions 4 and 5 in the space below.",
+  "grid_size": 10,
+  "grid_elements": [
+    {"type":"polygon","vertices":[[2,7],[4,9],[6,7],[4,5]],"fill":"lightblue","color":"#1A3C6E"},
+    {"type":"mirror_v","x":8,"color":"#cc0000"}
+  ],
+  "questions": [
+    {"heading":"Q1","text":"Reflect the blue diamond shape across the red mirror line. Draw the reflection on the grid.","answer_type":"lines","answer_lines":0},
+    {"heading":"Q2","text":"Draw a horizontal line of symmetry through the point (3, 5). Mark two shapes that are symmetrical about it.","answer_type":"lines","answer_lines":0},
+    {"heading":"Q3","text":"Plot these points and join them to make a rectangle: (1,1), (1,4), (5,4), (5,1). How many lines of symmetry does it have?","answer_type":"lines","answer_lines":0},
+    {"heading":"Q4","text":"An isosceles triangle has exactly one line of symmetry. It passes through one vertex and the midpoint of the opposite side. Describe where this line goes on a triangle with vertices at (0,0), (4,0) and (2,4).","answer_type":"lines","answer_lines":2},
+    {"heading":"Problem solving","text":"Mia says this shape has 4 lines of symmetry. The shape is a rectangle that is not a square. Is Mia correct? Explain your answer.","answer_type":"lines","answer_lines":2}
+  ],
+  "passage": "...",
+  "reading_questions": [...]
+}
+
+EXAMPLE B — Column addition and subtraction (NO grid, column method grids in PDF):
+{
+  "maths_instruction": "Use the column method grids to show your working.",
+  "grid_size": 0,
+  "grid_elements": [],
+  "questions": [
+    {"heading":"Q1","text":"Work out each calculation using the column method.\na) 4,526 + 3,847\nb) 5,634 + 728","answer_type":"column_method","answer_lines":0},
+    {"heading":"Q2","text":"Work out each subtraction using the column method.\na) 7,293 − 4,658\nb) 6,841 − 947","answer_type":"column_method","answer_lines":0},
+    {"heading":"Q3","text":"Work out each calculation. Be careful — one is addition and one is subtraction.\na) 3,479 + 2,865\nb) 9,142 − 386","answer_type":"column_method","answer_lines":0},
+    {"heading":"Q4","text":"A cinema sold 3,847 tickets on Friday and 2,569 tickets on Saturday. How many tickets were sold in total over the two days? Show your working using the column method.","answer_type":"lines","answer_lines":3},
+    {"heading":"Problem solving","text":"Maya says that 4,672 + 395 = 5,167. Is Maya correct? Use the column method to check and explain your answer.","answer_type":"lines","answer_lines":2}
+  ],
+  "passage": "...",
+  "reading_questions": [...]
+}
+
+EXAMPLE C — Times tables / number (NO grid):
+{
+  "maths_instruction": "Answer all questions in the space below each one.",
+  "grid_size": 0,
+  "grid_elements": [],
+  "questions": [
+    {"heading":"Q1","text":"Complete these multiplication facts.\na) 7 × 8 = ___   b) 9 × 6 = ___   c) 12 × 7 = ___   d) 8 × 11 = ___","answer_type":"lines","answer_lines":1},
+    {"heading":"Q2","text":"Use a multiplication fact to work out each division.\na) 56 ÷ 7 = ___   b) 54 ÷ 9 = ___   c) 84 ÷ 12 = ___","answer_type":"lines","answer_lines":1},
+    {"heading":"Q3","text":"Fill in the missing numbers.\na) 7 × ___ = 63   b) ___ × 8 = 96   c) 11 × ___ = 132","answer_type":"lines","answer_lines":1},
+    {"heading":"Q4","text":"A baker puts 9 buns on each tray. She uses 7 trays. How many buns does she bake altogether? Write the multiplication sentence and the answer.","answer_type":"lines","answer_lines":2},
+    {"heading":"Problem solving","text":"Theo says: 'If I know 6 × 8 = 48, I can work out 60 × 8 and 6 × 80.' Is Theo correct? Write both answers and explain the pattern.","answer_type":"lines","answer_lines":2}
+  ],
+  "passage": "...",
+  "reading_questions": [...]
+}
+
+KEY RULES derived from these examples:
+- Column method topics: ALWAYS answer_type "column_method" for Q1-Q3, ALWAYS grid_size 0, ALWAYS grid_elements [].
+- Grid topics: Q1-Q3 use the grid (answer_lines 0), Q4+Q5 do NOT use the grid (answer_lines 2).
+- No-grid topics: ALL five questions use answer_type "lines" with appropriate answer_lines.
+- Q4 is always a word problem or standalone skill with answer_lines 2 or 3.
+- Q5 is always a misconception challenge naming a fictional child (never a real name).
+- Headings for Q1-Q4: "Q1", "Q2", "Q3", "Q4". Heading for Q5: "Problem solving".
+- Never use "trickier", "easier", "harder". For 2D shapes, use "side" not "edge".
+
 _ADAPTED_SYSTEM = f"""You are an expert Year 4 primary teacher producing ADAPTED home learning for children at Year 1/2 level.
 
 ══ MATHS (left half) ══
@@ -247,28 +309,57 @@ def _validate_grid_geometry(elements, grid_size):
         raise ValueError("Grid reflection geometry error:\n" + "\n".join(errors))
 
 
-def _validate(data, version):
+_COLUMN_TOPIC_KEYWORDS = {
+    "column", "addition", "subtraction", "written method", "written addition",
+    "written subtraction", "column method"
+}
+
+def _topic_needs_column(maths_topic):
+    t = maths_topic.lower()
+    return any(kw in t for kw in _COLUMN_TOPIC_KEYWORDS)
+
+
+def _validate(data, version, maths_topic=""):
     for k in ("maths_instruction", "grid_elements", "questions", "passage", "reading_questions"):
         if k not in data:
             raise ValueError(f"Missing key: '{k}'")
+
     n_q = 5 if version == "standard" else 4
     if len(data["questions"]) != n_q:
         raise ValueError(f"Expected {n_q} maths questions, got {len(data['questions'])}")
+
     for i, q in enumerate(data["questions"]):
         if not q.get("heading") or not q.get("text"):
             raise ValueError(f"Maths Q{i+1} missing heading or text")
+
+    # Column method validation
+    if _topic_needs_column(maths_topic) and version == "standard":
+        errors = []
+        for i in range(min(3, n_q)):
+            atype = data["questions"][i].get("answer_type", "lines")
+            if atype != "column_method":
+                errors.append(f"Q{i+1} must have answer_type 'column_method' for a column method topic, got '{atype}'")
+        if errors:
+            raise ValueError(
+                "Column method topic requires answer_type='column_method' for Q1-Q3. "
+                + " ".join(errors)
+                + " Refer to EXAMPLE B in the worked examples."
+            )
+
     if len(data["reading_questions"]) != 4:
         raise ValueError(f"Expected 4 reading questions, got {len(data['reading_questions'])}")
+
     expected = ["retrieval", "retrieval", "vocabulary", "inference"]
     for i, (rq, et) in enumerate(zip(data["reading_questions"], expected)):
         if rq.get("type") != et:
             raise ValueError(f"Reading Q{i+1}: expected '{et}', got '{rq.get('type')}'")
+
     wc = len(data["passage"].split())
     if version == "standard" and not (140 <= wc <= 220):
         raise ValueError(f"Passage word count {wc} — expected ~170-190 words")
     if version == "adapted" and not (90 <= wc <= 150):
         raise ValueError(f"Adapted passage word count {wc} — expected ~110-130 words")
-    # Grid geometry
+
     gs = data.get("grid_size") or 10
     _validate_grid_geometry(data.get("grid_elements", []), gs)
 
@@ -303,18 +394,14 @@ def generate_hl_content(
 
     data = _call(system, user)
     try:
-        _validate(data, version)
+        _validate(data, version, maths_topic)
     except ValueError as e:
         err_str = str(e)
-        if "Grid reflection geometry" in err_str:
-            # Retry once with the error fed back
-            retry_user = (
-                user + "\n\nPREVIOUS ATTEMPT FAILED GEOMETRY CHECK:\n" + err_str +
-                "\n\nFix the grid elements so all reflections fit within the grid and try again."
-            )
-            data = _call(system, retry_user)
-            _validate(data, version)
-        else:
-            raise
+        retry_user = (
+            user + "\n\nPREVIOUS ATTEMPT FAILED VALIDATION:\n" + err_str +
+            "\n\nPlease fix the issue and regenerate. Refer to the worked examples in the system prompt."
+        )
+        data = _call(system, retry_user)
+        _validate(data, version, maths_topic)
     return data
 
