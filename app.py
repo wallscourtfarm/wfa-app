@@ -8,11 +8,11 @@ from routes.auth      import auth_bp
 from routes.dashboard import dash_bp
 from routes.tt        import tt_bp
 from routes.bee       import bee_bp
+from routes.learners  import learners_bp
+from routes.stubs     import stubs_bp
 
-app.register_blueprint(auth_bp)
-app.register_blueprint(dash_bp)
-app.register_blueprint(tt_bp)
-app.register_blueprint(bee_bp)
+for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, stubs_bp]:
+    app.register_blueprint(bp)
 
 if __name__ == '__main__':
     app.run(debug=True)
