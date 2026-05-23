@@ -174,12 +174,14 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
                     c.setLineWidth(0.5)
                     c.line(M + NUM_W, line_y, M + UW - MARK_W - 2 * mm, line_y)
 
-                    # Sentence — sits just above the writing line, 8pt
+                    # Sentence — extend any underscore run to 35 for writing space
+                    import re as _re
+                    display_sent = _re.sub(r'_+', '_' * 35, sentence)
                     c.setFillColorRGB(*BLACK)
                     c.setFont("Helvetica", 8)
                     sent_x  = M + NUM_W + 2 * mm
                     sent_bl = line_y + 1.2 * mm
-                    c.drawString(sent_x, sent_bl, sentence)
+                    c.drawString(sent_x, sent_bl, display_sent)
 
                     # Marking box — right-aligned, vertically centred
                     BOX_SZ = 6 * mm
