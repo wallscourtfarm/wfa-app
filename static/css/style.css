@@ -396,3 +396,5 @@ body {
 
 .bee-save-row { display:flex; align-items:center; gap:12px; padding:14px 0; }
 .save-hint { font-size:13px; color:var(--muted); }
+.prog-fill--all { background:#e57d24; }
+.nav-sep { color: var(--border); margin: 0 2px; }
