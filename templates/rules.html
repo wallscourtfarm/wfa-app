@@ -62,7 +62,7 @@
                   <p class="rule-explanation">{{ cr.explanation }}</p>
                 {% endif %}
                 <div class="rule-words">
-                  {% for w in cr.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+                  {% for w in cr.words %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
                 </div>
               </div>
             </div>
@@ -112,7 +112,7 @@
                   <p class="rule-explanation">{{ rule.explanation }}</p>
                 {% endif %}
                 <div class="rule-words">
-                  {% for w in rule.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+                  {% for w in rule.words %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
                 </div>
               </div>
             </div>
@@ -361,7 +361,7 @@ function buildCustomCardHTML(cr) {
   const confCls  = CONF_CLASSES[conf];
   const titleE   = String(cr.title).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const expl     = cr.explanation ? `<p class="rule-explanation">${String(cr.explanation).replace(/</g,'&lt;')}</p>` : '';
-  const pills    = (cr.words||[]).map(w => `<span class="word-pill">${w}</span>`).join('');
+  const pills    = (cr.words||[]).map(w => `<span class="rule-word-pill">${w}</span>`).join('');
   const editArgs = JSON.stringify([cr.id, cr.title, cr.explanation||'', cr.words||[]]);
   return `<div class="custom-card" data-id="${cr.id}"
        data-search="${(cr.title+' '+(cr.words||[]).join(' ')).toLowerCase()}">

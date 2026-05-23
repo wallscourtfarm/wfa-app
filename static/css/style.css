@@ -590,9 +590,9 @@ body {
 .conf-badge.conf-2 { color:#b7791f; background:#fffbeb; }
 .conf-badge.conf-3 { color:#276749; background:#f0fff4; }
 
-/* Word pills */
+/* Word pills (rules tab — smaller than bee pills) */
 .rule-words { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.word-pill {
+.rule-word-pill {
   font-size: 11px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; padding: 1px 7px; color: var(--text);
 }
