@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: wfa-app
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: APP_PASSWORD
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: DATA_REPO
+        value: wallscourtfarm/spelling-homelearning
