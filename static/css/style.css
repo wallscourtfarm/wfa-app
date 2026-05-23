@@ -353,8 +353,8 @@ body {
 .prog-cell{ position:relative; height:22px; background:#f0f4f8; border-radius:3px;
   overflow:hidden; min-width:60px; display:flex; align-items:center; }
 .prog-fill{ position:absolute; left:0; top:0; bottom:0; background:var(--brand); opacity:.25; }
-.prog-fill--phase { background:#c0157b; }
-.prog-fill--ks    { background:#2bae62; }
+.prog-fill--phase { position:absolute; left:0; top:0; bottom:0; background:#c0157b; opacity:.25; }
+.prog-fill--ks    { position:absolute; left:0; top:0; bottom:0; background:#2bae62; opacity:.25; }
 .prog-cell span   { position:relative; z-index:1; font-size:12px; font-weight:600;
   color:var(--text); padding:0 6px; }
 
@@ -398,7 +398,7 @@ body {
 
 .bee-save-row { display:flex; align-items:center; gap:12px; padding:14px 0; }
 .save-hint { font-size:13px; color:var(--muted); }
-.prog-fill--all { background:#e57d24; }
+.prog-fill--all { position:absolute; left:0; top:0; bottom:0; background:#e57d24; opacity:.25; }
 .nav-sep { color: var(--border); margin: 0 2px; }
 
 /* ── Nav dropdown ────────────────────────────────────────────────────── */
