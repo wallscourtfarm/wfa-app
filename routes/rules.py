@@ -17,7 +17,8 @@ def _auth():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _build_stages():
-    """Return standard rules grouped by stage, with confidence merged in."""
+    """Return standard rules grouped by stage, with confidence and explanation merged in."""
+    from spelling_rules import RULE_EXPLANATIONS
     confidence = load_rule_confidence()
     stages = {}
     for r in SPELLING_RULES:
@@ -26,12 +27,13 @@ def _build_stages():
             continue
         rid = f'{stage}-{step}'
         stages.setdefault(stage, []).append({
-            'id':         rid,
-            'step':       step,
-            'title':      title,
-            'words':      words,
-            'rtype':      rtype,
-            'confidence': confidence.get(rid, {}).get('level', 0),
+            'id':          rid,
+            'step':        step,
+            'title':       title,
+            'words':       words,
+            'rtype':       rtype,
+            'confidence':  confidence.get(rid, {}).get('level', 0),
+            'explanation': RULE_EXPLANATIONS.get(rid, ''),
         })
     return stages
 
@@ -188,34 +190,8 @@ def api_suggest_words():
 def api_explain():
     if not session.get('authenticated'):
         return jsonify({'ok': False}), 401
-    body     = request.get_json(force=True)
-    title    = body.get('title', '').strip()
-    words    = body.get('words', '').strip()
-    if not title:
-        return jsonify({'ok': False, 'explanation': ''})
-    import requests as req
-    prompt = (
-        f'You are a UK primary school phonics and spelling expert. '
-        f'Write ONE plain sentence (max 25 words) explaining the spelling rule titled: "{title}". '
-        f'Example words: {words}. '
-        f'Be concrete and child-friendly. No bullet points. No preamble. Just the sentence.'
-    )
-    try:
-        resp = req.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key': ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json',
-            },
-            json={
-                'model': 'claude-sonnet-4-20250514',
-                'max_tokens': 80,
-                'messages': [{'role': 'user', 'content': prompt}],
-            },
-            timeout=20,
-        )
-        text = resp.json()['content'][0]['text'].strip()
-        return jsonify({'ok': True, 'explanation': text})
-    except Exception as e:
-        return jsonify({'ok': False, 'explanation': '', 'error': str(e)})
+    body    = request.get_json(force=True)
+    rule_id = body.get('rule_id', '').strip()
+    from spelling_rules import RULE_EXPLANATIONS
+    explanation = RULE_EXPLANATIONS.get(rule_id, '')
+    return jsonify({'ok': True, 'explanation': explanation})

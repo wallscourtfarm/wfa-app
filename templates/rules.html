@@ -104,14 +104,13 @@
                   <span class="rule-chevron">▸</span>
                 </span>
               </div>
-              <div class="rule-detail hidden"
-                   data-rule-id="{{ rule.id }}"
-                   data-rule-title="{{ rule.title }}"
-                   data-rule-words="{{ rule.words|join(',') }}">
+              <div class="rule-detail hidden">
                 {% if rule.rtype == 2 %}
                   <span class="rule-type-badge">Revision</span>
                 {% endif %}
-                <p class="rule-explanation rule-expl-text"></p>
+                {% if rule.explanation %}
+                  <p class="rule-explanation">{{ rule.explanation }}</p>
+                {% endif %}
                 <div class="rule-words">
                   {% for w in rule.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
                 </div>
@@ -329,7 +328,6 @@ function suggestWords() {
 // DOM helpers for custom cards
 // ── localStorage helpers ──────────────────────────────────────────────────
 const LS_STAGES = 'wfa_rules_expanded_stages';
-const LS_EXPL   = 'wfa_rule_explanations';
 
 function getSavedStages() {
   try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["customSection"]'); }
@@ -342,15 +340,7 @@ function saveStageState(id, open) {
   if (!open && idx !== -1) saved.splice(idx, 1);
   localStorage.setItem(LS_STAGES, JSON.stringify(saved));
 }
-function getCachedExplanations() {
-  try { return JSON.parse(localStorage.getItem(LS_EXPL) || '{}'); }
-  catch { return {}; }
-}
-function cacheExplanation(ruleId, text) {
-  const cache = getCachedExplanations();
-  cache[ruleId] = text;
-  localStorage.setItem(LS_EXPL, JSON.stringify(cache));
-}
+
 
 // ── Detail toggle with lazy explanation loading ────────────────────────────
 function toggleDetail(headerEl) {
@@ -361,34 +351,7 @@ function toggleDetail(headerEl) {
   const chev = headerEl.querySelector('.rule-chevron');
   if (chev) chev.textContent = isHidden ? '▸' : '▾';
 
-  // Only load explanation for standard rule cards (not custom)
-  if (!isHidden && card.classList.contains('rule-card')) {
-    const ruleId    = detail.dataset.ruleId;
-    const ruleTitle = detail.dataset.ruleTitle;
-    const ruleWords = detail.dataset.ruleWords;
-    const explEl    = detail.querySelector('.rule-expl-text');
-    if (!explEl || explEl.dataset.loaded) return;
-
-    // Check localStorage cache first
-    const cache = getCachedExplanations();
-    if (cache[ruleId]) {
-      explEl.textContent = cache[ruleId];
-      explEl.dataset.loaded = '1';
-      return;
-    }
-
-    explEl.textContent = 'Loading explanation…';
-    fetch('/api/rules/explain', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({rule_id: ruleId, title: ruleTitle, words: ruleWords})
-    }).then(r => r.json()).then(d => {
-      const text = d.ok ? d.explanation : '';
-      explEl.textContent = text;
-      explEl.dataset.loaded = '1';
-      if (text) cacheExplanation(ruleId, text);
-    }).catch(() => { explEl.textContent = ''; });
-  }
+  // Explanation is rendered server-side — nothing to load.
 }
 
 function buildCustomCardHTML(cr) {
