@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>⚙️ Settings</h2>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<div class="settings-wrap">
+
+  <!-- Week reference -->
+  <div class="settings-section">
+    <h3 class="settings-heading">Week</h3>
+    <div class="settings-row">
+      <label class="settings-label">Current week reference</label>
+      <input id="week_ref" type="text" class="hl-input" style="max-width:120px"
+             value="{{ wc.get('week_ref', '') }}" placeholder="e.g. T5W5">
+    </div>
+  </div>
+
+  <!-- Per-class rule assignment -->
+  {% for cls_id, cls_label in class_options %}
+  {% set cls_cfg = wc.get('classes', {}).get(cls_id, {}) %}
+  <div class="settings-section">
+    <h3 class="settings-heading">{{ cls_label }} — Spelling rules</h3>
+
+    <div class="settings-row">
+      <label class="settings-label">Main rule</label>
+      <select id="main_{{ cls_id }}" class="cls-select" style="max-width:420px">
+        <option value="">— None —</option>
+        {% for rid, label in rules %}
+        <option value="{{ rid }}" {% if rid == cls_cfg.get('main_rule_id') %}selected{% endif %}>
+          {{ label }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="settings-row">
+      <label class="settings-label">Revision rule</label>
+      <select id="revision_{{ cls_id }}" class="cls-select" style="max-width:420px">
+        <option value="">— None —</option>
+        {% for rid, label in rules %}
+        <option value="{{ rid }}" {% if rid == cls_cfg.get('revision_rule_id') %}selected{% endif %}>
+          {{ label }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="settings-save-row">
+    <button class="btn btn-primary btn-lg" onclick="saveSettings()">💾 Save settings</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveSettings() {
+  const week_ref = document.getElementById('week_ref').value.trim();
+  const classes  = {};
+
+  {% for cls_id, cls_label in class_options %}
+  classes['{{ cls_id }}'] = {
+    main_rule_id:     document.getElementById('main_{{ cls_id }}').value     || null,
+    revision_rule_id: document.getElementById('revision_{{ cls_id }}').value || null,
+  };
+  {% endfor %}
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res  = await fetch('/api/settings/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({week_ref, classes})
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = '💾 Save settings';
+    if (data.ok) {
+      showStatus('✓ Settings saved.', 'success');
+    } else {
+      showStatus('Error: ' + (data.error || 'Unknown'), 'error');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '💾 Save settings';
+    showStatus('Network error.', 'error');
+  }
+}
+
+const statusBar = document.getElementById('status-bar');
+function showStatus(msg, type) {
+  statusBar.textContent = msg;
+  statusBar.className = `status-bar status-${type}`;
+  if (type !== 'error') setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3500);
+}
+</script>
+{% endblock %}
