@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23s</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23t</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -58,8 +58,8 @@
         📚 Rules
       </a>
 
-      <a href="{{ url_for('stubs.print_tools') }}"
-         class="nav-item {% if request.endpoint=='stubs.print_tools' %}active{% endif %}">
+      <a href="{{ url_for('print_tools.print_page') }}"
+         class="nav-item {% if request.endpoint=='print_tools.print_page' %}active{% endif %}">
         🖨️ Print
       </a>
 

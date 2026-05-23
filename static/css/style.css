@@ -673,3 +673,62 @@ body {
 
 /* ── TT badge colours — all WFA brand blue ─────────────────────── */
 .tt-badge { color: #fff; font-weight: 700; background: #1798d3; }
+
+/* ── Print tab ─────────────────────────────────────────────────── */
+.print-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.print-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.print-card-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.print-card-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.print-card-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.print-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.print-variant-label {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.print-variant-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  background: #fff;
+}
+.print-spinner {
+  font-size: 13px;
+  color: var(--muted);
+}
+.print-spinner::after {
+  content: '⏳ Generating…';
+}

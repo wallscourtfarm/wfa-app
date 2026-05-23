@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Print{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>🖨️ Print</h2>
+  <div class="header-actions">
+    <select class="cls-select" id="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<div class="hl-meta">
+  <span>Week: <strong>{{ week_ref or '— (set in Settings)' }}</strong></span>
+  <span>Main rule: <em>{{ main_rule_title }}</em></span>
+  {% if rev_rule_title != '—' %}
+  <span>Revision rule: <em>{{ rev_rule_title }}</em></span>
+  {% endif %}
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<!-- ── Spelling pages ──────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📄</span>
+    <div>
+      <h3 class="print-card-title">Spelling Pages</h3>
+      <p class="print-card-desc">One A5 page per child — their 5 key spellings and this week's rule words. Downloads as a ZIP.</p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" onclick="generate('spelling-pages', 'Spelling_Pages')">
+      ⬇ Download spelling pages ZIP
+    </button>
+    <span class="print-spinner hidden" id="spin-spelling-pages"></span>
+  </div>
+</div>
+
+<!-- ── Paired word lists ───────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">🃏</span>
+    <div>
+      <h3 class="print-card-title">Paired Word Lists</h3>
+      <p class="print-card-desc">Cut-up cards, 4 columns × 3 rows per page. Each child gets a card showing their key spellings and their group's rule words. Dashed cut lines included.</p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" onclick="generate('paired-lists', 'Paired_Lists')">
+      ⬇ Download paired lists PDF
+    </button>
+    <span class="print-spinner hidden" id="spin-paired-lists"></span>
+  </div>
+</div>
+
+<!-- ── Recording sheet ─────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📋</span>
+    <div>
+      <h3 class="print-card-title">Recording Sheet</h3>
+      <p class="print-card-desc">Teacher marking cards — 6 per A4 page with dashed cut lines. Name header, 10 word rows, check column.</p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" onclick="generate('recording-sheet', 'Recording_Sheet')">
+      ⬇ Download recording sheet PDF
+    </button>
+    <span class="print-spinner hidden" id="spin-recording-sheet"></span>
+  </div>
+</div>
+
+<!-- ── TT check sheet ──────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">✖️</span>
+    <div>
+      <h3 class="print-card-title">TT Check Sheet</h3>
+      <p class="print-card-desc">A4 landscape, two half-sheets — one per child, 40 questions at their current times table level.</p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <label class="print-variant-label">Variant:</label>
+    <select class="print-variant-select" id="tt-variant">
+      <option value="A">A — multiplication only</option>
+      <option value="B">B — mixed × and ÷</option>
+    </select>
+    <button class="btn btn-primary" onclick="generateTT()">
+      ⬇ Download TT check sheet PDF
+    </button>
+    <span class="print-spinner hidden" id="spin-tt-check"></span>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS = "{{ cls }}";
+
+function showSpin(key, show) {
+  const el = document.getElementById('spin-' + key);
+  if (el) el.classList.toggle('hidden', !show);
+}
+
+function triggerDownload(b64, mime, filename) {
+  const bytes = atob(b64);
+  const arr   = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const blob = new Blob([arr], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showError(msg) {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = '⚠️ ' + msg;
+  bar.className   = 'status-bar status-error';
+  bar.classList.remove('hidden');
+  setTimeout(() => bar.classList.add('hidden'), 6000);
+}
+
+async function generate(endpoint, labelKey) {
+  showSpin(endpoint, true);
+  try {
+    const resp = await fetch('/api/print/' + endpoint, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ cls: CLS }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error); return; }
+    triggerDownload(d.data, d.mime, d.filename);
+  } catch(e) {
+    showError('Request failed: ' + e.message);
+  } finally {
+    showSpin(endpoint, false);
+  }
+}
+
+async function generateTT() {
+  const variant = document.getElementById('tt-variant').value;
+  showSpin('tt-check', true);
+  try {
+    const resp = await fetch('/api/print/tt-check', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ cls: CLS, variant }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error); return; }
+    triggerDownload(d.data, d.mime, d.filename);
+  } catch(e) {
+    showError('Request failed: ' + e.message);
+  } finally {
+    showSpin('tt-check', false);
+  }
+}
+</script>
+{% endblock %}
