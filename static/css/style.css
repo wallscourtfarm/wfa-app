@@ -353,7 +353,7 @@ body {
 .prog-cell{ position:relative; height:22px; background:#f0f4f8; border-radius:3px;
   overflow:hidden; min-width:60px; display:flex; align-items:center; }
 .prog-fill{ position:absolute; left:0; top:0; bottom:0; background:var(--brand); opacity:.25; }
-.prog-fill--phase { position:absolute; left:0; top:0; bottom:0; background:#c0157b; opacity:.25; }
+.prog-fill--phase { position:absolute; left:0; top:0; bottom:0; width:inherit; background:#c0157b; opacity:.25; }
 .prog-fill--ks    { position:absolute; left:0; top:0; bottom:0; background:#2bae62; opacity:.25; }
 .prog-cell span   { position:relative; z-index:1; font-size:12px; font-weight:600;
   color:var(--text); padding:0 6px; }
@@ -361,7 +361,7 @@ body {
 /* ── Group pills ─────────────────────────────────────────────────────── */
 .group-pill { font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; }
 .group-main     { background:#e8f4fb; color:var(--brand-dk); }
-.group-revision { background:#fce8f3; color:var(--error); }
+.group-revision { background:#fef3cd; color:#7a4f00; }
 
 /* ── Spelling Bee ────────────────────────────────────────────────────── */
 .bee-meta { display:flex; gap:16px; font-size:13px; color:var(--muted);
@@ -370,7 +370,7 @@ body {
 .bee-hint { margin-left:auto; font-style:italic; }
 
 .bee-list { display:flex; flex-direction:column; gap:1px;
-  background:var(--border); border-radius:var(--radius); overflow:hidden; }
+  background:var(--border); border-radius:var(--radius); overflow:hidden; max-width:860px; }
 
 .bee-row { display:grid; grid-template-columns:130px 1fr 140px;
   gap:0; align-items:center; background:var(--surface);
@@ -398,7 +398,7 @@ body {
 
 .bee-save-row { display:flex; align-items:center; gap:12px; padding:14px 0; }
 .save-hint { font-size:13px; color:var(--muted); }
-.prog-fill--all { position:absolute; left:0; top:0; bottom:0; background:#e57d24; opacity:.25; }
+.prog-fill--all { position:absolute; left:0; top:0; bottom:0; width:inherit; background:#e57d24; opacity:.25; }
 .nav-sep { color: var(--border); margin: 0 2px; }
 
 /* ── Nav dropdown ────────────────────────────────────────────────────── */
