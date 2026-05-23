@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23i</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23j</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -51,6 +51,11 @@
       <a href="{{ url_for('hl.home_learning') }}"
          class="nav-item {% if request.endpoint=='hl.home_learning' %}active{% endif %}">
         🏠 Home Learning
+      </a>
+
+    <a href="{{ url_for('rules.rules') }}"
+         class="nav-item {% if request.endpoint=='rules.rules' %}active{% endif %}">
+        📚 Rules
       </a>
 
       <a href="{{ url_for('stubs.print_tools') }}"

@@ -232,3 +232,43 @@ def list_plannable_rules():
     standard = [(f'{r[0]}-{r[1]}', f'S{r[0]} Step {r[1]}: {r[2]}')
                 for r in SPELLING_RULES if r[4] != 1]
     return custom + standard
+
+# ── Custom Rules ──────────────────────────────────────────────────────────────
+
+def _put_file_create(path, data, message):
+    """Create a new file (no sha needed)."""
+    content = base64.b64encode(
+        json.dumps(data, indent=2, ensure_ascii=False).encode('utf-8')
+    ).decode('utf-8')
+    r = requests.put(f'{BASE_URL}/{path}', headers=HEADERS,
+                     json={'message': message, 'content': content, 'branch': BRANCH}, timeout=15)
+    return r.status_code in (200, 201)
+
+def load_custom_rules():
+    """Return list of custom rule dicts, or [] if file missing."""
+    data, _ = _get_file('data/custom_rules.json')
+    if not data:
+        return []
+    return data.get('rules', [])
+
+def save_custom_rules(rules, next_id):
+    """Save custom rules back to GitHub. Creates file if it doesn't exist."""
+    path = 'data/custom_rules.json'
+    data = {'next_id': next_id, 'rules': rules}
+    _, sha = _get_file(path)
+    if sha is None:
+        return _put_file_create(path, data, 'Create custom_rules.json')
+    return _put_file(path, data, sha, 'Update custom rules')
+
+def load_rule_confidence():
+    """Return dict of rule_id -> {level: 0-3}. 0=unset."""
+    data, _ = _get_file('data/rule_confidence.json')
+    return data or {}
+
+def save_rule_confidence(confidence):
+    """Save rule confidence dict back to GitHub."""
+    path = 'data/rule_confidence.json'
+    _, sha = _get_file(path)
+    if sha is None:
+        return _put_file_create(path, confidence, 'Create rule_confidence.json')
+    return _put_file(path, confidence, sha, 'Update rule confidence')

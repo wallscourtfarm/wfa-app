@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+{% block title %}Spelling Rules — WFA{% endblock %}
+
+{% block content %}
+<div class="rules-page">
+
+  <!-- Header bar -->
+  <div class="rules-header">
+    <h1 class="page-title">📚 Spelling Rules</h1>
+    <div class="rules-header-right">
+      <input type="text" id="ruleSearch" placeholder="Search rules or words…"
+             class="rules-search" oninput="filterRules(this.value)">
+      <button class="btn btn-primary" onclick="openAddModal()">+ Add custom rule</button>
+    </div>
+  </div>
+
+  <!-- Confidence legend -->
+  <div class="confidence-legend">
+    <span class="legend-label">Class confidence:</span>
+    <span class="conf-badge conf-0">○○○ Not set</span>
+    <span class="conf-badge conf-1">●○○ Low</span>
+    <span class="conf-badge conf-2">●●○ Medium</span>
+    <span class="conf-badge conf-3">●●● High</span>
+    <span class="legend-hint">Click the dots on any rule to update</span>
+  </div>
+
+  <!-- Custom rules section -->
+  <div class="stage-section" id="customSection">
+    <div class="stage-header" onclick="toggleSection('customSection')">
+      <span class="stage-title">✏️ Custom Rules</span>
+      <span class="stage-count" id="customCount">{{ customs|length }} rule{{ 's' if customs|length != 1 else '' }}</span>
+      <span class="stage-chevron">▼</span>
+    </div>
+    <div class="stage-body" id="customSection-body">
+      {% if customs %}
+        <div class="rules-grid" id="customGrid">
+          {% for cr in customs %}
+            {% set conf = cr.confidence %}
+            {% set rid = '0-' ~ cr.id %}
+            {% set conf_dots = ['○○○','●○○','●●○','●●●'][conf] %}
+            {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][conf] %}
+            <div class="custom-card" data-id="{{ cr.id }}"
+                 data-search="{{ (cr.title ~ ' ' ~ cr.words|join(' '))|lower }}">
+              <div class="rule-card-header">
+                <span class="rule-ref custom-ref">Custom</span>
+                <span class="rule-title-text">{{ cr.title }}</span>
+                <span class="custom-actions">
+                  <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rid }}"
+                        data-level="{{ conf }}" onclick="cycleConfidence(this)"
+                        title="Click to update confidence">{{ conf_dots }}</span>
+                  <button class="btn-icon"
+                    onclick='openEditModal({{ cr.id }},{{ cr.title|tojson }},{{ (cr.explanation or "")|tojson }},{{ cr.words|tojson }})'
+                    title="Edit">✎</button>
+                  <button class="btn-icon btn-icon-del"
+                    onclick="deleteCustomRule({{ cr.id }}, this)" title="Delete">✕</button>
+                </span>
+              </div>
+              {% if cr.explanation %}
+                <p class="rule-explanation">{{ cr.explanation }}</p>
+              {% endif %}
+              <div class="rule-words">
+                {% for w in cr.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty-msg" id="customEmpty">No custom rules yet. Add one above.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Stage 1–6 sections -->
+  {% for stage_num in range(1, 7) %}
+    {% set stage_rules = stages.get(stage_num, []) %}
+    <div class="stage-section {% if stage_num > 1 %}collapsed{% endif %}"
+         id="stage{{ stage_num }}Section">
+      <div class="stage-header" onclick="toggleSection('stage{{ stage_num }}Section')">
+        <span class="stage-title">Stage {{ stage_num }}</span>
+        <span class="stage-count">{{ stage_rules|length }} rules</span>
+        <span class="stage-chevron">{% if stage_num > 1 %}▶{% else %}▼{% endif %}</span>
+      </div>
+      <div class="stage-body"
+           {% if stage_num > 1 %}style="display:none"{% endif %}
+           id="stage{{ stage_num }}Section-body">
+        <div class="rules-grid">
+          {% for rule in stage_rules %}
+            {% set conf_dots = ['○○○','●○○','●●○','●●●'][rule.confidence] %}
+            {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][rule.confidence] %}
+            <div class="rule-card" data-id="{{ rule.id }}"
+                 data-search="{{ (rule.title ~ ' ' ~ rule.words|join(' '))|lower }}">
+              <div class="rule-card-header">
+                <span class="rule-ref">S{{ stage_num }}·{{ rule.step }}</span>
+                <span class="rule-title-text">{{ rule.title }}</span>
+                <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rule.id }}"
+                      data-level="{{ rule.confidence }}" onclick="cycleConfidence(this)"
+                      title="Click to update confidence">{{ conf_dots }}</span>
+              </div>
+              {% if rule.rtype == 2 %}
+                <span class="rule-type-badge">Revision</span>
+              {% endif %}
+              <div class="rule-words">
+                {% for w in rule.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+
+</div>
+
+<!-- Add/Edit custom rule modal -->
+<div class="modal-overlay hidden" id="ruleModal" onclick="closeModalIfBg(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modalTitle">Add custom rule</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editingId" value="">
+
+      <label class="form-label">Rule title <span class="required">*</span></label>
+      <input type="text" id="ruleTitle" class="form-input"
+             placeholder="e.g. Words ending '-tion'">
+
+      <label class="form-label">Explanation <span class="label-hint">(optional)</span></label>
+      <textarea id="ruleExplanation" class="form-input form-textarea"
+                placeholder="Explain when or why this rule applies"></textarea>
+
+      <label class="form-label">Words <span class="required">*</span>
+        <span class="label-hint">(comma-separated)</span>
+      </label>
+      <div class="words-row">
+        <input type="text" id="ruleWords" class="form-input"
+               placeholder="station, fiction, motion, action, fraction">
+        <button class="btn btn-secondary btn-sm" id="suggestBtn"
+                onclick="suggestWords()">✨ Suggest</button>
+      </div>
+      <p class="suggest-status hidden" id="suggestStatus"></p>
+      <p class="modal-error hidden" id="modalError"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveRuleBtn" onclick="saveRule()">Save rule</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CONF_LABELS  = ['○○○','●○○','●●○','●●●'];
+const CONF_CLASSES = ['conf-0','conf-1','conf-2','conf-3'];
+const CONF_TITLES  = ['Not set','Low','Medium','High'];
+
+// Section toggle
+function toggleSection(id) {
+  const sec  = document.getElementById(id);
+  const body = document.getElementById(id + '-body');
+  const chev = sec.querySelector('.stage-chevron');
+  const isNowCollapsed = sec.classList.toggle('collapsed');
+  body.style.display   = isNowCollapsed ? 'none' : '';
+  chev.textContent     = isNowCollapsed ? '▶' : '▼';
+}
+
+// Search
+function filterRules(q) {
+  const term = q.toLowerCase().trim();
+  document.querySelectorAll('.rule-card, .custom-card').forEach(card => {
+    const match = !term || (card.dataset.search || '').includes(term);
+    card.style.display = match ? '' : 'none';
+  });
+  if (term) {
+    document.querySelectorAll('.stage-section').forEach(sec => {
+      const hasVisible = sec.querySelectorAll('.rule-card:not([style*="none"]), .custom-card:not([style*="none"])').length > 0;
+      if (hasVisible && sec.classList.contains('collapsed')) toggleSection(sec.id);
+    });
+  }
+}
+
+// Confidence dots
+function cycleConfidence(el) {
+  const ruleId  = el.dataset.ruleId;
+  const current = parseInt(el.dataset.level || '0');
+  const next    = (current + 1) % 4;
+  el.dataset.level = next;
+  el.textContent   = CONF_LABELS[next];
+  el.className     = 'conf-dots ' + CONF_CLASSES[next];
+  el.title         = 'Click to update confidence — ' + CONF_TITLES[next];
+  fetch('/api/rules/confidence', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rule_id: ruleId, level: next})
+  }).then(r => r.json()).then(d => {
+    if (!d.ok) {
+      el.dataset.level = current;
+      el.textContent   = CONF_LABELS[current];
+      el.className     = 'conf-dots ' + CONF_CLASSES[current];
+      alert('Could not save. Try again.');
+    }
+  });
+}
+
+// Modal
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = 'Add custom rule';
+  document.getElementById('editingId').value = '';
+  document.getElementById('ruleTitle').value = '';
+  document.getElementById('ruleExplanation').value = '';
+  document.getElementById('ruleWords').value = '';
+  document.getElementById('modalError').classList.add('hidden');
+  document.getElementById('suggestStatus').classList.add('hidden');
+  document.getElementById('ruleModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('ruleTitle').focus(), 50);
+}
+
+function openEditModal(id, title, explanation, words) {
+  document.getElementById('modalTitle').textContent = 'Edit custom rule';
+  document.getElementById('editingId').value = id;
+  document.getElementById('ruleTitle').value = title;
+  document.getElementById('ruleExplanation').value = explanation;
+  document.getElementById('ruleWords').value = words.join(', ');
+  document.getElementById('modalError').classList.add('hidden');
+  document.getElementById('suggestStatus').classList.add('hidden');
+  document.getElementById('ruleModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('ruleTitle').focus(), 50);
+}
+
+function closeModal() { document.getElementById('ruleModal').classList.add('hidden'); }
+function closeModalIfBg(e) { if (e.target.id === 'ruleModal') closeModal(); }
+
+// Save
+function saveRule() {
+  const editingId   = document.getElementById('editingId').value;
+  const title       = document.getElementById('ruleTitle').value.trim();
+  const explanation = document.getElementById('ruleExplanation').value.trim();
+  const words       = document.getElementById('ruleWords').value.trim();
+  const saveBtn     = document.getElementById('saveRuleBtn');
+  if (!title)  { showModalError('Rule title is required.');      return; }
+  if (!words)  { showModalError('At least one word is required.'); return; }
+  const isEdit = editingId !== '';
+  const url    = isEdit ? '/api/rules/custom/edit' : '/api/rules/custom/add';
+  const body   = isEdit
+    ? {id: parseInt(editingId), title, explanation, words}
+    : {title, explanation, words};
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(r => r.json()).then(d => {
+      saveBtn.disabled = false; saveBtn.textContent = 'Save rule';
+      if (!d.ok) { showModalError(d.error || 'Save failed.'); return; }
+      closeModal();
+      if (isEdit) {
+        updateCustomCard(parseInt(editingId), title, explanation,
+                         words.split(',').map(w => w.trim()).filter(Boolean));
+      } else {
+        addCustomCard(d.rule);
+      }
+    }).catch(() => { saveBtn.disabled=false; saveBtn.textContent='Save rule'; showModalError('Network error.'); });
+}
+
+function showModalError(msg) {
+  const el = document.getElementById('modalError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// Suggest words
+function suggestWords() {
+  const title       = document.getElementById('ruleTitle').value.trim();
+  const explanation = document.getElementById('ruleExplanation').value.trim();
+  const statusEl    = document.getElementById('suggestStatus');
+  const btn         = document.getElementById('suggestBtn');
+  if (!title) { showModalError('Enter a rule title first.'); return; }
+  btn.disabled = true; btn.textContent = '✨ Suggesting…';
+  statusEl.className = 'suggest-status'; statusEl.textContent = '';
+  statusEl.classList.remove('hidden');
+  fetch('/api/rules/suggest-words', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({title, explanation})})
+    .then(r => r.json()).then(d => {
+      btn.disabled = false; btn.textContent = '✨ Suggest';
+      if (!d.ok) { statusEl.textContent = 'Could not suggest words.'; return; }
+      document.getElementById('ruleWords').value = d.words.join(', ');
+      statusEl.textContent = 'Words suggested — edit as needed.';
+      statusEl.classList.add('suggest-ok');
+    }).catch(() => { btn.disabled=false; btn.textContent='✨ Suggest'; statusEl.textContent='Network error.'; });
+}
+
+// DOM helpers for custom cards
+function buildCustomCardHTML(cr) {
+  const rid      = '0-' + cr.id;
+  const conf     = cr.confidence || 0;
+  const confDots = CONF_LABELS[conf];
+  const confCls  = CONF_CLASSES[conf];
+  const titleE   = String(cr.title).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const expl     = cr.explanation ? `<p class="rule-explanation">${String(cr.explanation).replace(/</g,'&lt;')}</p>` : '';
+  const pills    = (cr.words||[]).map(w => `<span class="word-pill">${w}</span>`).join('');
+  const editArgs = JSON.stringify([cr.id, cr.title, cr.explanation||'', cr.words||[]]);
+  return `<div class="custom-card" data-id="${cr.id}"
+       data-search="${(cr.title+' '+(cr.words||[]).join(' ')).toLowerCase()}">
+    <div class="rule-card-header">
+      <span class="rule-ref custom-ref">Custom</span>
+      <span class="rule-title-text">${titleE}</span>
+      <span class="custom-actions">
+        <span class="conf-dots ${confCls}" data-rule-id="${rid}" data-level="${conf}"
+              onclick="cycleConfidence(this)" title="Click to update confidence">${confDots}</span>
+        <button class="btn-icon" title="Edit"
+          onclick="openEditModal(...${editArgs.replace(/</g,'&lt;')})">✎</button>
+        <button class="btn-icon btn-icon-del" onclick="deleteCustomRule(${cr.id},this)" title="Delete">✕</button>
+      </span>
+    </div>
+    ${expl}
+    <div class="rule-words">${pills}</div>
+  </div>`;
+}
+
+function addCustomCard(cr) {
+  let grid = document.getElementById('customGrid');
+  const countEl = document.getElementById('customCount');
+  if (!grid) {
+    const body = document.getElementById('customSection-body');
+    body.innerHTML = `<div class="rules-grid" id="customGrid"></div>`;
+    grid = document.getElementById('customGrid');
+  }
+  const empty = document.getElementById('customEmpty');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.innerHTML = buildCustomCardHTML(cr);
+  grid.appendChild(div.firstElementChild);
+  const n = grid.children.length;
+  countEl.textContent = n + ' rule' + (n !== 1 ? 's' : '');
+}
+
+function updateCustomCard(id, title, explanation, words) {
+  const card = document.querySelector(`.custom-card[data-id="${id}"]`);
+  if (!card) return;
+  const conf = parseInt(card.querySelector('.conf-dots').dataset.level || '0');
+  const div = document.createElement('div');
+  div.innerHTML = buildCustomCardHTML({id, title, explanation, words, confidence: conf});
+  card.replaceWith(div.firstElementChild);
+}
+
+function deleteCustomRule(id, btn) {
+  if (!confirm('Delete this custom rule?')) return;
+  btn.disabled = true;
+  fetch('/api/rules/custom/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})})
+    .then(r => r.json()).then(d => {
+      if (!d.ok) { alert(d.error || 'Delete failed.'); btn.disabled=false; return; }
+      const card  = document.querySelector(`.custom-card[data-id="${id}"]`);
+      const grid  = document.getElementById('customGrid');
+      const countEl = document.getElementById('customCount');
+      if (card) card.remove();
+      const n = grid ? grid.children.length : 0;
+      countEl.textContent = n + ' rule' + (n !== 1 ? 's' : '');
+      if (n === 0 && grid) {
+        grid.insertAdjacentHTML('afterend','<p class="empty-msg" id="customEmpty">No custom rules yet. Add one above.</p>');
+      }
+    }).catch(() => { btn.disabled=false; alert('Network error.'); });
+}
+</script>
+{% endblock %}
