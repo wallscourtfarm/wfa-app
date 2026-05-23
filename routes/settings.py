@@ -5,6 +5,19 @@ settings_bp = Blueprint('settings', __name__)
 CLASS_OPTIONS = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
 
 
+
+@settings_bp.route('/api/debug/learners')
+def api_debug_learners():
+    if not session.get('authenticated'):
+        return jsonify({'ok': False}), 401
+    from data_manager import load_learners
+    pupils = load_learners('Y4_IM')
+    # Return first 3 pupils with key fields
+    sample = [{'id': p.get('id'), 'first': p.get('first'),
+               'pair_id': p.get('pair_id'), 'partner_name': p.get('partner_name')}
+              for p in pupils[:3]]
+    return jsonify({'ok': True, 'sample': sample})
+
 @settings_bp.route('/settings')
 def settings():
     if not session.get('authenticated'):
