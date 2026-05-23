@@ -45,10 +45,4 @@ def classes():
         description='Manage class rosters, import CSV data and configure TT tracking.',
         coming='Class management and CSV import')
 
-@stubs_bp.route('/settings')
-def settings():
-    r = _auth()
-    if r: return r
-    return render_template('stub.html', title='Settings', icon='⚙️',
-        description='Set the current week reference, assign spelling rules to classes, and manage term dates.',
-        coming='Weekly config and rule assignment')
+
