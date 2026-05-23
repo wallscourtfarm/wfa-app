@@ -398,3 +398,49 @@ body {
 .save-hint { font-size:13px; color:var(--muted); }
 .prog-fill--all { background:#e57d24; }
 .nav-sep { color: var(--border); margin: 0 2px; }
+
+/* ── Nav dropdown ────────────────────────────────────────────────────── */
+.nav-dropdown { position:relative; }
+.nav-dropdown-toggle { cursor:pointer; user-select:none; }
+.dropdown-menu {
+  display:none; position:absolute; top:100%; left:0;
+  background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+  min-width:180px; box-shadow:0 4px 16px rgba(0,0,0,.12); z-index:200; overflow:hidden;
+}
+.dropdown-menu a {
+  display:block; padding:10px 14px; font-size:13px; color:var(--text);
+  text-decoration:none; border-bottom:1px solid #f0f2f5;
+}
+.dropdown-menu a:last-child { border-bottom:none; }
+.dropdown-menu a:hover, .dropdown-menu a.active { background:#f0f8ff; color:var(--brand); }
+.nav-dropdown:hover .dropdown-menu { display:block; }
+.nav-dropdown.active > .nav-dropdown-toggle { color:#fff; border-bottom:3px solid #fff; }
+
+/* ── Nav items (match existing pattern) ─────────────────────────────── */
+.nav-item {
+  color:rgba(255,255,255,.85); text-decoration:none; padding:0 12px;
+  height:48px; display:flex; align-items:center; font-size:13px;
+  border-bottom:3px solid transparent; transition:color .15s,border-color .15s;
+  white-space:nowrap;
+}
+.nav-item:hover, .nav-item.active { color:#fff; border-bottom-color:#fff; }
+.nav-item.active { font-weight:600; }
+
+/* ── Class selector dropdown ─────────────────────────────────────────── */
+.cls-select {
+  padding:6px 10px; border:1px solid var(--border); border-radius:var(--radius);
+  font-size:13px; font-family:var(--font); background:var(--surface);
+  color:var(--text); cursor:pointer;
+}
+.cls-select:focus { outline:none; border-color:var(--brand); }
+
+/* ── Stub pages ──────────────────────────────────────────────────────── */
+.stub-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:32px; max-width:560px;
+}
+.stub-desc   { font-size:14px; color:var(--text); margin-bottom:16px; line-height:1.6; }
+.stub-badge  { display:inline-block; background:#fef9e7; border:1px solid #f0c040;
+  color:#856400; border-radius:99px; padding:4px 12px; font-size:12px;
+  font-weight:600; margin-bottom:16px; }
+.stub-coming { font-size:13px; color:var(--muted); }
