@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Spelling Bee{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Spelling Bee</h2>
+  <div class="header-actions">
+    <a href="?group=all"       class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+    <a href="?group=main"      class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-secondary{% endif %}">Main</a>
+    <a href="?group=revision"  class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-secondary{% endif %}">Revision</a>
+  </div>
+</div>
+
+<div class="bee-meta">
+  <span>Week: <strong>{{ week_ref or '—' }}</strong></span>
+  <span>Main rule: <em>{{ rules_info.main }}</em></span>
+  <span>Revision: <em>{{ rules_info.revision }}</em></span>
+  <span class="bee-hint">Click words to mark correct (green = correct)</span>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+{% if pupils %}
+<div class="bee-list" id="bee-list">
+  {% for p in pupils %}
+  <div class="bee-row {% if p.is_rev %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ cls }}">
+    <div class="bee-name">
+      <span>{{ p.first }}</span>
+      {% if p.is_rev %}<span class="rev-badge">REV</span>{% endif %}
+    </div>
+    <div class="bee-words">
+      {% if p.words %}
+        {% for w in p.words %}
+        <button type="button" class="word-pill" data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
+        {% endfor %}
+      {% else %}
+        <span class="no-words">No words</span>
+      {% endif %}
+    </div>
+    <div class="bee-rule">
+      <label class="conf-label">
+        <input type="checkbox" class="conf-check"> Confident
+      </label>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="bee-save-row">
+  <button id="save-btn" class="btn btn-primary" onclick="saveAll()">💾 Save &amp; update lists</button>
+  <span id="save-hint" class="save-hint">Select words to save</span>
+</div>
+
+{% else %}
+<div class="empty-state"><p>No pupils to show.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleWord(btn) {
+  btn.classList.toggle('word-pill--on');
+  updateHint();
+}
+
+function updateHint() {
+  const n = document.querySelectorAll('.word-pill--on').length;
+  document.getElementById('save-hint').textContent =
+    n > 0 ? `${n} word(s) selected` : 'Select words to save';
+}
+
+async function saveAll() {
+  const rows = document.querySelectorAll('.bee-row[data-pid]');
+  const assessments = [];
+
+  rows.forEach(row => {
+    const pid  = row.dataset.pid;
+    const cls  = row.dataset.cls;
+    const words = [...row.querySelectorAll('.word-pill--on')].map(b => b.dataset.word);
+    const conf  = row.querySelector('.conf-check')?.checked || false;
+    if (words.length > 0 || conf) {
+      assessments.push({ pupil_id: pid, words, confident: conf });
+    }
+  });
+
+  if (!assessments.length) {
+    showStatus('Nothing selected — tick some words first.', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const cls = document.querySelector('.bee-row[data-cls]')?.dataset.cls || 'Y4_IM';
+
+  try {
+    const res  = await fetch('/api/bee/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls, assessments })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      showStatus(`✓ Saved ${data.saved} pupil(s). Reloading…`, 'success');
+      setTimeout(() => location.reload(), 1400);
+    } else {
+      showStatus('Error: ' + (data.error || 'Unknown'), 'error');
+      btn.disabled = false;
+      btn.textContent = '💾 Save & update lists';
+    }
+  } catch {
+    showStatus('Network error — try again.', 'error');
+    btn.disabled = false;
+    btn.textContent = '💾 Save & update lists';
+  }
+}
+
+const statusBar = document.getElementById('status-bar');
+function showStatus(msg, type) {
+  statusBar.textContent = msg;
+  statusBar.className   = `status-bar status-${type}`;
+  if (type !== 'error') setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3500);
+}
+</script>
+{% endblock %}
