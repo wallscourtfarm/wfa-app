@@ -5,9 +5,13 @@
 <div class="page-header">
   <h2>Spelling Bee</h2>
   <div class="header-actions">
-    <a href="?group=all"       class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
-    <a href="?group=main"      class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-secondary{% endif %}">Main</a>
-    <a href="?group=revision"  class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-secondary{% endif %}">Revision</a>
+    {% for c in classes %}
+    <a href="?cls={{ c }}&group={{ group_filter }}" class="btn {% if c == cls %}btn-primary{% else %}btn-secondary{% endif %}">{{ c }}</a>
+    {% endfor %}
+    <span class="nav-sep">|</span>
+    <a href="?cls={{ cls }}&group=all"      class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-ghost{% endif %}">All</a>
+    <a href="?cls={{ cls }}&group=main"     class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-ghost{% endif %}">Main</a>
+    <a href="?cls={{ cls }}&group=revision" class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-ghost{% endif %}">Revision</a>
   </div>
 </div>
 
