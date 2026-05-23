@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-  <h2>Times Table Check</h2>
+  <h2>Times Table Check — Y4 Maple</h2>
   <div class="header-actions">
     <button id="btn-advance" class="btn btn-primary" disabled>
       Advance selected (<span id="advance-count">0</span>)
@@ -15,42 +15,34 @@
 <div id="status-bar" class="status-bar hidden"></div>
 
 {% if pupils %}
+{# Group pupils by stage #}
+{% set ns = namespace(current_label=None) %}
 <div class="tt-table-wrap">
   <table class="tt-table" id="tt-table">
     <thead>
       <tr>
-        <th class="col-check"><input type="checkbox" id="check-all" title="Select all"></th>
+        <th class="col-check">
+          <input type="checkbox" id="check-all" title="Select all">
+        </th>
         <th>Name</th>
-        <th>TT Stage</th>
-        <th>Attempts</th>
-        <th>Correct</th>
-        <th>Score</th>
+        <th>Stage</th>
+        <th>Next stage</th>
       </tr>
     </thead>
     <tbody>
       {% for p in pupils %}
-      <tr data-name="{{ p.name }}">
+      <tr data-id="{{ p.id }}" data-name="{{ p.name }}">
         <td class="col-check">
-          <input type="checkbox" class="row-check" value="{{ p.name }}">
+          <input type="checkbox" class="row-check" value="{{ p.id }}" data-name="{{ p.name }}">
         </td>
-        <td class="pupil-name">{{ p.name }}</td>
+        <td class="pupil-name">{{ p.first }}</td>
         <td>
-          <span class="tt-badge">{{ p.current_tt }}×</span>
+          <span class="tt-badge tt-badge--{{ 'xd' if p.tt_mode == 'xd' else 'x' }}">
+            {{ p.label }}
+          </span>
         </td>
-        <td>
-          <input type="number" class="cell-input" data-field="attempts"
-                 value="{{ p.attempts }}" min="0" max="100">
-        </td>
-        <td>
-          <input type="number" class="cell-input" data-field="correct"
-                 value="{{ p.correct }}" min="0" max="{{ p.attempts }}">
-        </td>
-        <td class="score-cell">
-          {% if p.attempts and p.attempts > 0 %}
-            {{ ((p.correct / p.attempts) * 100) | round | int }}%
-          {% else %}
-            —
-          {% endif %}
+        <td class="next-stage" data-set="{{ p.tt_set }}" data-mode="{{ p.tt_mode }}">
+          <span class="next-label">—</span>
         </td>
       </tr>
       {% endfor %}
@@ -58,14 +50,10 @@
   </table>
 </div>
 
-<div class="tt-save-row">
-  <button id="btn-save" class="btn btn-secondary">Save results</button>
-</div>
-
 {% else %}
 <div class="empty-state">
   <p>No pupil data loaded.</p>
-  <p class="hint">Check that <code>DATA_REPO</code> and <code>GITHUB_TOKEN</code> are set correctly in Render environment variables, and that <code>data/tt_data.json</code> exists in the data repo.</p>
+  <p class="hint">Check that <code>GITHUB_TOKEN</code> is set in Render environment variables.</p>
 </div>
 {% endif %}
 {% endblock %}
@@ -74,15 +62,36 @@
 <script>
 const CLS = "{{ cls }}";
 
+// TT progression mirrored from data_manager.py
+const TT_ORDER = ['2','5','4','8','3','6','9','7','11','12','All'];
+
+function advanceTT(set, mode) {
+  if (set === 'All' && mode === 'xd') return {set: 'All', mode: 'xd'};
+  if (mode !== 'xd') return {set, mode: 'xd'};
+  const i = TT_ORDER.indexOf(String(set));
+  const newSet = (i >= 0 && i + 1 < TT_ORDER.length) ? TT_ORDER[i + 1] : set;
+  return {set: newSet, mode: 'x'};
+}
+
+function ttLabel(set, mode) {
+  return set + (mode === 'xd' ? '×÷' : '×');
+}
+
+// Populate "next stage" cells
+document.querySelectorAll('.next-stage').forEach(cell => {
+  const result = advanceTT(cell.dataset.set, cell.dataset.mode);
+  cell.querySelector('.next-label').textContent = ttLabel(result.set, result.mode);
+});
+
 // ── Selection ────────────────────────────────────────────────────────────────
-const checkAll = document.getElementById('check-all');
-const advanceBtn = document.getElementById('btn-advance');
+const advanceBtn   = document.getElementById('btn-advance');
 const advanceCount = document.getElementById('advance-count');
+const checkAll     = document.getElementById('check-all');
 
 function updateAdvanceBtn() {
-  const checked = document.querySelectorAll('.row-check:checked');
-  advanceCount.textContent = checked.length;
-  advanceBtn.disabled = checked.length === 0;
+  const n = document.querySelectorAll('.row-check:checked').length;
+  advanceCount.textContent = n;
+  advanceBtn.disabled = n === 0;
 }
 
 document.querySelectorAll('.row-check').forEach(cb => {
@@ -96,82 +105,46 @@ checkAll.addEventListener('change', () => {
   updateAdvanceBtn();
 });
 
-// ── Score recalc ─────────────────────────────────────────────────────────────
-document.querySelectorAll('tr[data-name]').forEach(row => {
-  const attInput = row.querySelector('[data-field="attempts"]');
-  const corInput = row.querySelector('[data-field="correct"]');
-  const scoreCell = row.querySelector('.score-cell');
-
-  function recalc() {
-    const att = parseInt(attInput.value) || 0;
-    const cor = parseInt(corInput.value) || 0;
-    scoreCell.textContent = att > 0 ? Math.round((cor / att) * 100) + '%' : '—';
-  }
-
-  attInput.addEventListener('input', recalc);
-  corInput.addEventListener('input', recalc);
-});
-
 // ── Status bar ───────────────────────────────────────────────────────────────
 const statusBar = document.getElementById('status-bar');
 function showStatus(msg, type = 'info') {
   statusBar.textContent = msg;
   statusBar.className = `status-bar status-${type}`;
-  setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3000);
+  if (type !== 'error') {
+    setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3500);
+  }
 }
 
 // ── Advance ──────────────────────────────────────────────────────────────────
 advanceBtn.addEventListener('click', async () => {
-  const names = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+  const checked = [...document.querySelectorAll('.row-check:checked')];
+  const ids   = checked.map(cb => cb.value);
+  const names = checked.map(cb => cb.dataset.name).join(', ');
+
   advanceBtn.disabled = true;
   advanceBtn.textContent = 'Saving…';
+  showStatus(`Advancing ${ids.length} pupil(s)…`, 'info');
 
-  const res = await fetch('/api/tt/advance', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({cls: CLS, names})
-  });
-  const data = await res.json();
-
-  if (data.ok) {
-    showStatus(`Advanced ${names.length} pupil(s). Reloading…`, 'success');
-    setTimeout(() => location.reload(), 1000);
-  } else {
-    showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
-    advanceBtn.disabled = false;
-    advanceBtn.innerHTML = 'Advance selected (<span id="advance-count">' + names.length + '</span>)';
-  }
-});
-
-// ── Save results ─────────────────────────────────────────────────────────────
-document.getElementById('btn-save')?.addEventListener('click', async () => {
-  const results = [];
-  document.querySelectorAll('tr[data-name]').forEach(row => {
-    results.push({
-      name: row.dataset.name,
-      attempts: parseInt(row.querySelector('[data-field="attempts"]').value) || 0,
-      correct:  parseInt(row.querySelector('[data-field="correct"]').value)  || 0,
+  try {
+    const res  = await fetch('/api/tt/advance', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cls: CLS, ids})
     });
-  });
+    const data = await res.json();
 
-  const btn = document.getElementById('btn-save');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-
-  const res = await fetch('/api/tt/save', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({cls: CLS, results})
-  });
-  const data = await res.json();
-
-  btn.disabled = false;
-  btn.textContent = 'Save results';
-
-  if (data.ok) {
-    showStatus('Results saved.', 'success');
-  } else {
-    showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+    if (data.ok) {
+      showStatus(`✓ Advanced ${data.count} pupil(s). Reloading…`, 'success');
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+      advanceBtn.disabled = false;
+      advanceBtn.innerHTML = `Advance selected (<span id="advance-count">${ids.length}</span>)`;
+    }
+  } catch (err) {
+    showStatus('Network error — try again.', 'error');
+    advanceBtn.disabled = false;
+    advanceBtn.innerHTML = `Advance selected (<span id="advance-count">${ids.length}</span>)`;
   }
 });
 
