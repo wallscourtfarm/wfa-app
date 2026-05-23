@@ -314,3 +314,9 @@ body {
 .alert-error   { background: #fce8f3; color: var(--error); }
 .alert-success { background: #e6f7ee; color: #1a7a45; }
 .alert-info    { background: #e8f4fb; color: var(--brand-dk); }
+
+/* ── TT badge variants ──────────────────────────────────────────────── */
+.tt-badge--x  { background: var(--brand); }
+.tt-badge--xd { background: #c0157b; }   /* pink = multiply + divide stage */
+
+.next-label { color: var(--muted); font-size: 13px; }
