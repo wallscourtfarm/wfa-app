@@ -42,7 +42,7 @@
             <div class="custom-card" data-id="{{ cr.id }}"
                  data-search="{{ (cr.title ~ ' ' ~ cr.words|join(' '))|lower }}">
               <div class="rule-card-header" onclick="toggleDetail(this)">
-                <span class="rule-ref custom-ref">Custom</span>
+                <span class="rule-ref custom-ref">✏</span>
                 <span class="rule-title-text">{{ cr.title }}</span>
                 <span class="custom-actions">
                   <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rid }}"
@@ -104,10 +104,14 @@
                   <span class="rule-chevron">▸</span>
                 </span>
               </div>
-              <div class="rule-detail hidden">
+              <div class="rule-detail hidden"
+                   data-rule-id="{{ rule.id }}"
+                   data-rule-title="{{ rule.title }}"
+                   data-rule-words="{{ rule.words|join(',') }}">
                 {% if rule.rtype == 2 %}
                   <span class="rule-type-badge">Revision</span>
                 {% endif %}
+                <p class="rule-explanation rule-expl-text"></p>
                 <div class="rule-words">
                   {% for w in rule.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
                 </div>
@@ -165,7 +169,7 @@ const CONF_LABELS  = ['○○○','●○○','●●○','●●●'];
 const CONF_CLASSES = ['conf-0','conf-1','conf-2','conf-3'];
 const CONF_TITLES  = ['Not set','Low','Medium','High'];
 
-// Section toggle
+// Section toggle (saves state to localStorage)
 function toggleSection(id) {
   const sec  = document.getElementById(id);
   const body = document.getElementById(id + '-body');
@@ -173,7 +177,31 @@ function toggleSection(id) {
   const isNowCollapsed = sec.classList.toggle('collapsed');
   body.style.display   = isNowCollapsed ? 'none' : '';
   chev.textContent     = isNowCollapsed ? '▶' : '▼';
+  saveStageState(id, !isNowCollapsed);
 }
+
+// Restore saved stage state on page load
+(function restoreStages() {
+  const saved = getSavedStages();
+  // All sections start in template default (custom open, stages 2-6 closed).
+  // Apply saved overrides.
+  document.querySelectorAll('.stage-section').forEach(sec => {
+    const id   = sec.id;
+    const body = document.getElementById(id + '-body');
+    const chev = sec.querySelector('.stage-chevron');
+    if (!body || !chev) return;
+    const shouldBeOpen = saved.includes(id);
+    if (shouldBeOpen) {
+      sec.classList.remove('collapsed');
+      body.style.display = '';
+      chev.textContent   = '▼';
+    } else {
+      sec.classList.add('collapsed');
+      body.style.display = 'none';
+      chev.textContent   = sec.id === 'customSection' ? '▼' : '▶';
+    }
+  });
+})();
 
 // Search
 function filterRules(q) {
@@ -299,12 +327,68 @@ function suggestWords() {
 }
 
 // DOM helpers for custom cards
+// ── localStorage helpers ──────────────────────────────────────────────────
+const LS_STAGES = 'wfa_rules_expanded_stages';
+const LS_EXPL   = 'wfa_rule_explanations';
+
+function getSavedStages() {
+  try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["customSection"]'); }
+  catch { return ['customSection']; }
+}
+function saveStageState(id, open) {
+  const saved = getSavedStages();
+  const idx   = saved.indexOf(id);
+  if (open && idx === -1) saved.push(id);
+  if (!open && idx !== -1) saved.splice(idx, 1);
+  localStorage.setItem(LS_STAGES, JSON.stringify(saved));
+}
+function getCachedExplanations() {
+  try { return JSON.parse(localStorage.getItem(LS_EXPL) || '{}'); }
+  catch { return {}; }
+}
+function cacheExplanation(ruleId, text) {
+  const cache = getCachedExplanations();
+  cache[ruleId] = text;
+  localStorage.setItem(LS_EXPL, JSON.stringify(cache));
+}
+
+// ── Detail toggle with lazy explanation loading ────────────────────────────
 function toggleDetail(headerEl) {
-  const detail = headerEl.closest('.rule-card, .custom-card').querySelector('.rule-detail');
+  const card   = headerEl.closest('.rule-card, .custom-card');
+  const detail = card.querySelector('.rule-detail');
   if (!detail) return;
   const isHidden = detail.classList.toggle('hidden');
   const chev = headerEl.querySelector('.rule-chevron');
   if (chev) chev.textContent = isHidden ? '▸' : '▾';
+
+  // Only load explanation for standard rule cards (not custom)
+  if (!isHidden && card.classList.contains('rule-card')) {
+    const ruleId    = detail.dataset.ruleId;
+    const ruleTitle = detail.dataset.ruleTitle;
+    const ruleWords = detail.dataset.ruleWords;
+    const explEl    = detail.querySelector('.rule-expl-text');
+    if (!explEl || explEl.dataset.loaded) return;
+
+    // Check localStorage cache first
+    const cache = getCachedExplanations();
+    if (cache[ruleId]) {
+      explEl.textContent = cache[ruleId];
+      explEl.dataset.loaded = '1';
+      return;
+    }
+
+    explEl.textContent = 'Loading explanation…';
+    fetch('/api/rules/explain', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rule_id: ruleId, title: ruleTitle, words: ruleWords})
+    }).then(r => r.json()).then(d => {
+      const text = d.ok ? d.explanation : '';
+      explEl.textContent = text;
+      explEl.dataset.loaded = '1';
+      if (text) cacheExplanation(ruleId, text);
+    }).catch(() => { explEl.textContent = ''; });
+  }
 }
 
 function buildCustomCardHTML(cr) {
@@ -319,7 +403,7 @@ function buildCustomCardHTML(cr) {
   return `<div class="custom-card" data-id="${cr.id}"
        data-search="${(cr.title+' '+(cr.words||[]).join(' ')).toLowerCase()}">
     <div class="rule-card-header" onclick="toggleDetail(this)">
-      <span class="rule-ref custom-ref">Custom</span>
+      <span class="rule-ref custom-ref">✏</span>
       <span class="rule-title-text">${titleE}</span>
       <span class="custom-actions">
         <span class="conf-dots ${confCls}" data-rule-id="${rid}" data-level="${conf}"

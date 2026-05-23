@@ -182,3 +182,40 @@ def api_suggest_words():
         return jsonify({'ok': True, 'words': words})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
+
+
+@rules_bp.route('/api/rules/explain', methods=['POST'])
+def api_explain():
+    if not session.get('authenticated'):
+        return jsonify({'ok': False}), 401
+    body     = request.get_json(force=True)
+    title    = body.get('title', '').strip()
+    words    = body.get('words', '').strip()
+    if not title:
+        return jsonify({'ok': False, 'explanation': ''})
+    import requests as req
+    prompt = (
+        f'You are a UK primary school phonics and spelling expert. '
+        f'Write ONE plain sentence (max 25 words) explaining the spelling rule titled: "{title}". '
+        f'Example words: {words}. '
+        f'Be concrete and child-friendly. No bullet points. No preamble. Just the sentence.'
+    )
+    try:
+        resp = req.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+            },
+            json={
+                'model': 'claude-sonnet-4-20250514',
+                'max_tokens': 80,
+                'messages': [{'role': 'user', 'content': prompt}],
+            },
+            timeout=20,
+        )
+        text = resp.json()['content'][0]['text'].strip()
+        return jsonify({'ok': True, 'explanation': text})
+    except Exception as e:
+        return jsonify({'ok': False, 'explanation': '', 'error': str(e)})

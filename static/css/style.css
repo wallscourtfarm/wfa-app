@@ -659,3 +659,14 @@ body {
 .rule-chevron     { font-size: 10px; color: var(--muted); flex-shrink: 0; transition: transform .15s; }
 .rule-detail      { margin-top: 6px; }
 .rule-detail.hidden { display: none; }
+
+/* ── Custom badge compact (✏ icon only, same size as S1·1) ─────── */
+.custom-ref { font-size: 13px; padding: 1px 6px; min-width: 0; }
+
+/* Rule card header: title takes remaining space, right side shrinks */
+.rule-card-header { flex-wrap: nowrap; min-width: 0; }
+.rule-title-text  { min-width: 0; overflow: hidden; }
+.custom-actions   { flex-shrink: 0; }
+
+/* Explanation text: muted, shown when loaded */
+.rule-expl-text:empty { display: none; }
