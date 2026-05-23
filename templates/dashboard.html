@@ -7,15 +7,20 @@
 {% else %}
 
 <div class="page-header">
-  <h2>Y4 Maple — Dashboard</h2>
-  <button class="btn btn-ghost" onclick="location.reload()">↺ Refresh</button>
+  <h2>Dashboard — {{ cls }}</h2>
+  <div class="header-actions">
+    {% for c in classes %}
+    <a href="?cls={{ c }}" class="btn {% if c == cls %}btn-primary{% else %}btn-secondary{% endif %}">{{ c }}</a>
+    {% endfor %}
+    <button class="btn btn-ghost" onclick="location.reload()">↺</button>
+  </div>
 </div>
 
 <!-- Stat cards -->
 <div class="stat-row">
   {% for val, lbl in [
     (stats.total,        'Learners'),
-    (stats.main,         'Main group'),
+    (stats.main,         'Main'),
     (stats.revision,     'Revision'),
     (stats.paired,       'Paired'),
     (stats.avg_mastered, 'Avg mastered'),
@@ -43,24 +48,23 @@
     <table class="tt-table sortable" id="masteryTable">
       <thead>
         <tr>
-          <th data-col="0">Name</th>
-          <th data-col="1">Group</th>
-          <th data-col="2">TT</th>
-          <th data-col="3" class="num-col">Mastered</th>
+          <th data-col="0">First</th>
+          <th data-col="1">Last</th>
+          <th data-col="2">Group</th>
+          <th data-col="3">TT</th>
           <th data-col="4" class="num-col">Y4 %</th>
           <th data-col="5" class="num-col">Phase %</th>
           <th data-col="6" class="num-col">KS %</th>
+          <th data-col="7" class="num-col">All %</th>
         </tr>
       </thead>
       <tbody>
         {% for r in rows %}
         <tr>
-          <td class="pupil-name">{{ r.first }} {{ r.last }}</td>
-          <td>
-            <span class="group-pill group-{{ r.group }}">{{ r.group | title }}</span>
-          </td>
+          <td class="pupil-name">{{ r.first }}</td>
+          <td>{{ r.last }}</td>
+          <td><span class="group-pill group-{{ r.group }}">{{ r.group | title }}</span></td>
           <td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>
-          <td class="num-col">{{ r.mastered }}</td>
           <td class="num-col">
             <div class="prog-cell">
               <div class="prog-fill" style="width:{{ r.y4_pct }}%"></div>
@@ -79,6 +83,12 @@
               <span>{{ r.ks_pct }}%</span>
             </div>
           </td>
+          <td class="num-col">
+            <div class="prog-cell">
+              <div class="prog-fill prog-fill--all" style="width:{{ r.all_pct }}%"></div>
+              <span>{{ r.all_pct }}%</span>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -91,32 +101,22 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-// TT bar chart
 const ctx = document.getElementById('ttChart');
 if (ctx) {
   new Chart(ctx, {
     type: 'bar',
     data: {
       labels: {{ tt_labels | safe }},
-      datasets: [{
-        data: {{ tt_values | safe }},
-        backgroundColor: '#1798d3',
-        borderRadius: 4,
-      }]
+      datasets: [{ data: {{ tt_values | safe }}, backgroundColor: '#1798d3', borderRadius: 4 }]
     },
     options: {
       plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 1 } },
-        x: { grid: { display: false } }
-      },
-      responsive: true,
-      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } },
+      responsive: true, maintainAspectRatio: false,
     }
   });
 }
 
-// Sortable table
 let sortCol = -1, sortAsc = true;
 document.querySelectorAll('#masteryTable th[data-col]').forEach(th => {
   th.style.cursor = 'pointer';
@@ -133,7 +133,9 @@ document.querySelectorAll('#masteryTable th[data-col]').forEach(th => {
       return sortAsc ? cmp : -cmp;
     });
     rows.forEach(r => tbody.appendChild(r));
-    document.querySelectorAll('#masteryTable th').forEach(h => h.textContent = h.textContent.replace(/ [▲▼]$/, ''));
+    document.querySelectorAll('#masteryTable th').forEach(h => {
+      h.textContent = h.textContent.replace(/ [▲▼]$/, '');
+    });
     th.textContent += sortAsc ? ' ▲' : ' ▼';
   });
 });
