@@ -495,3 +495,5 @@ body {
 .settings-row:last-child { margin-bottom:0; }
 .settings-label   { font-size:13px; color:var(--muted); min-width:130px; }
 .settings-save-row{ padding:4px 0; }
+
+.nav-version { font-size:10px; font-weight:400; opacity:.6; margin-left:4px; }

@@ -124,7 +124,7 @@ OUTPUT: Valid JSON only. No preamble. No markdown fences.
     {{"type": "inference",  "text": "...", "lines": 3}}
   ]
 }}
-"""
+
 
 ══ WORKED EXAMPLES — follow these patterns exactly ══
 
@@ -187,6 +187,7 @@ KEY RULES derived from these examples:
 - Q5 is always a misconception challenge naming a fictional child (never a real name).
 - Headings for Q1-Q4: "Q1", "Q2", "Q3", "Q4". Heading for Q5: "Problem solving".
 - Never use "trickier", "easier", "harder". For 2D shapes, use "side" not "edge".
+"""
 
 _ADAPTED_SYSTEM = f"""You are an expert Year 4 primary teacher producing ADAPTED home learning for children at Year 1/2 level.
 
