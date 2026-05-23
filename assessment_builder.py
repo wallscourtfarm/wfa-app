@@ -359,3 +359,114 @@ def generate_missing_cloze(words, api_key):
         text = re.sub(r"\n?```$", "", text)
         return {k.lower(): v for k, v in json.loads(text).items()}
     return {}
+
+
+# ── Rule Assessment PDF ───────────────────────────────────────────────────────
+
+def build_rule_assessment_pdf(pupils, sections, week_ref=""):
+    """
+    sections: list of (rule_id, title, [(word, sentence), (word, sentence)])
+    Same layout as word assessment — one row per word, grouped under rule header.
+    Name pre-printed on every page. Returns PDF bytes.
+    """
+    buf = io.BytesIO()
+    W, H = A4
+    M    = 12 * mm
+    UW   = W - 2 * M
+
+    ROW_H    = 9  * mm
+    SEC_H    = 7  * mm
+    NUM_W    = 8  * mm
+    MARK_W   = 8  * mm
+    FIRST_Y  = H - 14 * mm - 5 * mm
+    BOX_SZ   = 6  * mm
+
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    for pupil in pupils:
+        name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
+
+        # Build flat item list
+        items   = []
+        counter = 1
+        for rule_id, title, pairs in sections:
+            items.append(('section', f'{rule_id}  —  {title}'))
+            for word, sentence in pairs:
+                sent = re.sub(r'_+', '_' * 35, sentence)
+                items.append(('word', counter, word, sent))
+                counter += 1
+
+        # Paginate
+        def paginate(items):
+            pages, current, cy = [], [], FIRST_Y
+            for item in items:
+                need = SEC_H if item[0] == 'section' else ROW_H
+                if current and cy - need < M:
+                    pages.append(current); current = []; cy = FIRST_Y
+                current.append(item); cy -= need
+            if current: pages.append(current)
+            return pages
+
+        pages   = paginate(items)
+        n_pages = len(pages)
+
+        for pg_idx, page_items in enumerate(pages):
+            pg_label = f'Page {pg_idx + 1} of {n_pages}'
+            top_y    = _draw_page_header(c, W, H, name, week_ref, pg_label)
+            cy       = top_y - 5 * mm
+
+            for item in page_items:
+                if item[0] == 'section':
+                    _, label = item
+                    c.setFillColorRGB(*LGREY)
+                    c.rect(M, cy - SEC_H, UW, SEC_H, fill=1, stroke=0)
+                    c.setFillColorRGB(*NAVY)
+                    c.setFont('Helvetica-Bold', 7.5)
+                    c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 7.5) / 2, label)
+                    cy -= SEC_H
+                else:
+                    _, num, word, sentence = item
+                    row_top = cy
+                    row_bot = cy - ROW_H
+
+                    if num % 2 == 0:
+                        c.setFillColorRGB(0.97, 0.97, 0.97)
+                        c.rect(M, row_bot, UW, ROW_H, fill=1, stroke=0)
+
+                    c.setStrokeColorRGB(0.82, 0.82, 0.82)
+                    c.setLineWidth(0.3)
+                    c.line(M, row_top, M + UW, row_top)
+
+                    # Number
+                    c.setFillColorRGB(*NAVY)
+                    c.setFont('Helvetica-Bold', 8)
+                    c.drawCentredString(M + NUM_W / 2, row_bot + ROW_H / 2 - 2.8, str(num))
+
+                    # Writing line
+                    line_y = row_bot + 2.2 * mm
+                    c.setStrokeColorRGB(0.50, 0.50, 0.50)
+                    c.setLineWidth(0.5)
+                    c.line(M + NUM_W, line_y, M + UW - MARK_W - 2 * mm, line_y)
+
+                    # Sentence
+                    c.setFillColorRGB(*BLACK)
+                    c.setFont('Helvetica', 8)
+                    c.drawString(M + NUM_W + 2 * mm, line_y + 1.2 * mm, sentence)
+
+                    # Marking box
+                    box_x = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
+                    box_y = row_bot + (ROW_H - BOX_SZ) / 2
+                    c.setStrokeColorRGB(0.35, 0.35, 0.35)
+                    c.setLineWidth(0.7)
+                    c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+
+                    cy -= ROW_H
+
+            c.setStrokeColorRGB(0.82, 0.82, 0.82)
+            c.setLineWidth(0.3)
+            c.line(M, cy, M + UW, cy)
+            c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()

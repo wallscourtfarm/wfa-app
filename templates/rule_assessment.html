@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}Rule Reassessment{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>📏 Rule Reassessment</h2>
+  <div class="header-actions">
+    <select class="cls-select" id="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+<div class="hl-meta">
+  <span>Week: <strong>{{ week_ref or '— (set in Settings)' }}</strong></span>
+  <span id="sel-count" class="muted-label">No rules selected</span>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<!-- ── Rule selector ────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📋</span>
+    <div>
+      <h3 class="print-card-title">Select rules to assess</h3>
+      <p class="print-card-desc">2 words tested per rule. Fully mastered = 2/2, partial = 1/2, not mastered = 0/2.</p>
+    </div>
+  </div>
+
+  <input type="text" id="rule-search" class="print-textarea" style="height:auto;padding:6px 10px;margin:8px 0 12px;font-size:13px" placeholder="Search rules…" oninput="filterRules(this.value)">
+
+  <div id="rule-stages">
+    {% for stage, rules in stages.items() | sort %}
+    <details class="ra-stage" open>
+      <summary class="ra-stage-summary">
+        <span>Stage {{ stage }}</span>
+        <label class="ra-stage-all" onclick="event.stopPropagation()">
+          <input type="checkbox" onchange="toggleStage({{ stage }}, this.checked)"> Select all
+        </label>
+      </summary>
+      <div class="ra-rules-grid">
+        {% for rule in rules %}
+        <label class="ra-rule-label" data-title="{{ rule.title | lower }}" data-stage="{{ stage }}">
+          <input type="checkbox" class="ra-rule-cb" value="{{ rule.id }}">
+          <span class="ra-rule-id">{{ rule.id }}</span>
+          <span class="ra-rule-title">{{ rule.title }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+
+  <div class="print-card-footer" style="margin-top:14px; gap:10px; flex-wrap:wrap">
+    <button class="btn btn-primary" id="generate-btn" onclick="generate()">✨ Generate sheets</button>
+    <span class="print-spinner hidden" id="spin-generate"></span>
+    <a id="dl-pdf" class="btn btn-primary hidden" download>⬇ Download PDF</a>
+  </div>
+</div>
+
+<!-- ── Import ───────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📥</span>
+    <div>
+      <h3 class="print-card-title">Import scanned papers</h3>
+      <p class="print-card-desc">Upload scanned PDF of marked papers. Results stream in page by page. Diagonal line in box = correct.</p>
+    </div>
+  </div>
+
+  <div class="wa-upload-row">
+    <input type="file" id="pdf-upload" accept="application/pdf" class="wa-file-input">
+    <button class="btn btn-primary" onclick="startImport()">🔍 Process PDF</button>
+  </div>
+
+  <div id="import-progress" class="hidden">
+    <div class="wa-progress-bar-wrap">
+      <div class="wa-progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <p class="wa-progress-label" id="progress-label">Starting…</p>
+  </div>
+
+  <div id="import-results" class="hidden">
+    <h4 class="wa-results-title">Results — review before saving</h4>
+    <table class="wa-results-table">
+      <thead>
+        <tr><th>Name</th><th>Rules seen</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+    <p id="errors-note" class="wa-flagged hidden"></p>
+    <div class="print-card-footer" style="margin-top:12px">
+      <button class="btn btn-primary"   id="confirm-btn" onclick="confirmImport()" disabled>✅ Save to records</button>
+      <button class="btn btn-secondary" onclick="cancelImport()">✕ Cancel</button>
+      <span class="print-spinner hidden" id="spin-confirm"></span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS      = "{{ cls }}";
+const WEEK_REF = "{{ week_ref }}";
+
+// ── Rule selection ────────────────────────────────────────────────
+function selectedRules() {
+  return [...document.querySelectorAll('.ra-rule-cb:checked')].map(cb => cb.value);
+}
+
+function updateCount() {
+  const n   = selectedRules().length;
+  const el  = document.getElementById('sel-count');
+  el.textContent = n ? `${n} rule${n !== 1 ? 's' : ''} selected (${n * 2} words)` : 'No rules selected';
+}
+
+document.querySelectorAll('.ra-rule-cb').forEach(cb =>
+  cb.addEventListener('change', updateCount));
+
+function toggleStage(stage, checked) {
+  document.querySelectorAll(`.ra-rule-label[data-stage="${stage}"] .ra-rule-cb`)
+    .forEach(cb => cb.checked = checked);
+  updateCount();
+}
+
+function filterRules(q) {
+  const lq = q.toLowerCase().trim();
+  document.querySelectorAll('.ra-rule-label').forEach(label => {
+    const match = !lq ||
+      label.dataset.title.includes(lq) ||
+      label.querySelector('.ra-rule-id').textContent.includes(lq);
+    label.style.display = match ? '' : 'none';
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function showSpin(id, show) {
+  document.getElementById('spin-' + id)?.classList.toggle('hidden', !show);
+}
+function showStatus(msg, type='ok') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.className   = `status-bar status-${type}`;
+  bar.classList.remove('hidden');
+  if (type === 'ok') setTimeout(() => bar.classList.add('hidden'), 7000);
+}
+function blob64(b64, mime) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
+}
+
+// ── Generate ──────────────────────────────────────────────────────
+async function generate() {
+  const rules = selectedRules();
+  if (!rules.length) { showStatus('Select at least one rule.', 'error'); return; }
+  showSpin('generate', true);
+  document.getElementById('generate-btn').disabled = true;
+  document.getElementById('dl-pdf').classList.add('hidden');
+  try {
+    const resp = await fetch('/api/rule-assessment/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS, rules }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error, 'error'); return; }
+    const a = document.getElementById('dl-pdf');
+    a.href     = blob64(d.pdf, 'application/pdf');
+    a.download = d.pdf_name;
+    a.classList.remove('hidden');
+    showStatus(`✅ Generated — ${d.n_rules} rules, ${d.n_words} words, ${d.n_pupils} pupils.`);
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin('generate', false);
+    document.getElementById('generate-btn').disabled = false;
+  }
+}
+
+// ── Import: streaming ─────────────────────────────────────────────
+let _importResults = {};
+let _errorPages    = [];
+let _activeSource  = null;
+
+// Results: {name_lower: {name, results: {word: bool}}}
+// Displayed as per-pupil rule scores derived from accumulated word results
+
+function ruleScores(wordResults) {
+  // We just show counts in the table — server computes per-rule on confirm
+  const total = Object.keys(wordResults).length;
+  const correct = Object.values(wordResults).filter(Boolean).length;
+  return { total, correct };
+}
+
+async function startImport() {
+  const rules = selectedRules();
+  const file  = document.getElementById('pdf-upload').files[0];
+  if (!file)  { showStatus('Choose a PDF file first.', 'error'); return; }
+  if (!rules.length) { showStatus('Select the same rules used when generating the sheet.', 'error'); return; }
+
+  _importResults = {};
+  _errorPages    = [];
+
+  document.getElementById('results-body').innerHTML = '';
+  document.getElementById('import-results').classList.add('hidden');
+  document.getElementById('errors-note').classList.add('hidden');
+  document.getElementById('confirm-btn').disabled = true;
+  document.getElementById('import-progress').classList.remove('hidden');
+  setProgress(0, 0, 'Uploading…');
+
+  let jobId, nPages;
+  try {
+    const b64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload  = e => res(e.target.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+    const resp = await fetch('/api/rule-assessment/import-upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS, rules, pdf: b64 }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error, 'error'); resetImport(); return; }
+    jobId  = d.job_id;
+    nPages = d.n_pages;
+    setProgress(0, nPages, `Processing page 1 of ${nPages}…`);
+  } catch(e) {
+    showStatus('Upload failed: ' + e.message, 'error');
+    resetImport();
+    return;
+  }
+
+  document.getElementById('import-results').classList.remove('hidden');
+  if (_activeSource) _activeSource.close();
+
+  const source = new EventSource(`/api/rule-assessment/import-stream/${jobId}`);
+  _activeSource = source;
+
+  source.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+
+    if (ev.type === 'page') {
+      const nameKey = ev.name.trim().toLowerCase();
+      if (nameKey) {
+        if (!_importResults[nameKey])
+          _importResults[nameKey] = { name: ev.name, results: {} };
+        Object.assign(_importResults[nameKey].results, ev.results);
+        renderRow(ev.name, _importResults[nameKey].results);
+      }
+      setProgress(ev.page_num, ev.total,
+        ev.page_num < ev.total ? `Processing page ${ev.page_num + 1} of ${ev.total}…` : 'Finishing…');
+    }
+
+    if (ev.type === 'error') {
+      _errorPages.push(`Page ${ev.page_num}: ${ev.message}`);
+      setProgress(ev.page_num, ev.total, `Processing page ${ev.page_num + 1} of ${ev.total}…`);
+    }
+
+    if (ev.type === 'done' || ev.type === 'fatal') {
+      source.close(); _activeSource = null;
+      document.getElementById('import-progress').classList.add('hidden');
+      if (ev.type === 'fatal') {
+        showStatus('Processing failed: ' + ev.message, 'error');
+      } else {
+        const n = Object.keys(_importResults).length;
+        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n !== 1 ? 's' : ''} found.`);
+        document.getElementById('confirm-btn').disabled = false;
+      }
+      if (_errorPages.length) {
+        const note = document.getElementById('errors-note');
+        note.textContent = `⚠️ Could not read ${_errorPages.length} page(s): ${_errorPages.join('; ')}`;
+        note.classList.remove('hidden');
+      }
+    }
+  };
+
+  source.onerror = () => {
+    source.close(); _activeSource = null;
+    document.getElementById('import-progress').classList.add('hidden');
+    showStatus('Connection lost. Results so far are shown below.', 'error');
+    if (Object.keys(_importResults).length)
+      document.getElementById('confirm-btn').disabled = false;
+  };
+}
+
+function setProgress(done, total, label) {
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('progress-bar').style.width   = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function renderRow(name, wordResults) {
+  // Show per-rule breakdown: full / partial / none
+  // (We don't know the rule groupings in JS, so show word-level totals)
+  const words   = Object.keys(wordResults).length;
+  const correct = Object.values(wordResults).filter(Boolean).length;
+  // Approximation: assume pairs → full = correct pairs, etc.
+  // Exact per-rule scoring happens server-side on confirm
+  const nameKey = name.trim().toLowerCase();
+  const rowId   = 'row-' + nameKey.replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  let row = document.getElementById(rowId);
+  if (!row) {
+    row = document.createElement('tr');
+    row.id = rowId;
+    document.getElementById('results-body').appendChild(row);
+  }
+  const rulesTotal = Math.floor(words / 2);
+  row.innerHTML = `
+    <td>${name}</td>
+    <td>${rulesTotal} rule${rulesTotal !== 1 ? 's' : ''}</td>
+    <td colspan="3" style="color:var(--muted);font-size:12px">${correct}/${words} words correct — rule scores calculated on save</td>`;
+}
+
+async function confirmImport() {
+  showSpin('confirm', true);
+  document.getElementById('confirm-btn').disabled = true;
+  try {
+    const resp = await fetch('/api/rule-assessment/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        cls: CLS, rules: selectedRules(),
+        week_ref: WEEK_REF, results: _importResults
+      }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error, 'error'); return; }
+    let msg = `✅ Saved rule confidence for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
+    if (d.unmatched?.length) msg += ` No match: ${d.unmatched.join(', ')}.`;
+    showStatus(msg);
+    document.getElementById('import-results').classList.add('hidden');
+    document.getElementById('pdf-upload').value = '';
+    _importResults = {};
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+    document.getElementById('confirm-btn').disabled = false;
+  } finally {
+    showSpin('confirm', false);
+  }
+}
+
+function cancelImport() {
+  if (_activeSource) { _activeSource.close(); _activeSource = null; }
+  resetImport();
+}
+
+function resetImport() {
+  document.getElementById('import-progress').classList.add('hidden');
+  document.getElementById('import-results').classList.add('hidden');
+  document.getElementById('pdf-upload').value = '';
+  _importResults = {};
+  _errorPages    = [];
+}
+</script>
+{% endblock %}

@@ -831,3 +831,27 @@ body {
 .wa-progress-label {
   font-size: 12px; color: var(--muted); margin: 0 0 8px;
 }
+
+/* ── Rule selector ──────────────────────────────────────────────── */
+.ra-stage { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; }
+.ra-stage-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; cursor: pointer; font-weight: 700; font-size: 13px;
+  list-style: none; background: var(--surface); border-radius: var(--radius);
+}
+.ra-stage-summary::-webkit-details-marker { display: none; }
+.ra-stage[open] .ra-stage-summary { border-radius: var(--radius) var(--radius) 0 0; border-bottom: 1px solid var(--border); }
+.ra-stage-all { font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.ra-rules-grid {
+  display: flex; flex-direction: column; gap: 0;
+  padding: 4px 0;
+}
+.ra-rule-label {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 12px; font-size: 12px; cursor: pointer;
+  transition: background .1s;
+}
+.ra-rule-label:hover { background: var(--surface); }
+.ra-rule-id { color: var(--brand); font-weight: 700; white-space: nowrap; flex-shrink: 0; width: 36px; }
+.ra-rule-title { color: var(--text); }
+.muted-label { color: var(--muted); font-size: 12px; }
