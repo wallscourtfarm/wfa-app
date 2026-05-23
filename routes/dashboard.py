@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, session, redirect, url_for, reques
 from data_manager import load_dashboard, TT_ORDER, ALL_CLASSES
 
 dash_bp = Blueprint('dash', __name__)
-CLASS_OPTIONS = [('Y4_IM','Y4 IM'),('Y4_WU','Y4 WU'),('all','Both classes')]
+CLASS_OPTIONS = [('Y4_IM','Y4 IM'),('Y4_WU','Y4 WU'),('all','Y4 ALL')]
 
 @dash_bp.route('/')
 @dash_bp.route('/dashboard')
