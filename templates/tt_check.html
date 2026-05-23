@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}TT Check{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Times Table Check</h2>
+  <div class="header-actions">
+    <button id="btn-advance" class="btn btn-primary" disabled>
+      Advance selected (<span id="advance-count">0</span>)
+    </button>
+    <button id="btn-refresh" class="btn btn-ghost">↺ Refresh</button>
+  </div>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+{% if pupils %}
+<div class="tt-table-wrap">
+  <table class="tt-table" id="tt-table">
+    <thead>
+      <tr>
+        <th class="col-check"><input type="checkbox" id="check-all" title="Select all"></th>
+        <th>Name</th>
+        <th>TT Stage</th>
+        <th>Attempts</th>
+        <th>Correct</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pupils %}
+      <tr data-name="{{ p.name }}">
+        <td class="col-check">
+          <input type="checkbox" class="row-check" value="{{ p.name }}">
+        </td>
+        <td class="pupil-name">{{ p.name }}</td>
+        <td>
+          <span class="tt-badge">{{ p.current_tt }}×</span>
+        </td>
+        <td>
+          <input type="number" class="cell-input" data-field="attempts"
+                 value="{{ p.attempts }}" min="0" max="100">
+        </td>
+        <td>
+          <input type="number" class="cell-input" data-field="correct"
+                 value="{{ p.correct }}" min="0" max="{{ p.attempts }}">
+        </td>
+        <td class="score-cell">
+          {% if p.attempts and p.attempts > 0 %}
+            {{ ((p.correct / p.attempts) * 100) | round | int }}%
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="tt-save-row">
+  <button id="btn-save" class="btn btn-secondary">Save results</button>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <p>No pupil data loaded.</p>
+  <p class="hint">Check that <code>DATA_REPO</code> and <code>GITHUB_TOKEN</code> are set correctly in Render environment variables, and that <code>data/tt_data.json</code> exists in the data repo.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS = "{{ cls }}";
+
+// ── Selection ────────────────────────────────────────────────────────────────
+const checkAll = document.getElementById('check-all');
+const advanceBtn = document.getElementById('btn-advance');
+const advanceCount = document.getElementById('advance-count');
+
+function updateAdvanceBtn() {
+  const checked = document.querySelectorAll('.row-check:checked');
+  advanceCount.textContent = checked.length;
+  advanceBtn.disabled = checked.length === 0;
+}
+
+document.querySelectorAll('.row-check').forEach(cb => {
+  cb.addEventListener('change', updateAdvanceBtn);
+});
+
+checkAll.addEventListener('change', () => {
+  document.querySelectorAll('.row-check').forEach(cb => {
+    cb.checked = checkAll.checked;
+  });
+  updateAdvanceBtn();
+});
+
+// ── Score recalc ─────────────────────────────────────────────────────────────
+document.querySelectorAll('tr[data-name]').forEach(row => {
+  const attInput = row.querySelector('[data-field="attempts"]');
+  const corInput = row.querySelector('[data-field="correct"]');
+  const scoreCell = row.querySelector('.score-cell');
+
+  function recalc() {
+    const att = parseInt(attInput.value) || 0;
+    const cor = parseInt(corInput.value) || 0;
+    scoreCell.textContent = att > 0 ? Math.round((cor / att) * 100) + '%' : '—';
+  }
+
+  attInput.addEventListener('input', recalc);
+  corInput.addEventListener('input', recalc);
+});
+
+// ── Status bar ───────────────────────────────────────────────────────────────
+const statusBar = document.getElementById('status-bar');
+function showStatus(msg, type = 'info') {
+  statusBar.textContent = msg;
+  statusBar.className = `status-bar status-${type}`;
+  setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3000);
+}
+
+// ── Advance ──────────────────────────────────────────────────────────────────
+advanceBtn.addEventListener('click', async () => {
+  const names = [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+  advanceBtn.disabled = true;
+  advanceBtn.textContent = 'Saving…';
+
+  const res = await fetch('/api/tt/advance', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({cls: CLS, names})
+  });
+  const data = await res.json();
+
+  if (data.ok) {
+    showStatus(`Advanced ${names.length} pupil(s). Reloading…`, 'success');
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+    advanceBtn.disabled = false;
+    advanceBtn.innerHTML = 'Advance selected (<span id="advance-count">' + names.length + '</span>)';
+  }
+});
+
+// ── Save results ─────────────────────────────────────────────────────────────
+document.getElementById('btn-save')?.addEventListener('click', async () => {
+  const results = [];
+  document.querySelectorAll('tr[data-name]').forEach(row => {
+    results.push({
+      name: row.dataset.name,
+      attempts: parseInt(row.querySelector('[data-field="attempts"]').value) || 0,
+      correct:  parseInt(row.querySelector('[data-field="correct"]').value)  || 0,
+    });
+  });
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const res = await fetch('/api/tt/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({cls: CLS, results})
+  });
+  const data = await res.json();
+
+  btn.disabled = false;
+  btn.textContent = 'Save results';
+
+  if (data.ok) {
+    showStatus('Results saved.', 'success');
+  } else {
+    showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+  }
+});
+
+// ── Refresh ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-refresh').addEventListener('click', () => location.reload());
+</script>
+{% endblock %}
