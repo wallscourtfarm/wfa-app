@@ -1,15 +1,13 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_tt_data, advance_tt_pupils, save_tt_results
+from data_manager import load_tt_pupils, advance_tt_pupils
 
 tt_bp = Blueprint('tt', __name__)
-
-DEFAULT_CLASS = 'IM'
+DEFAULT_CLASS = 'Y4_IM'
 
 
 def require_auth():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    return None
 
 
 @tt_bp.route('/tt')
@@ -17,7 +15,7 @@ def tt_check():
     redir = require_auth()
     if redir:
         return redir
-    pupils = load_tt_data(DEFAULT_CLASS)
+    pupils = load_tt_pupils(DEFAULT_CLASS)
     return render_template('tt_check.html', pupils=pupils, cls=DEFAULT_CLASS)
 
 
@@ -26,22 +24,11 @@ def api_tt_advance():
     if not session.get('authenticated'):
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     body = request.get_json(force=True)
-    cls = body.get('cls', DEFAULT_CLASS)
-    names = body.get('names', [])
-    if not names:
+    cls  = body.get('cls', DEFAULT_CLASS)
+    ids  = body.get('ids', [])
+    if not ids:
         return jsonify({'ok': False, 'error': 'No pupils selected'})
-    result = advance_tt_pupils(cls, names)
-    return jsonify(result)
-
-
-@tt_bp.route('/api/tt/save', methods=['POST'])
-def api_tt_save():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    body = request.get_json(force=True)
-    cls = body.get('cls', DEFAULT_CLASS)
-    results = body.get('results', [])
-    result = save_tt_results(cls, results)
+    result = advance_tt_pupils(cls, ids)
     return jsonify(result)
 
 
@@ -50,5 +37,5 @@ def api_tt_data():
     if not session.get('authenticated'):
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     cls = request.args.get('cls', DEFAULT_CLASS)
-    pupils = load_tt_data(cls)
+    pupils = load_tt_pupils(cls)
     return jsonify({'ok': True, 'pupils': pupils})
