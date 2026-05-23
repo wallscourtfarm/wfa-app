@@ -133,7 +133,16 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
         for pg_idx, page_items in enumerate(pages):
             pg_label = f"Page {pg_idx + 1} of {n_pages}"
             top_y = _draw_page_header(c, W, H, name, week_ref, pg_label)
-            cy = top_y - 6 * mm
+
+            # Marking instruction (first page only)
+            if pg_idx == 0:
+                c.setFont("Helvetica-Oblique", 7)
+                c.setFillColorRGB(0.45, 0.45, 0.45)
+                c.drawRightString(M + UW, top_y - 3.5 * mm,
+                                  "Marking: fill the box ■ = correct   empty = incorrect")
+                cy = top_y - 7 * mm
+            else:
+                cy = top_y - 5 * mm
 
             for item in page_items:
                 if item[0] == "section":

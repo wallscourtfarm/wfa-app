@@ -160,14 +160,16 @@ def api_wa_import():
                 f"This is a scanned page from a Year 3/4 spelling assessment completed by a primary school pupil.\n\n"
                 f"The child's name is pre-printed at the top of the page — read it exactly as printed.\n\n"
                 f"The assessment tests these words in order:\n{word_list_text}\n\n"
-                f"Each row has a small square box on the right-hand side. The teacher has marked each box "
-                f"to indicate correct (tick, filled box, circle, dot, or any mark inside the box) "
-                f"or left it empty to indicate incorrect.\n\n"
-                f"For each word that appears on this page, return whether the box is marked (correct=true) "
-                f"or empty (correct=false).\n\n"
+                f"Each row has a small square box on the right-hand side. The teacher marks correct answers "
+                f"by filling the box in solid (scribbling it completely dark). An empty or nearly empty box "
+                f"means incorrect. A small stray mark or dot does NOT count as filled — the box must be "
+                f"substantially filled (more than half the box area is dark).\n\n"
+                f"For each word that appears on this page, return true if the box is filled solid, "
+                f"false if it is empty or only has a stray mark.\n\n"
                 f"Return ONLY valid JSON with this structure:\n"
                 f'{{"name": "Full Name", "results": {{"word1": true, "word2": false, ...}}}}\n'
-                f"true = box marked, false = box empty, omit words not visible on this page.\n"
+                f"true = box filled solid, false = box empty or stray mark only. "
+                f"Omit words not visible on this page.\n"
                 f"No preamble, no markdown fences."
             )
 
