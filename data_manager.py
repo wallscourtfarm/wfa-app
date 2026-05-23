@@ -192,3 +192,20 @@ def load_learners(class_id='Y4_IM'):
     data = load_class(class_id)
     if not data: return []
     return data.get('pupils', [])
+
+def save_weekly_config(data):
+    """Save weekly_config.json back to GitHub."""
+    _, sha = _get_file('data/weekly_config.json')
+    if sha is None:
+        return False
+    return _put_file('data/weekly_config.json', data, sha, 'Update weekly config')
+
+
+def list_plannable_rules():
+    """All plannable rules (standard + custom) for Settings dropdowns."""
+    from spelling_rules import SPELLING_RULES
+    custom_rules = load_custom_rules()
+    custom   = [(f'0-{cr["id"]}', f'Custom: {cr["title"]}') for cr in custom_rules]
+    standard = [(f'{r[0]}-{r[1]}', f'S{r[0]} Step {r[1]}: {r[2]}')
+                for r in SPELLING_RULES if r[4] != 1]
+    return custom + standard
