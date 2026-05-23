@@ -1,9 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, send_file
-import io, base64
-from data_manager import (
-    load_class, load_weekly_config, get_rule, ALL_CLASSES,
-    load_learners
-)
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+import io, base64, traceback
+from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -18,7 +15,6 @@ def _auth():
 
 
 def _load_pupils(cls):
-    """Load raw pupil dicts for one class or all."""
     if cls == 'all':
         pupils = []
         for cid in ALL_CLASSES:
@@ -31,8 +27,6 @@ def _load_pupils(cls):
 
 
 def _get_rules(cls):
-    """Return (main_rule, rev_rule, week_ref) from weekly_config.
-    For 'all', use Y4_IM as the reference class (rules are year-group-wide)."""
     wc      = load_weekly_config()
     ref_cls = 'Y4_IM' if cls == 'all' else cls
     cfg     = wc.get('classes', {}).get(ref_cls, {})
@@ -49,6 +43,10 @@ def _build_key_words_map(pupils):
     return km
 
 
+def _err(e):
+    return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+
+
 # ── Page ──────────────────────────────────────────────────────────────────────
 
 @print_bp.route('/print')
@@ -58,7 +56,11 @@ def print_page():
     cls = request.args.get('cls', DEFAULT_CLASS)
     if cls not in [c[0] for c in CLASS_OPTIONS]:
         cls = DEFAULT_CLASS
-    main_rule, rev_rule, week_ref = _get_rules(cls)
+    try:
+        main_rule, rev_rule, week_ref = _get_rules(cls)
+    except Exception:
+        main_rule = rev_rule = None
+        week_ref = '—'
     return render_template('print_tools.html',
         cls=cls,
         class_options=CLASS_OPTIONS,
@@ -74,34 +76,27 @@ def print_page():
 def api_handwriting():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    body = request.get_json(force=True)
-    cls  = body.get('cls', DEFAULT_CLASS)
-
-    main_rule, _, week_ref = _get_rules(cls)
-
-    # Custom words override; fall back to this week's rule words
-    custom_raw = body.get('words', '').strip()
-    if custom_raw:
-        words = [w.strip() for w in custom_raw.replace(',', '\n').splitlines() if w.strip()]
-    else:
-        words = list(main_rule[3]) if main_rule else []
-
-    if not words:
-        return jsonify({'ok': False, 'error': 'No words to practise — set a main rule in Settings or enter words manually'})
-
     try:
+        body = request.get_json(force=True)
+        cls  = body.get('cls', DEFAULT_CLASS)
+        main_rule, _, week_ref = _get_rules(cls)
+        custom_raw = body.get('words', '').strip()
+        if custom_raw:
+            words = [w.strip() for w in custom_raw.replace(',', '\n').splitlines() if w.strip()]
+        else:
+            words = list(main_rule[3]) if main_rule else []
+        if not words:
+            return jsonify({'ok': False, 'error': 'No words — set a main rule in Settings or enter words manually'})
         from pdf_builder import build_handwriting_sheet
         data = build_handwriting_sheet(words, week_ref)
+        return jsonify({
+            'ok': True, 'data': base64.b64encode(data).decode(),
+            'mime': 'application/pdf',
+            'filename': f'Handwriting_{week_ref}.pdf',
+            'n': len(words),
+        })
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-
-    return jsonify({
-        'ok':      True,
-        'data':    base64.b64encode(data).decode(),
-        'mime':    'application/pdf',
-        'filename': f'Handwriting_{week_ref}.pdf',
-        'n':       len(words),
-    })
+        return _err(e)
 
 
 # ── API: Paired word lists ─────────────────────────────────────────────────────
@@ -110,30 +105,25 @@ def api_handwriting():
 def api_paired_lists():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
-
-    pupils     = _load_pupils(cls)
-    if not pupils:
-        return jsonify({'ok': False, 'error': 'No pupils found'})
-
-    main_rule, rev_rule, week_ref = _get_rules(cls)
-    main_words = list(main_rule[3]) if main_rule else []
-    rev_words  = list(rev_rule[3])  if rev_rule  else []
-    key_words_map = _build_key_words_map(pupils)
-
     try:
+        cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
+        pupils = _load_pupils(cls)
+        if not pupils:
+            return jsonify({'ok': False, 'error': 'No pupils found'})
+        main_rule, rev_rule, week_ref = _get_rules(cls)
+        main_words    = list(main_rule[3]) if main_rule else []
+        rev_words     = list(rev_rule[3])  if rev_rule  else []
+        key_words_map = _build_key_words_map(pupils)
         from pdf_builder import build_paired_word_lists
         data = build_paired_word_lists(pupils, main_words, rev_words, key_words_map, week_ref)
+        return jsonify({
+            'ok': True, 'data': base64.b64encode(data).decode(),
+            'mime': 'application/pdf',
+            'filename': f'Paired_Lists_{week_ref}_{cls}.pdf',
+            'n': len(pupils),
+        })
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-
-    return jsonify({
-        'ok':      True,
-        'data':    base64.b64encode(data).decode(),
-        'mime':    'application/pdf',
-        'filename': f'Paired_Lists_{week_ref}_{cls}.pdf',
-        'n':       len(pupils),
-    })
+        return _err(e)
 
 
 # ── API: Recording sheet ───────────────────────────────────────────────────────
@@ -142,27 +132,22 @@ def api_paired_lists():
 def api_recording_sheet():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
-
-    pupils = _load_pupils(cls)
-    if not pupils:
-        return jsonify({'ok': False, 'error': 'No pupils found'})
-
-    _, _, week_ref = _get_rules(cls)
-
     try:
+        cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
+        pupils = _load_pupils(cls)
+        if not pupils:
+            return jsonify({'ok': False, 'error': 'No pupils found'})
+        _, _, week_ref = _get_rules(cls)
         from pdf_builder import build_recording_sheet
         data = build_recording_sheet(pupils, week_ref)
+        return jsonify({
+            'ok': True, 'data': base64.b64encode(data).decode(),
+            'mime': 'application/pdf',
+            'filename': f'Recording_Sheet_{week_ref}_{cls}.pdf',
+            'n': len(pupils),
+        })
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-
-    return jsonify({
-        'ok':      True,
-        'data':    base64.b64encode(data).decode(),
-        'mime':    'application/pdf',
-        'filename': f'Recording_Sheet_{week_ref}_{cls}.pdf',
-        'n':       len(pupils),
-    })
+        return _err(e)
 
 
 # ── API: TT check sheet ────────────────────────────────────────────────────────
@@ -171,24 +156,19 @@ def api_recording_sheet():
 def api_tt_check():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
-
-    pupils = _load_pupils(cls)
-    if not pupils:
-        return jsonify({'ok': False, 'error': 'No pupils found'})
-
-    _, _, week_ref = _get_rules(cls)
-
     try:
+        cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
+        pupils = _load_pupils(cls)
+        if not pupils:
+            return jsonify({'ok': False, 'error': 'No pupils found'})
+        _, _, week_ref = _get_rules(cls)
         from pdf_builder import build_tt_check_sheet
         data = build_tt_check_sheet(pupils, week_ref, seed=None)
+        return jsonify({
+            'ok': True, 'data': base64.b64encode(data).decode(),
+            'mime': 'application/pdf',
+            'filename': f'TT_Check_{week_ref}_{cls}.pdf',
+            'n': len(pupils),
+        })
     except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
-
-    return jsonify({
-        'ok':      True,
-        'data':    base64.b64encode(data).decode(),
-        'mime':    'application/pdf',
-        'filename': f'TT_Check_{week_ref}_{cls}_Variant{variant}.pdf',
-        'n':       len(pupils),
-    })
+        return _err(e)
