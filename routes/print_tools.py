@@ -171,9 +171,7 @@ def api_recording_sheet():
 def api_tt_check():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    body    = request.get_json(force=True)
-    cls     = body.get('cls', DEFAULT_CLASS)
-    variant = body.get('variant', 'A')
+    cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
 
     pupils = _load_pupils(cls)
     if not pupils:
@@ -183,7 +181,7 @@ def api_tt_check():
 
     try:
         from pdf_builder import build_tt_check_sheet
-        data = build_tt_check_sheet(pupils, week_ref, seed=None, variant=variant)
+        data = build_tt_check_sheet(pupils, week_ref, seed=None)
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 

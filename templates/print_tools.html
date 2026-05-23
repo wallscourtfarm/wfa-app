@@ -89,15 +89,10 @@
     <span class="print-card-icon">✖️</span>
     <div>
       <h3 class="print-card-title">TT Check Sheet</h3>
-      <p class="print-card-desc">A4 landscape, two half-sheets — one per child, 40 questions at their current times table level.</p>
+      <p class="print-card-desc">A4 landscape, two half-sheets — one per child, 40 questions at their current times table level. Multiplication or mixed × and ÷ per child based on their current setting.</p>
     </div>
   </div>
   <div class="print-card-footer">
-    <label class="print-variant-label">Variant:</label>
-    <select class="print-variant-select" id="tt-variant">
-      <option value="A">A — multiplication only</option>
-      <option value="B">B — mixed × and ÷</option>
-    </select>
     <button class="btn btn-primary" onclick="generateTT()">
       ⬇ Download TT check sheet PDF
     </button>
@@ -175,13 +170,12 @@ async function generate(endpoint, labelKey) {
 }
 
 async function generateTT() {
-  const variant = document.getElementById('tt-variant').value;
   showSpin('tt-check', true);
   try {
     const resp = await fetch('/api/print/tt-check', {
       method:  'POST',
       headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify({ cls: CLS, variant }),
+      body:    JSON.stringify({ cls: CLS }),
     });
     const d = await resp.json();
     if (!d.ok) { showError(d.error); return; }

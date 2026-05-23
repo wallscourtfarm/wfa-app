@@ -390,10 +390,11 @@ def build_recording_sheet(pupils, week_ref):
 
 # ── TT Check sheet ─────────────────────────────────────────────────────────
 
-def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
+def build_tt_check_sheet(pupils, week_ref, seed=None, variant=None):
     """
     A4 landscape. Two A5-portrait halves side by side, cut down the middle.
     Each half: Name + Score/Time box at top, shaded TT label, 40 questions in 2x20 columns.
+    variant is derived per-pupil from tt_mode ('x' → A, 'xd' → B).
     Pupils arrive pre-sorted — order preserved.
     """
     if seed:
@@ -407,19 +408,17 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
     PAD    = 8                # inner padding pt
     BORDER = 6               # border inset from half edge
 
-    def questions_for(tt_set):
+    def questions_for(tt_set, pupil_variant):
         """
         Returns list of (display_str, is_division) tuples.
-        Set A: multiplication only, commutative mix.
-        Set B: ~60% multiplication, ~40% division.
+        Variant A: multiplication only. Variant B: ~60% × / ~40% ÷.
         """
         qs = []
         for i in range(40):
             if tt_set == "All":
                 t  = random.randint(2, 12)
                 f  = random.randint(2, 12)
-                # Set B: mix in some division for All
-                if variant == "B" and random.random() < 0.4:
+                if pupil_variant == "B" and random.random() < 0.4:
                     product = t * f
                     qs.append((f"{product}  ÷  {t}  =", True))
                 else:
@@ -430,7 +429,7 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
             else:
                 t = int(tt_set)
                 f = random.randint(2, 12)
-                if variant == "B" and random.random() < 0.4:
+                if pupil_variant == "B" and random.random() < 0.4:
                     product = t * f
                     qs.append((f"{product}  ÷  {t}  =", True))
                 else:
@@ -440,8 +439,8 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
                         qs.append((f"{f}  ×  {t}  =", False))
         return qs
 
-    def tt_label(tt_set):
-        suffix = "  (× and ÷)" if variant == "B" else "  ×"
+    def tt_label(tt_set, pupil_variant):
+        suffix = "  (× and ÷)" if pupil_variant == "B" else "  ×"
         if tt_set == "All":
             return "2,3,4,5,6,7,8,9,10,11,12" + suffix
         return f"{tt_set}" + suffix
@@ -458,7 +457,9 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
         c.setLineWidth(1)
         c.rect(bx, by, bw, bh, fill=0, stroke=1)
 
-        tt      = pupil.get("tt_set", "All")
+        tt           = pupil.get("tt_set", "All")
+        tt_mode      = pupil.get("tt_mode", "x")
+        pupil_variant = "B" if tt_mode == "xd" else "A"
         first   = pupil.get("first", "")
         last    = pupil.get("last", "")
         name    = f"{first} {last}".strip()
@@ -507,7 +508,7 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
         c.rect(bx, bar_y, bw, BAR_H, fill=1, stroke=0)
         c.setFont("Helvetica-Bold", 11)
         c.setFillColorRGB(0, 0, 0)
-        c.drawCentredString(bx + bw / 2, bar_y + 5, tt_label(tt))
+        c.drawCentredString(bx + bw / 2, bar_y + 5, tt_label(tt, pupil_variant))
 
         # ── Questions table ────────────────────────────────────────────
         Q_TOP    = bar_y
@@ -523,7 +524,7 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant="A"):
 
         Q_FONT   = 12
         NUM_FONT = 10
-        qs = questions_for(tt)
+        qs = questions_for(tt, pupil_variant)
 
         c.setLineWidth(0.5)
 
@@ -1382,7 +1383,7 @@ def _ensure_xccw():
 
 def _xccw_font(ch, prev):
     """Return XCCW font variant based on previous character."""
-    if prev and prev.lower() in _TOP_EXIT:
+    if prev and prev in _TOP_EXIT:
         return 'XCCW_Joined_4b'
     return 'XCCW_Joined_4a'
 
@@ -1834,7 +1835,7 @@ def _draw_xccw_dotted(c, x, y, text, size):
     _ensure_xccw_dotted()
     prev = None
     for ch in text:
-        if prev and prev.lower() in _TOP_EXIT:
+        if prev and prev in _TOP_EXIT:
             font = 'XCCW_Joined_Dotted_4b'
         else:
             font = 'XCCW_Joined_Dotted_4a'
@@ -1856,7 +1857,7 @@ def _xccw_dotted_width(text, size):
     prev = None
     for ch in text:
         font = ('XCCW_Joined_Dotted_4b'
-                if prev and prev.lower() in _TOP_EXIT
+                if prev and prev in _TOP_EXIT
                 else 'XCCW_Joined_Dotted_4a')
         try:
             w += pdfmetrics.stringWidth(ch, font, size)
