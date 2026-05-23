@@ -20,15 +20,13 @@
     </div>
   </div>
 
-  <!-- Per-class rule assignment -->
-  {% for cls_id, cls_label in class_options %}
-  {% set cls_cfg = wc.get('classes', {}).get(cls_id, {}) %}
+  <!-- Spelling rules — single set for all classes -->
+  {% set cls_cfg = wc.get('classes', {}).get('Y4_IM', {}) %}
   <div class="settings-section">
-    <h3 class="settings-heading">{{ cls_label }} — Spelling rules</h3>
-
+    <h3 class="settings-heading">Spelling rules</h3>
     <div class="settings-row">
       <label class="settings-label">Main rule</label>
-      <select id="main_{{ cls_id }}" class="cls-select" style="max-width:420px">
+      <select id="main_rule" class="cls-select" style="max-width:420px">
         <option value="">— None —</option>
         {% for rid, label in rules %}
         <option value="{{ rid }}" {% if rid == cls_cfg.get('main_rule_id') %}selected{% endif %}>
@@ -37,10 +35,9 @@
         {% endfor %}
       </select>
     </div>
-
     <div class="settings-row">
       <label class="settings-label">Revision rule</label>
-      <select id="revision_{{ cls_id }}" class="cls-select" style="max-width:420px">
+      <select id="revision_rule" class="cls-select" style="max-width:420px">
         <option value="">— None —</option>
         {% for rid, label in rules %}
         <option value="{{ rid }}" {% if rid == cls_cfg.get('revision_rule_id') %}selected{% endif %}>
@@ -50,7 +47,6 @@
       </select>
     </div>
   </div>
-  {% endfor %}
 
   <div class="settings-save-row">
     <button class="btn btn-primary btn-lg" onclick="saveSettings()">💾 Save settings</button>
@@ -62,15 +58,15 @@
 {% block scripts %}
 <script>
 async function saveSettings() {
-  const week_ref = document.getElementById('week_ref').value.trim();
-  const classes  = {};
+  const week_ref       = document.getElementById('week_ref').value.trim();
+  const main_rule_id   = document.getElementById('main_rule').value || null;
+  const rev_rule_id    = document.getElementById('revision_rule').value || null;
 
-  {% for cls_id, cls_label in class_options %}
-  classes['{{ cls_id }}'] = {
-    main_rule_id:     document.getElementById('main_{{ cls_id }}').value     || null,
-    revision_rule_id: document.getElementById('revision_{{ cls_id }}').value || null,
-  };
-  {% endfor %}
+  // Apply same rules to both classes
+  const classes = {};
+  ['Y4_IM', 'Y4_WU'].forEach(cls => {
+    classes[cls] = { main_rule_id: main_rule_id, revision_rule_id: rev_rule_id };
+  });
 
   const btn = event.target;
   btn.disabled = true;
