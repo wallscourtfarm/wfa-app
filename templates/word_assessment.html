@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Word Assessment{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>📋 Word Assessment</h2>
+  <div class="header-actions">
+    <select class="cls-select" id="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<div class="hl-meta">
+  <span>Week: <strong>{{ week_ref or '— (set in Settings)' }}</strong></span>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<!-- ── Generate ─────────────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📄</span>
+    <div>
+      <h3 class="print-card-title">Generate assessment sheets</h3>
+      <p class="print-card-desc">Per-child cloze sentence sheets (PDF) and a marking grid (Excel). Select which word sets to include.</p>
+    </div>
+  </div>
+
+  <div class="wa-sections">
+    {% for key in section_keys %}
+    <label class="wa-check">
+      <input type="checkbox" class="wa-section-cb" value="{{ key }}" checked>
+      {{ key }}
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="print-card-footer" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="generate()">
+      ✨ Generate sheets
+    </button>
+    <span class="print-spinner hidden" id="spin-generate"></span>
+    <div id="generate-results" class="hidden" style="display:flex;gap:8px;flex-wrap:wrap">
+      <a id="dl-pdf"   class="btn btn-primary"   download>⬇ Pupil sheets PDF</a>
+      <a id="dl-excel" class="btn btn-secondary" download>⬇ Marking grid Excel</a>
+    </div>
+  </div>
+  <p id="flagged-msg" class="wa-flagged hidden"></p>
+</div>
+
+<!-- ── Import ───────────────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📥</span>
+    <div>
+      <h3 class="print-card-title">Import scanned papers</h3>
+      <p class="print-card-desc">Upload the scanned PDF of marked pupil papers. Claude reads each page, matches it to the child by name and extracts the results. Review before saving.</p>
+    </div>
+  </div>
+
+  <div class="wa-upload-row">
+    <input type="file" id="pdf-upload" accept="application/pdf" class="wa-file-input">
+    <button class="btn btn-primary" onclick="importPDF()">
+      🔍 Process PDF
+    </button>
+    <span class="print-spinner hidden" id="spin-import"></span>
+  </div>
+
+  <div id="import-results" class="hidden">
+    <h4 class="wa-results-title">Results — review before saving</h4>
+    <table class="wa-results-table" id="results-table">
+      <thead>
+        <tr>
+          <th>Name</th><th>Words seen</th><th>Correct</th><th>Incorrect</th><th>%</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+    <div class="print-card-footer" style="margin-top:12px">
+      <button class="btn btn-primary" onclick="confirmImport()">✅ Save to records</button>
+      <button class="btn btn-secondary" onclick="cancelImport()">✕ Cancel</button>
+      <span class="print-spinner hidden" id="spin-confirm"></span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS = "{{ cls }}";
+
+function selectedSections() {
+  return [...document.querySelectorAll('.wa-section-cb:checked')].map(cb => cb.value);
+}
+
+function showSpin(key, show) {
+  const el = document.getElementById('spin-' + key);
+  if (el) el.classList.toggle('hidden', !show);
+}
+
+function showError(msg) {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = '⚠️ ' + msg;
+  bar.className   = 'status-bar status-error';
+  bar.classList.remove('hidden');
+  setTimeout(() => bar.classList.add('hidden'), 8000);
+}
+
+function triggerDownload(b64, mime, filename, linkId) {
+  const bytes = atob(b64);
+  const arr   = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const blob = new Blob([arr], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.getElementById(linkId);
+  a.href     = url;
+  a.download = filename;
+}
+
+async function generate() {
+  const sections = selectedSections();
+  if (!sections.length) { showError('Select at least one word set.'); return; }
+  showSpin('generate', true);
+  document.getElementById('generate-results').classList.add('hidden');
+  try {
+    const resp = await fetch('/api/word-assessment/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS, sections }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error); return; }
+
+    triggerDownload(d.pdf,   'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'dl-pdf');
+    document.getElementById('dl-pdf').download   = d.pdf_name;
+    document.getElementById('dl-pdf').href = URL.createObjectURL(
+      new Blob([Uint8Array.from(atob(d.pdf), c=>c.charCodeAt(0))], {type:'application/pdf'}));
+
+    document.getElementById('dl-excel').download = d.excel_name;
+    document.getElementById('dl-excel').href = URL.createObjectURL(
+      new Blob([Uint8Array.from(atob(d.excel), c=>c.charCodeAt(0))],
+        {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+
+    document.getElementById('generate-results').classList.remove('hidden');
+    document.getElementById('generate-results').style.display = 'flex';
+
+    const fm = document.getElementById('flagged-msg');
+    if (d.flagged && d.flagged.length) {
+      fm.textContent = `⚠️ No cloze sentence found for: ${d.flagged.join(', ')}. These use a plain "Write the word" prompt.`;
+      fm.classList.remove('hidden');
+    } else {
+      fm.classList.add('hidden');
+    }
+  } catch(e) {
+    showError('Request failed: ' + e.message);
+  } finally {
+    showSpin('generate', false);
+  }
+}
+
+// Store import summary for confirm step
+let _importSummary = null;
+
+async function importPDF() {
+  const file = document.getElementById('pdf-upload').files[0];
+  if (!file) { showError('Choose a PDF file first.'); return; }
+  const sections = selectedSections();
+
+  showSpin('import', true);
+  document.getElementById('import-results').classList.add('hidden');
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const b64 = e.target.result.split(',')[1];
+    try {
+      const resp = await fetch('/api/word-assessment/import', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ cls: CLS, sections, pdf: b64 }),
+      });
+      const d = await resp.json();
+      if (!d.ok) { showError(d.error + (d.detail ? '\n' + d.detail : '')); return; }
+
+      _importSummary = d.summary;
+      const tbody = document.getElementById('results-body');
+      tbody.innerHTML = '';
+      d.summary.forEach(row => {
+        const pct = row.total ? Math.round(row.correct / row.total * 100) : '—';
+        const tr  = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.name}</td>
+          <td>${row.total}</td>
+          <td>${row.correct}</td>
+          <td>${row.total - row.correct}</td>
+          <td>${pct}${typeof pct === 'number' ? '%' : ''}</td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('import-results').classList.remove('hidden');
+    } catch(e) {
+      showError('Request failed: ' + e.message);
+    } finally {
+      showSpin('import', false);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function confirmImport() {
+  showSpin('confirm', true);
+  try {
+    const resp = await fetch('/api/word-assessment/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showError(d.error); return; }
+    document.getElementById('import-results').classList.add('hidden');
+    const bar = document.getElementById('status-bar');
+    let msg = `✅ Saved results for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
+    if (d.unmatched && d.unmatched.length) {
+      msg += ` No match found for: ${d.unmatched.join(', ')}.`;
+    }
+    bar.textContent = msg;
+    bar.className   = 'status-bar status-ok';
+    bar.classList.remove('hidden');
+    setTimeout(() => bar.classList.add('hidden'), 8000);
+  } catch(e) {
+    showError('Request failed: ' + e.message);
+  } finally {
+    showSpin('confirm', false);
+  }
+}
+
+function cancelImport() {
+  document.getElementById('import-results').classList.add('hidden');
+  document.getElementById('pdf-upload').value = '';
+  _importSummary = null;
+}
+</script>
+{% endblock %}

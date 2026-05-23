@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23y</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23z</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -17,7 +17,7 @@
       </a>
 
       <!-- Assessment dropdown -->
-      <div class="nav-dropdown {% if request.endpoint in ['bee.spelling_bee','tt.tt_check','stubs.word_assessment','stubs.rule_reassessment','stubs.digital_ipad'] %}active{% endif %}">
+      <div class="nav-dropdown {% if request.endpoint in ['bee.spelling_bee','tt.tt_check','word_assessment.word_assessment','stubs.rule_reassessment','stubs.digital_ipad'] %}active{% endif %}">
         <span class="nav-item nav-dropdown-toggle">✅ Assessment ▾</span>
         <div class="dropdown-menu">
           <a href="{{ url_for('bee.spelling_bee') }}"
@@ -28,8 +28,8 @@
              class="{% if request.endpoint=='tt.tt_check' %}active{% endif %}">
             🔢 TT Check
           </a>
-          <a href="{{ url_for('stubs.word_assessment') }}"
-             class="{% if request.endpoint=='stubs.word_assessment' %}active{% endif %}">
+          <a href="{{ url_for('word_assessment.word_assessment') }}"
+             class="{% if request.endpoint=='word_assessment.word_assessment' %}active{% endif %}">
             📋 Word Assessment
           </a>
           <a href="{{ url_for('stubs.rule_reassessment') }}"

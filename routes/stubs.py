@@ -5,14 +5,6 @@ def _auth():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
 
-@stubs_bp.route('/word-assessment')
-def word_assessment():
-    r = _auth()
-    if r: return r
-    return render_template('stub.html', title='Word Assessment', icon='📋',
-        description='Generate printable spelling test sheets from the word bank. Select Y1/Y2, Y3 and/or Y4 word sets.',
-        coming='Generating and downloading Excel sheets')
-
 @stubs_bp.route('/rule-reassessment')
 def rule_reassessment():
     r = _auth()

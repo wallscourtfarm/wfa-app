@@ -14,8 +14,9 @@ from routes.settings      import settings_bp
 from routes.rules         import rules_bp
 from routes.stubs         import stubs_bp
 from routes.print_tools   import print_bp
+from routes.word_assessment import wa_bp
 
-for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp]:
+for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp]:
     app.register_blueprint(bp)
 
 if __name__ == '__main__':
