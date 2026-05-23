@@ -1,11 +1,10 @@
 import base64
-import io
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES
 from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
-CLASS_OPTIONS = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS = [('all', 'Y4 ALL'), ('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
 COLUMN_KEYWORDS = {'column', 'addition', 'subtraction', 'written method'}
 
 
@@ -24,7 +23,6 @@ def _get_hl_pupils(pupils, version='standard'):
 
 
 def _enforce_column_method(data):
-    # If Q1-Q3 have parts a) and b), force column_method answer type
     questions = data.get('questions', [])
     changed = False
     for i, q in enumerate(questions[:3]):
@@ -44,16 +42,31 @@ def _is_column_topic(maths_topic, maths_notes):
     return any(kw in combined for kw in COLUMN_KEYWORDS)
 
 
+def _load_class_pupils(cls):
+    """Load pupils for one class or all classes combined."""
+    if cls == 'all':
+        all_pupils = []
+        for cid in ALL_CLASSES:
+            d = load_class(cid)
+            if d:
+                all_pupils.extend(d.get('pupils', []))
+        return all_pupils
+    d = load_class(cls)
+    return d.get('pupils', []) if d else []
+
+
 @hl_bp.route('/home-learning')
 def home_learning():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls = request.args.get('cls', 'Y4_IM')
+    cls = request.args.get('cls', 'all')
     if cls not in [c[0] for c in CLASS_OPTIONS]:
-        cls = 'Y4_IM'
+        cls = 'all'
     wc = load_weekly_config()
-    week_ref  = wc.get('week_ref', '')
-    cls_cfg   = wc.get('classes', {}).get(cls, {})
+    week_ref = wc.get('week_ref', '')
+    # For rule display, use Y4_IM config as reference
+    ref_cls = 'Y4_IM' if cls == 'all' else cls
+    cls_cfg  = wc.get('classes', {}).get(ref_cls, {})
     main_rule = get_rule(cls_cfg.get('main_rule_id', ''))
     return render_template('home_learning.html',
         cls=cls, class_options=CLASS_OPTIONS,
@@ -66,17 +79,11 @@ def api_hl_ping():
     if not session.get('authenticated'):
         return jsonify({'ok': False}), 401
     errors = []
+    for mod, obj in [('hl_generator', None), ('pdf_builder', None)]:
+        try: __import__(mod)
+        except Exception as e: errors.append(f'{mod}: {e}')
     try:
-        import hl_generator
-    except Exception as e:
-        errors.append(f'hl_generator: {e}')
-    try:
-        import pdf_builder
-    except Exception as e:
-        errors.append(f'pdf_builder: {e}')
-    try:
-        import anthropic
-        anthropic.Anthropic()
+        import anthropic; anthropic.Anthropic()
     except Exception as e:
         errors.append(f'anthropic: {e}')
     return jsonify({'ok': len(errors) == 0, 'errors': errors})
@@ -88,7 +95,7 @@ def api_hl_generate():
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
 
     body             = request.get_json(force=True)
-    cls              = body.get('cls', 'Y4_IM')
+    cls              = body.get('cls', 'all')
     maths_topic      = body.get('maths_topic', '').strip()
     maths_notes      = body.get('maths_notes', '').strip()
     reading_topic    = body.get('reading_topic', '').strip()
@@ -98,18 +105,18 @@ def api_hl_generate():
     if not maths_topic or not reading_topic:
         return jsonify({'ok': False, 'error': 'Maths topic and reading text are required'})
 
-    data = load_class(cls)
-    if not data:
-        return jsonify({'ok': False, 'error': f'Could not load class {cls}'})
-
     wc         = load_weekly_config()
     week_ref   = wc.get('week_ref', 'TxWy')
-    cls_cfg    = wc.get('classes', {}).get(cls, {})
+    ref_cls    = 'Y4_IM' if cls == 'all' else cls
+    cls_cfg    = wc.get('classes', {}).get(ref_cls, {})
     main_rule  = get_rule(cls_cfg.get('main_rule_id', ''))
     rule_title = main_rule[2] if main_rule else ''
     rule_words = main_rule[3] if main_rule else []
 
-    pupils     = data.get('pupils', [])
+    pupils     = _load_class_pupils(cls)
+    if not pupils:
+        return jsonify({'ok': False, 'error': f'No pupils found for class {cls}'})
+
     std_pupils = _get_hl_pupils(pupils, 'standard')
     adp_pupils = _get_hl_pupils(pupils, 'adapted')
 
@@ -164,10 +171,8 @@ def api_hl_generate():
             return jsonify({'ok': False, 'error': f'Adapted PDF build failed: {e}'})
 
     return jsonify({
-        'ok':      True,
-        'week_ref': week_ref,
+        'ok': True, 'week_ref': week_ref,
         'std_pdf': base64.b64encode(std_bytes).decode() if std_bytes else None,
         'adp_pdf': base64.b64encode(adp_bytes).decode() if adp_bytes else None,
-        'n_std':   len(std_pupils),
-        'n_adp':   len(adp_pupils),
+        'n_std': len(std_pupils), 'n_adp': len(adp_pupils),
     })
