@@ -818,3 +818,16 @@ body {
 }
 .status-ok { background: #f0fdf4; color: #166534; border: 1px solid #86efac; border-radius: var(--radius); padding: 8px 12px; }
 .status-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; border-radius: var(--radius); padding: 8px 12px; }
+
+/* ── Import progress bar ────────────────────────────────────────── */
+.wa-progress-bar-wrap {
+  height: 8px; background: var(--border); border-radius: 99px;
+  overflow: hidden; margin: 12px 0 6px;
+}
+.wa-progress-bar {
+  height: 100%; background: var(--brand);
+  border-radius: 99px; transition: width .3s ease;
+}
+.wa-progress-label {
+  font-size: 12px; color: var(--muted); margin: 0 0 8px;
+}

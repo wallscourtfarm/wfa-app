@@ -19,7 +19,7 @@
 
 <div id="status-bar" class="status-bar hidden"></div>
 
-<!-- ── Generate ─────────────────────────────────────────────────────────── -->
+<!-- ── Generate ─────────────────────────────────────────────────── -->
 <div class="print-card">
   <div class="print-card-header">
     <span class="print-card-icon">📄</span>
@@ -39,11 +39,9 @@
   </div>
 
   <div class="print-card-footer" style="margin-top:12px; gap:10px; flex-wrap:wrap">
-    <button class="btn btn-primary" onclick="generate()">
-      ✨ Generate sheets
-    </button>
+    <button class="btn btn-primary" id="generate-btn" onclick="generate()">✨ Generate sheets</button>
     <span class="print-spinner hidden" id="spin-generate"></span>
-    <div id="generate-results" class="hidden" style="display:flex;gap:8px;flex-wrap:wrap">
+    <div id="generate-results" style="display:none; gap:8px; flex-wrap:wrap">
       <a id="dl-pdf"   class="btn btn-primary"   download>⬇ Pupil sheets PDF</a>
       <a id="dl-excel" class="btn btn-secondary" download>⬇ Marking grid Excel</a>
     </div>
@@ -51,36 +49,42 @@
   <p id="flagged-msg" class="wa-flagged hidden"></p>
 </div>
 
-<!-- ── Import ───────────────────────────────────────────────────────────── -->
+<!-- ── Import ───────────────────────────────────────────────────── -->
 <div class="print-card">
   <div class="print-card-header">
     <span class="print-card-icon">📥</span>
     <div>
       <h3 class="print-card-title">Import scanned papers</h3>
-      <p class="print-card-desc">Upload the scanned PDF of marked pupil papers. Claude reads each page, matches it to the child by name and extracts the results. Review before saving.</p>
+      <p class="print-card-desc">Upload the scanned PDF of marked pupil papers. Each page is processed in turn — you'll see results appear as they come in.</p>
     </div>
   </div>
 
-  <div class="wa-upload-row">
+  <!-- Upload row -->
+  <div class="wa-upload-row" id="upload-row">
     <input type="file" id="pdf-upload" accept="application/pdf" class="wa-file-input">
-    <button class="btn btn-primary" onclick="importPDF()">
-      🔍 Process PDF
-    </button>
-    <span class="print-spinner hidden" id="spin-import"></span>
+    <button class="btn btn-primary" onclick="startImport()">🔍 Process PDF</button>
   </div>
 
+  <!-- Progress -->
+  <div id="import-progress" class="hidden">
+    <div class="wa-progress-bar-wrap">
+      <div class="wa-progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <p class="wa-progress-label" id="progress-label">Starting…</p>
+  </div>
+
+  <!-- Results table (fills in as pages are processed) -->
   <div id="import-results" class="hidden">
     <h4 class="wa-results-title">Results — review before saving</h4>
-    <table class="wa-results-table" id="results-table">
+    <table class="wa-results-table">
       <thead>
-        <tr>
-          <th>Name</th><th>Words seen</th><th>Correct</th><th>Incorrect</th><th>%</th>
-        </tr>
+        <tr><th>Name</th><th>Words seen</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
+    <p id="errors-note" class="wa-flagged hidden"></p>
     <div class="print-card-footer" style="margin-top:12px">
-      <button class="btn btn-primary" onclick="confirmImport()">✅ Save to records</button>
+      <button class="btn btn-primary"   id="confirm-btn" onclick="confirmImport()" disabled>✅ Save to records</button>
       <button class="btn btn-secondary" onclick="cancelImport()">✕ Cancel</button>
       <span class="print-spinner hidden" id="spin-confirm"></span>
     </div>
@@ -92,39 +96,32 @@
 <script>
 const CLS = "{{ cls }}";
 
+// ── Helpers ───────────────────────────────────────────────────────
 function selectedSections() {
   return [...document.querySelectorAll('.wa-section-cb:checked')].map(cb => cb.value);
 }
-
-function showSpin(key, show) {
-  const el = document.getElementById('spin-' + key);
-  if (el) el.classList.toggle('hidden', !show);
+function showSpin(id, show) {
+  document.getElementById('spin-' + id)?.classList.toggle('hidden', !show);
 }
-
-function showError(msg) {
+function showStatus(msg, type='ok') {
   const bar = document.getElementById('status-bar');
-  bar.textContent = '⚠️ ' + msg;
-  bar.className   = 'status-bar status-error';
+  bar.textContent = msg;
+  bar.className   = `status-bar status-${type}`;
   bar.classList.remove('hidden');
-  setTimeout(() => bar.classList.add('hidden'), 8000);
+  if (type === 'ok') setTimeout(() => bar.classList.add('hidden'), 7000);
+}
+function blob64(b64, mime) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
 }
 
-function triggerDownload(b64, mime, filename, linkId) {
-  const bytes = atob(b64);
-  const arr   = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  const blob = new Blob([arr], { type: mime });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.getElementById(linkId);
-  a.href     = url;
-  a.download = filename;
-}
-
+// ── Generate ──────────────────────────────────────────────────────
 async function generate() {
   const sections = selectedSections();
-  if (!sections.length) { showError('Select at least one word set.'); return; }
+  if (!sections.length) { showStatus('Select at least one word set.', 'error'); return; }
   showSpin('generate', true);
-  document.getElementById('generate-results').classList.add('hidden');
+  document.getElementById('generate-results').style.display = 'none';
+  document.getElementById('generate-btn').disabled = true;
   try {
     const resp = await fetch('/api/word-assessment/generate', {
       method: 'POST',
@@ -132,114 +129,201 @@ async function generate() {
       body: JSON.stringify({ cls: CLS, sections }),
     });
     const d = await resp.json();
-    if (!d.ok) { showError(d.error); return; }
+    if (!d.ok) { showStatus(d.error, 'error'); return; }
 
-    triggerDownload(d.pdf,   'application/pdf',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'dl-pdf');
-    document.getElementById('dl-pdf').download   = d.pdf_name;
-    document.getElementById('dl-pdf').href = URL.createObjectURL(
-      new Blob([Uint8Array.from(atob(d.pdf), c=>c.charCodeAt(0))], {type:'application/pdf'}));
-
+    document.getElementById('dl-pdf').href     = blob64(d.pdf,   'application/pdf');
+    document.getElementById('dl-pdf').download = d.pdf_name;
+    document.getElementById('dl-excel').href     = blob64(d.excel, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     document.getElementById('dl-excel').download = d.excel_name;
-    document.getElementById('dl-excel').href = URL.createObjectURL(
-      new Blob([Uint8Array.from(atob(d.excel), c=>c.charCodeAt(0))],
-        {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-
-    document.getElementById('generate-results').classList.remove('hidden');
     document.getElementById('generate-results').style.display = 'flex';
 
     const fm = document.getElementById('flagged-msg');
-    if (d.flagged && d.flagged.length) {
-      fm.textContent = `⚠️ No cloze sentence found for: ${d.flagged.join(', ')}. These use a plain "Write the word" prompt.`;
+    if (d.flagged?.length) {
+      fm.textContent = `⚠️ No cloze sentence for: ${d.flagged.join(', ')}. These use a plain "Write the word" prompt.`;
       fm.classList.remove('hidden');
     } else {
       fm.classList.add('hidden');
     }
   } catch(e) {
-    showError('Request failed: ' + e.message);
+    showStatus('Request failed: ' + e.message, 'error');
   } finally {
     showSpin('generate', false);
+    document.getElementById('generate-btn').disabled = false;
   }
 }
 
-// Store import summary for confirm step
-let _importSummary = null;
+// ── Import: streaming ─────────────────────────────────────────────
+let _importResults = {};   // name_lower -> {name, results: {word: bool}}
+let _errorPages    = [];
+let _activeSource  = null;
 
-async function importPDF() {
+async function startImport() {
   const file = document.getElementById('pdf-upload').files[0];
-  if (!file) { showError('Choose a PDF file first.'); return; }
+  if (!file) { showStatus('Choose a PDF file first.', 'error'); return; }
+
   const sections = selectedSections();
+  _importResults = {};
+  _errorPages    = [];
 
-  showSpin('import', true);
+  // Reset UI
+  document.getElementById('results-body').innerHTML    = '';
   document.getElementById('import-results').classList.add('hidden');
+  document.getElementById('errors-note').classList.add('hidden');
+  document.getElementById('confirm-btn').disabled      = true;
+  document.getElementById('import-progress').classList.remove('hidden');
+  setProgress(0, 0, 'Uploading…');
 
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const b64 = e.target.result.split(',')[1];
-    try {
-      const resp = await fetch('/api/word-assessment/import', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ cls: CLS, sections, pdf: b64 }),
-      });
-      const d = await resp.json();
-      if (!d.ok) { showError(d.error + (d.detail ? '\n' + d.detail : '')); return; }
+  // Step 1: upload
+  let jobId, nPages;
+  try {
+    const b64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload  = e => res(e.target.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
 
-      _importSummary = d.summary;
-      const tbody = document.getElementById('results-body');
-      tbody.innerHTML = '';
-      d.summary.forEach(row => {
-        const pct = row.total ? Math.round(row.correct / row.total * 100) : '—';
-        const tr  = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${row.name}</td>
-          <td>${row.total}</td>
-          <td>${row.correct}</td>
-          <td>${row.total - row.correct}</td>
-          <td>${pct}${typeof pct === 'number' ? '%' : ''}</td>`;
-        tbody.appendChild(tr);
-      });
-      document.getElementById('import-results').classList.remove('hidden');
-    } catch(e) {
-      showError('Request failed: ' + e.message);
-    } finally {
-      showSpin('import', false);
+    const resp = await fetch('/api/word-assessment/import-upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS, sections, pdf: b64 }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error, 'error'); resetImport(); return; }
+    jobId  = d.job_id;
+    nPages = d.n_pages;
+    setProgress(0, nPages, `Processing page 1 of ${nPages}…`);
+  } catch(e) {
+    showStatus('Upload failed: ' + e.message, 'error');
+    resetImport();
+    return;
+  }
+
+  // Step 2: stream
+  document.getElementById('import-results').classList.remove('hidden');
+  if (_activeSource) _activeSource.close();
+
+  const source = new EventSource(`/api/word-assessment/import-stream/${jobId}`);
+  _activeSource = source;
+
+  source.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+
+    if (ev.type === 'page') {
+      const nameKey = ev.name.trim().toLowerCase();
+      if (nameKey) {
+        if (!_importResults[nameKey]) {
+          _importResults[nameKey] = { name: ev.name, results: {} };
+        }
+        Object.assign(_importResults[nameKey].results, ev.results);
+        renderRow(ev.name, _importResults[nameKey].results);
+      }
+      setProgress(ev.page_num, ev.total,
+        ev.page_num < ev.total ? `Processing page ${ev.page_num + 1} of ${ev.total}…` : 'Finishing…');
+    }
+
+    if (ev.type === 'error') {
+      _errorPages.push(`Page ${ev.page_num}: ${ev.message}`);
+      setProgress(ev.page_num, ev.total, `Processing page ${ev.page_num + 1} of ${ev.total}…`);
+    }
+
+    if (ev.type === 'done' || ev.type === 'fatal') {
+      source.close();
+      _activeSource = null;
+      document.getElementById('import-progress').classList.add('hidden');
+
+      if (ev.type === 'fatal') {
+        showStatus('Processing failed: ' + ev.message, 'error');
+      } else {
+        const n = Object.keys(_importResults).length;
+        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n !== 1 ? 's' : ''} found. Review and save below.`);
+        document.getElementById('confirm-btn').disabled = false;
+      }
+
+      if (_errorPages.length) {
+        const note = document.getElementById('errors-note');
+        note.textContent = `⚠️ Could not read ${_errorPages.length} page(s): ${_errorPages.join('; ')}`;
+        note.classList.remove('hidden');
+      }
     }
   };
-  reader.readAsDataURL(file);
+
+  source.onerror = () => {
+    source.close();
+    _activeSource = null;
+    document.getElementById('import-progress').classList.add('hidden');
+    showStatus('Connection lost during processing. Results so far are shown below.', 'error');
+    if (Object.keys(_importResults).length) {
+      document.getElementById('confirm-btn').disabled = false;
+    }
+  };
+}
+
+function setProgress(done, total, label) {
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('progress-bar').style.width   = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function renderRow(name, results) {
+  const correct   = Object.values(results).filter(Boolean).length;
+  const total     = Object.values(results).length;
+  const incorrect = total - correct;
+  const pct       = total ? Math.round(correct / total * 100) : '—';
+  const nameKey   = name.trim().toLowerCase();
+  const rowId     = 'row-' + nameKey.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+  let row = document.getElementById(rowId);
+  if (!row) {
+    row = document.createElement('tr');
+    row.id = rowId;
+    document.getElementById('results-body').appendChild(row);
+  }
+  row.innerHTML = `
+    <td>${name}</td>
+    <td>${total}</td>
+    <td>${correct}</td>
+    <td>${incorrect}</td>
+    <td>${pct}${typeof pct === 'number' ? '%' : ''}</td>`;
 }
 
 async function confirmImport() {
   showSpin('confirm', true);
+  document.getElementById('confirm-btn').disabled = true;
   try {
     const resp = await fetch('/api/word-assessment/confirm', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({}),
+      body: JSON.stringify({ cls: CLS, results: _importResults }),
     });
     const d = await resp.json();
-    if (!d.ok) { showError(d.error); return; }
-    document.getElementById('import-results').classList.add('hidden');
-    const bar = document.getElementById('status-bar');
+    if (!d.ok) { showStatus(d.error, 'error'); return; }
+
     let msg = `✅ Saved results for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
-    if (d.unmatched && d.unmatched.length) {
-      msg += ` No match found for: ${d.unmatched.join(', ')}.`;
-    }
-    bar.textContent = msg;
-    bar.className   = 'status-bar status-ok';
-    bar.classList.remove('hidden');
-    setTimeout(() => bar.classList.add('hidden'), 8000);
+    if (d.unmatched?.length) msg += ` No match: ${d.unmatched.join(', ')}.`;
+    showStatus(msg);
+    document.getElementById('import-results').classList.add('hidden');
+    document.getElementById('pdf-upload').value = '';
+    _importResults = {};
   } catch(e) {
-    showError('Request failed: ' + e.message);
+    showStatus('Request failed: ' + e.message, 'error');
+    document.getElementById('confirm-btn').disabled = false;
   } finally {
     showSpin('confirm', false);
   }
 }
 
 function cancelImport() {
+  if (_activeSource) { _activeSource.close(); _activeSource = null; }
+  resetImport();
+}
+
+function resetImport() {
+  document.getElementById('import-progress').classList.add('hidden');
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('pdf-upload').value = '';
-  _importSummary = null;
+  _importResults = {};
+  _errorPages    = [];
 }
 </script>
 {% endblock %}
