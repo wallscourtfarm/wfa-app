@@ -41,25 +41,29 @@
             {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][conf] %}
             <div class="custom-card" data-id="{{ cr.id }}"
                  data-search="{{ (cr.title ~ ' ' ~ cr.words|join(' '))|lower }}">
-              <div class="rule-card-header">
+              <div class="rule-card-header" onclick="toggleDetail(this)">
                 <span class="rule-ref custom-ref">Custom</span>
                 <span class="rule-title-text">{{ cr.title }}</span>
                 <span class="custom-actions">
                   <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rid }}"
-                        data-level="{{ conf }}" onclick="cycleConfidence(this)"
+                        data-level="{{ conf }}"
+                        onclick="event.stopPropagation(); cycleConfidence(this)"
                         title="Click to update confidence">{{ conf_dots }}</span>
                   <button class="btn-icon"
-                    onclick='openEditModal({{ cr.id }},{{ cr.title|tojson }},{{ (cr.explanation or "")|tojson }},{{ cr.words|tojson }})'
+                    onclick='event.stopPropagation(); openEditModal({{ cr.id }},{{ cr.title|tojson }},{{ (cr.explanation or "")|tojson }},{{ cr.words|tojson }})'
                     title="Edit">✎</button>
                   <button class="btn-icon btn-icon-del"
-                    onclick="deleteCustomRule({{ cr.id }}, this)" title="Delete">✕</button>
+                    onclick="event.stopPropagation(); deleteCustomRule({{ cr.id }}, this)" title="Delete">✕</button>
+                  <span class="rule-chevron">▸</span>
                 </span>
               </div>
-              {% if cr.explanation %}
-                <p class="rule-explanation">{{ cr.explanation }}</p>
-              {% endif %}
-              <div class="rule-words">
-                {% for w in cr.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+              <div class="rule-detail hidden">
+                {% if cr.explanation %}
+                  <p class="rule-explanation">{{ cr.explanation }}</p>
+                {% endif %}
+                <div class="rule-words">
+                  {% for w in cr.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+                </div>
               </div>
             </div>
           {% endfor %}
@@ -89,18 +93,24 @@
             {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][rule.confidence] %}
             <div class="rule-card" data-id="{{ rule.id }}"
                  data-search="{{ (rule.title ~ ' ' ~ rule.words|join(' '))|lower }}">
-              <div class="rule-card-header">
+              <div class="rule-card-header" onclick="toggleDetail(this)">
                 <span class="rule-ref">S{{ stage_num }}·{{ rule.step }}</span>
                 <span class="rule-title-text">{{ rule.title }}</span>
-                <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rule.id }}"
-                      data-level="{{ rule.confidence }}" onclick="cycleConfidence(this)"
-                      title="Click to update confidence">{{ conf_dots }}</span>
+                <span class="rule-card-right">
+                  <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rule.id }}"
+                        data-level="{{ rule.confidence }}"
+                        onclick="event.stopPropagation(); cycleConfidence(this)"
+                        title="Click to update confidence">{{ conf_dots }}</span>
+                  <span class="rule-chevron">▸</span>
+                </span>
               </div>
-              {% if rule.rtype == 2 %}
-                <span class="rule-type-badge">Revision</span>
-              {% endif %}
-              <div class="rule-words">
-                {% for w in rule.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+              <div class="rule-detail hidden">
+                {% if rule.rtype == 2 %}
+                  <span class="rule-type-badge">Revision</span>
+                {% endif %}
+                <div class="rule-words">
+                  {% for w in rule.words %}<span class="word-pill">{{ w }}</span>{% endfor %}
+                </div>
               </div>
             </div>
           {% endfor %}
@@ -289,6 +299,14 @@ function suggestWords() {
 }
 
 // DOM helpers for custom cards
+function toggleDetail(headerEl) {
+  const detail = headerEl.closest('.rule-card, .custom-card').querySelector('.rule-detail');
+  if (!detail) return;
+  const isHidden = detail.classList.toggle('hidden');
+  const chev = headerEl.querySelector('.rule-chevron');
+  if (chev) chev.textContent = isHidden ? '▸' : '▾';
+}
+
 function buildCustomCardHTML(cr) {
   const rid      = '0-' + cr.id;
   const conf     = cr.confidence || 0;
@@ -300,19 +318,24 @@ function buildCustomCardHTML(cr) {
   const editArgs = JSON.stringify([cr.id, cr.title, cr.explanation||'', cr.words||[]]);
   return `<div class="custom-card" data-id="${cr.id}"
        data-search="${(cr.title+' '+(cr.words||[]).join(' ')).toLowerCase()}">
-    <div class="rule-card-header">
+    <div class="rule-card-header" onclick="toggleDetail(this)">
       <span class="rule-ref custom-ref">Custom</span>
       <span class="rule-title-text">${titleE}</span>
       <span class="custom-actions">
         <span class="conf-dots ${confCls}" data-rule-id="${rid}" data-level="${conf}"
-              onclick="cycleConfidence(this)" title="Click to update confidence">${confDots}</span>
+              onclick="event.stopPropagation(); cycleConfidence(this)"
+              title="Click to update confidence">${confDots}</span>
         <button class="btn-icon" title="Edit"
-          onclick="openEditModal(...${editArgs.replace(/</g,'&lt;')})">✎</button>
-        <button class="btn-icon btn-icon-del" onclick="deleteCustomRule(${cr.id},this)" title="Delete">✕</button>
+          onclick="event.stopPropagation(); openEditModal(...${editArgs.replace(/</g,'&lt;')})">✎</button>
+        <button class="btn-icon btn-icon-del"
+          onclick="event.stopPropagation(); deleteCustomRule(${cr.id},this)" title="Delete">✕</button>
+        <span class="rule-chevron">▸</span>
       </span>
     </div>
-    ${expl}
-    <div class="rule-words">${pills}</div>
+    <div class="rule-detail hidden">
+      ${expl}
+      <div class="rule-words">${pills}</div>
+    </div>
   </div>`;
 }
 
