@@ -272,3 +272,67 @@ def save_rule_confidence(confidence):
     if sha is None:
         return _put_file_create(path, confidence, 'Create rule_confidence.json')
     return _put_file(path, confidence, sha, 'Update rule confidence')
+
+# ── Bee → rule confidence ─────────────────────────────────────────────────────
+
+def update_rule_confidence_from_bee(assessments):
+    """
+    Given a list of {pupil_id, words, confident} dicts from a Bee save,
+    tally confident responses per rule and update rule_confidence.json.
+
+    Proportion thresholds: <40% → Low (1), 40–70% → Medium (2), >70% → High (3).
+    Only rules that had at least one pupil assessed are updated — rules with no
+    data this session are left unchanged so manual settings are preserved.
+    """
+    if not assessments:
+        return False
+
+    # Build pupil_id → group map across all classes
+    pupil_group = {}
+    for cid in ALL_CLASSES:
+        d = load_class(cid)
+        if d:
+            for p in d.get('pupils', []):
+                pupil_group[p['id']] = p.get('group', 'main')
+
+    wc = load_weekly_config()
+    cls_cfg = wc.get('classes', {})
+    # All classes share the same rules, so just take the first
+    any_cfg = next(iter(cls_cfg.values()), {}) if cls_cfg else {}
+    main_rule_id = any_cfg.get('main_rule_id', '')
+    rev_rule_id  = any_cfg.get('revision_rule_id', '')
+
+    # Tally per rule: {rule_id: [total, confident_count]}
+    tally = {}
+    for a in assessments:
+        pid       = a.get('pupil_id', '')
+        confident = bool(a.get('confident', False))
+        group     = pupil_group.get(pid, 'main')
+        rule_id   = rev_rule_id if group == 'revision' else main_rule_id
+        if not rule_id:
+            continue
+        if rule_id not in tally:
+            tally[rule_id] = [0, 0]
+        tally[rule_id][0] += 1
+        if confident:
+            tally[rule_id][1] += 1
+
+    if not tally:
+        return False
+
+    # Convert tally to confidence level
+    def _level(total, conf_count):
+        if total == 0:
+            return 0
+        pct = conf_count / total
+        if pct > 0.70:
+            return 3  # High
+        if pct >= 0.40:
+            return 2  # Medium
+        return 1      # Low
+
+    conf = load_rule_confidence()
+    for rule_id, (total, conf_count) in tally.items():
+        conf[rule_id] = {'level': _level(total, conf_count)}
+
+    return save_rule_confidence(conf)

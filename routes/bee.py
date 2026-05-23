@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_bee_pupils, save_bee_assessment
+from data_manager import load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee
 
 bee_bp = Blueprint('bee', __name__)
 VALID_CLASSES = ['Y4_IM', 'Y4_WU', 'all']
@@ -48,5 +48,8 @@ def api_bee_save():
         if not result.get('ok'):
             return jsonify(result)
         total_saved += result.get('saved', 0)
+
+    # Update rule confidence dots based on confident flags
+    update_rule_confidence_from_bee(assessments)
 
     return jsonify({'ok': True, 'saved': total_saved})
