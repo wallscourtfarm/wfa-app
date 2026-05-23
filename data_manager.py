@@ -1,23 +1,18 @@
 """
-data_manager.py
-All data access for the WFA Flask app.
+data_manager.py — WFA Flask app data layer
 Data lives in wallscourtfarm/spelling-homelearning GitHub repo.
 """
-
-import os
-import json
-import base64
-import requests
+import os, json, base64, requests
 from word_bank import WORD_BANK, get_active_words, mastery_stats
 
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 DATA_REPO    = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
 BRANCH       = 'main'
+HEADERS      = {'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
+BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
 
-HEADERS  = {'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
-BASE_URL = f'https://api.github.com/repos/{DATA_REPO}/contents'
-
-TT_ORDER = ['2', '5', '4', '8', '3', '6', '9', '7', '11', '12', 'All']
+TT_ORDER   = ['2','5','4','8','3','6','9','7','11','12','All']
+ALL_CLASSES = ['Y4_IM','Y4_WU']
 
 # ── GitHub I/O ────────────────────────────────────────────────────────────────
 
@@ -33,30 +28,27 @@ def _put_file(path, data, sha, message):
         json.dumps(data, indent=2, ensure_ascii=False).encode('utf-8')
     ).decode('utf-8')
     r = requests.put(f'{BASE_URL}/{path}', headers=HEADERS,
-                     json={'message': message, 'content': content, 'sha': sha, 'branch': BRANCH},
-                     timeout=15)
+                     json={'message':message,'content':content,'sha':sha,'branch':BRANCH}, timeout=15)
     return r.status_code in (200, 201)
 
-# ── TT ────────────────────────────────────────────────────────────────────────
+# ── TT helpers ────────────────────────────────────────────────────────────────
 
 def advance_tt(tt_set, tt_mode='x'):
-    if str(tt_set) == 'All' and tt_mode == 'xd':
-        return ('All', 'xd')
-    if tt_mode != 'xd':
-        return (tt_set, 'xd')
+    if str(tt_set) == 'All' and tt_mode == 'xd': return ('All','xd')
+    if tt_mode != 'xd': return (tt_set,'xd')
     try:
         i = TT_ORDER.index(str(tt_set))
-        new_set = TT_ORDER[i + 1] if i + 1 < len(TT_ORDER) else tt_set
+        new_set = TT_ORDER[i+1] if i+1 < len(TT_ORDER) else tt_set
     except ValueError:
         new_set = tt_set
-    return (new_set, 'x')
+    return (new_set,'x')
 
 def tt_label(tt_set, tt_mode):
-    return f'{tt_set}{"×÷" if tt_mode == "xd" else "×"}'
+    return f'{tt_set}{"×÷" if tt_mode=="xd" else "×"}'
 
 # ── Class loading ─────────────────────────────────────────────────────────────
 
-def load_class(class_id='Y4_IM'):
+def load_class(class_id):
     data, _ = _get_file(f'data/classes/{class_id}.json')
     return data
 
@@ -64,161 +56,139 @@ def load_weekly_config():
     data, _ = _get_file('data/weekly_config.json')
     return data or {}
 
-# ── Spelling rules ────────────────────────────────────────────────────────────
-
 def get_rule(rule_id_str):
-    """Return (stage, step, title, words, type) for a rule_id like '1-3'."""
-    if not rule_id_str:
-        return None
+    if not rule_id_str: return None
     try:
         from spelling_rules import SPELLING_RULES
-        stage, step = rule_id_str.split('-')
-        stage, step = int(stage), int(step)
+        stage, step = int(rule_id_str.split('-')[0]), int(rule_id_str.split('-')[1])
         for r in SPELLING_RULES:
-            if r[0] == stage and r[1] == step:
-                return r
-    except Exception:
-        pass
+            if r[0]==stage and r[1]==step: return r
+    except Exception: pass
     return None
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
+def _pupil_row(p):
+    m = set(p.get('mastered', []))
+    s = mastery_stats(m)
+    ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
+    return {
+        'first':     p.get('first',''),
+        'last':      p.get('last',''),
+        'group':     p.get('group','main'),
+        'cls':       p.get('cls',''),
+        'tt':        tt_label(ts, tm),
+        'tt_set':    ts,
+        'y4_pct':    s.get('Y4',0),
+        'phase_pct': s.get('LKS2',0),
+        'ks_pct':    s.get('KS2',0),
+        'all_pct':   s.get('total',0),
+    }
+
+def load_dashboard(class_id='Y4_IM'):
+    if class_id == 'all':
+        all_pupils = []
+        for cid in ALL_CLASSES:
+            d = load_class(cid)
+            if d: all_pupils.extend(d.get('pupils',[]))
+    else:
+        d = load_class(class_id)
+        if not d: return None
+        all_pupils = d.get('pupils',[])
+
+    rows     = [_pupil_row(p) for p in all_pupils]
+    tt_dist  = {t: sum(1 for p in all_pupils if p.get('tt_set')==t) for t in TT_ORDER}
+    stats    = {
+        'total':        len(all_pupils),
+        'main':         sum(1 for p in all_pupils if p.get('group','main')=='main'),
+        'revision':     sum(1 for p in all_pupils if p.get('group')=='revision'),
+        'paired':       sum(1 for p in all_pupils if p.get('pair_id')),
+        'avg_mastered': sum(len(p.get('mastered',[])) for p in all_pupils) // max(len(all_pupils),1),
+    }
+    return {'rows': rows, 'tt_dist': tt_dist, 'stats': stats}
 
 # ── TT Check ─────────────────────────────────────────────────────────────────
 
 def load_tt_pupils(class_id='Y4_IM'):
     data = load_class(class_id)
-    if not data:
-        return []
+    if not data: return []
     result = []
-    for p in data.get('pupils', []):
-        ts, tm = p.get('tt_set', '2'), p.get('tt_mode', 'x')
-        name = p.get('first', '?')
-        if p.get('last'):
-            name = f"{name} {p['last']}"
-        result.append({'id': p['id'], 'name': name, 'first': p.get('first', ''),
-                       'tt_set': ts, 'tt_mode': tm, 'label': tt_label(ts, tm)})
+    for p in data.get('pupils',[]):
+        ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
+        name = p.get('first','?')
+        if p.get('last'): name = f"{name} {p['last']}"
+        result.append({'id':p['id'],'name':name,'first':p.get('first',''),
+                       'tt_set':ts,'tt_mode':tm,'label':tt_label(ts,tm)})
     def key(p):
         try: idx = TT_ORDER.index(str(p['tt_set']))
-        except ValueError: idx = 99
-        return (idx, 1 if p['tt_mode'] == 'xd' else 0, p['name'].lower())
+        except ValueError: idx=99
+        return (idx, 1 if p['tt_mode']=='xd' else 0, p['name'].lower())
     return sorted(result, key=key)
 
 def advance_tt_pupils(class_id, pupil_ids):
     path = f'data/classes/{class_id}.json'
     data, sha = _get_file(path)
-    if not data:
-        return {'ok': False, 'error': f'Could not load {path}'}
+    if not data: return {'ok':False,'error':f'Could not load {path}'}
     id_set, changed = set(pupil_ids), 0
-    for i, p in enumerate(data.get('pupils', [])):
+    for i,p in enumerate(data.get('pupils',[])):
         if p['id'] in id_set:
-            ns, nm = advance_tt(p.get('tt_set', '2'), p.get('tt_mode', 'x'))
-            data['pupils'][i]['tt_set']  = ns
-            data['pupils'][i]['tt_mode'] = nm
-            changed += 1
-    if changed and not _put_file(path, data, sha, f'TT advance: {class_id} ({changed} pupils)'):
-        return {'ok': False, 'error': 'GitHub write failed'}
-    return {'ok': True, 'count': changed}
-
-# ── Dashboard ─────────────────────────────────────────────────────────────────
-
-def load_dashboard(class_id='Y4_IM'):
-    data = load_class(class_id)
-    if not data:
-        return None
-    pupils = data.get('pupils', [])
-    rows = []
-    for p in pupils:
-        m = set(p.get('mastered', []))
-        stats = mastery_stats(m)
-        ts, tm = p.get('tt_set', '2'), p.get('tt_mode', 'x')
-        rows.append({
-            'first':   p.get('first', ''),
-            'last':    p.get('last', ''),
-            'group':   p.get('group', 'main'),
-            'cls':     p.get('cls', ''),
-            'tt':      tt_label(ts, tm),
-            'tt_set':  ts,
-            'mastered':len(m),
-            'y4_pct':  stats.get('Y4', 0),
-            'phase_pct': stats.get('LKS2', 0),
-            'ks_pct':  stats.get('KS2', 0),
-            'all_pct': stats.get('total', 0),
-        })
-    tt_dist = {t: sum(1 for p in pupils if p.get('tt_set') == t) for t in TT_ORDER}
-    stats_summary = {
-        'total':    len(pupils),
-        'main':     sum(1 for p in pupils if p.get('group', 'main') == 'main'),
-        'revision': sum(1 for p in pupils if p.get('group') == 'revision'),
-        'paired':   sum(1 for p in pupils if p.get('pair_id')),
-        'avg_mastered': sum(len(p.get('mastered', [])) for p in pupils) // max(len(pupils), 1),
-    }
-    return {'rows': rows, 'tt_dist': tt_dist, 'stats': stats_summary}
+            ns,nm = advance_tt(p.get('tt_set','2'), p.get('tt_mode','x'))
+            data['pupils'][i]['tt_set']=ns; data['pupils'][i]['tt_mode']=nm; changed+=1
+    if changed and not _put_file(path,data,sha,f'TT advance: {class_id} ({changed} pupils)'):
+        return {'ok':False,'error':'GitHub write failed'}
+    return {'ok':True,'count':changed}
 
 # ── Spelling Bee ──────────────────────────────────────────────────────────────
 
 def load_bee_pupils(class_id='Y4_IM'):
-    """Return pupils with their 5 active words for Spelling Bee."""
     data = load_class(class_id)
     wc   = load_weekly_config()
-    cls_cfg    = wc.get('classes', {}).get(class_id, {})
-    main_rule  = get_rule(cls_cfg.get('main_rule_id', ''))
-    rev_rule   = get_rule(cls_cfg.get('revision_rule_id', ''))
-    week_ref   = wc.get('week_ref', '')
-
-    if not data:
-        return [], {}, week_ref
-
+    cfg  = wc.get('classes',{}).get(class_id,{})
+    main_rule = get_rule(cfg.get('main_rule_id',''))
+    rev_rule  = get_rule(cfg.get('revision_rule_id',''))
+    if not data: return [], {}, ''
     pupils = []
-    for p in data.get('pupils', []):
-        mastered = set(p.get('mastered', []))
-        words    = get_active_words(p.get('word_pos', 0), mastered, 5)
-        is_rev   = p.get('group') == 'revision'
+    for p in data.get('pupils',[]):
+        mastered = set(p.get('mastered',[]))
+        words    = get_active_words(p.get('word_pos',0), mastered, 5)
+        is_rev   = p.get('group')=='revision'
         rule     = rev_rule if is_rev else main_rule
-        pupils.append({
-            'id':         p['id'],
-            'first':      p.get('first', ''),
-            'cls':        p.get('cls', ''),
-            'group':      p.get('group', 'main'),
-            'is_rev':     is_rev,
-            'rule_label': rule[2] if rule else ('Revision' if is_rev else 'Main'),
-            'words':      words,
-        })
+        pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),
+                       'group':p.get('group','main'),'is_rev':is_rev,
+                       'rule_label': rule[2] if rule else ('Revision' if is_rev else 'Main'),
+                       'words': words})
     rules_info = {
         'main':     main_rule[2] if main_rule else '—',
         'revision': rev_rule[2]  if rev_rule  else '—',
-        'week':     week_ref,
+        'week':     wc.get('week_ref',''),
     }
-    return pupils, rules_info, week_ref
-
+    return pupils, rules_info, wc.get('week_ref','')
 
 def _apply_assessment(pupil, correct_words):
     p = dict(pupil)
-    mastered = set(p.get('mastered', []))
+    mastered = set(p.get('mastered',[]))
     mastered.update(correct_words)
     p['mastered'] = sorted(mastered)
     return p
 
-
 def save_bee_assessment(class_id, assessments):
-    """
-    Batch-save spelling bee results.
-    assessments = [{'pupil_id': str, 'words': [str], 'confident': bool}]
-    Loads class once, updates all pupils, saves once.
-    """
     path = f'data/classes/{class_id}.json'
     data, sha = _get_file(path)
-    if not data:
-        return {'ok': False, 'error': f'Could not load {path}'}
-    ass_map = {a['pupil_id']: a for a in assessments}
-    saved = 0
-    for i, p in enumerate(data.get('pupils', [])):
+    if not data: return {'ok':False,'error':f'Could not load {path}'}
+    ass_map, saved = {a['pupil_id']:a for a in assessments}, 0
+    for i,p in enumerate(data.get('pupils',[])):
         entry = ass_map.get(p['id'])
-        if not entry:
-            continue
-        words = entry.get('words', [])
+        if not entry: continue
+        words = entry.get('words',[])
         if words:
-            data['pupils'][i] = _apply_assessment(p, words)
-            saved += 1
-    if saved:
-        ok = _put_file(path, data, sha, f'Spelling Bee: {class_id} ({saved} pupils)')
-        if not ok:
-            return {'ok': False, 'error': 'GitHub write failed'}
-    return {'ok': True, 'saved': saved}
+            data['pupils'][i] = _apply_assessment(p, words); saved+=1
+    if saved and not _put_file(path,data,sha,f'Spelling Bee: {class_id} ({saved} pupils)'):
+        return {'ok':False,'error':'GitHub write failed'}
+    return {'ok':True,'saved':saved}
+
+# ── Learners ──────────────────────────────────────────────────────────────────
+
+def load_learners(class_id='Y4_IM'):
+    data = load_class(class_id)
+    if not data: return []
+    return data.get('pupils', [])
