@@ -5,13 +5,15 @@ services:
     region: frankfurt
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --timeout 120 --workers 1
     envVars:
       - key: APP_PASSWORD
         sync: false
       - key: GITHUB_TOKEN
         sync: false
       - key: SECRET_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
         sync: false
       - key: DATA_REPO
         value: wallscourtfarm/spelling-homelearning
