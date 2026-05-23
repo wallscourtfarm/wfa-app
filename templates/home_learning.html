@@ -91,7 +91,7 @@ async function generate() {
   btn.disabled = true;
   document.getElementById('results').classList.add('hidden');
   document.getElementById('progress').classList.remove('hidden');
-  document.getElementById('progress-msg').textContent = 'Calling Claude to generate standard content… (~20s)';
+  document.getElementById('progress-msg').textContent = 'Generating content and building PDFs — takes about 60 seconds, please wait…';
 
   try {
     const res = await fetch('/api/hl/generate', {
@@ -107,7 +107,7 @@ async function generate() {
       })
     });
 
-    document.getElementById('progress-msg').textContent = 'Building PDFs…';
+    // progress stays visible until done
     const data = await res.json();
 
     document.getElementById('progress').classList.add('hidden');
