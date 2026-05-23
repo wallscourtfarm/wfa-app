@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="empty-state"><p>Could not load class data. Check GitHub token.</p></div>
+{% else %}
+
+<div class="page-header">
+  <h2>Y4 Maple — Dashboard</h2>
+  <button class="btn btn-ghost" onclick="location.reload()">↺ Refresh</button>
+</div>
+
+<!-- Stat cards -->
+<div class="stat-row">
+  {% for val, lbl in [
+    (stats.total,        'Learners'),
+    (stats.main,         'Main group'),
+    (stats.revision,     'Revision'),
+    (stats.paired,       'Paired'),
+    (stats.avg_mastered, 'Avg mastered'),
+  ] %}
+  <div class="stat-card">
+    <div class="stat-num">{{ val }}</div>
+    <div class="stat-lbl">{{ lbl }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- TT distribution chart -->
+<div class="section-block">
+  <h3 class="section-title">Times Table distribution</h3>
+  <div class="chart-wrap">
+    <canvas id="ttChart" height="180"></canvas>
+  </div>
+</div>
+
+<!-- Mastery table -->
+<div class="section-block">
+  <h3 class="section-title">Spelling mastery</h3>
+  <p class="section-caption">Click a column header to sort.</p>
+  <div class="tt-table-wrap" style="max-width:none;">
+    <table class="tt-table sortable" id="masteryTable">
+      <thead>
+        <tr>
+          <th data-col="0">Name</th>
+          <th data-col="1">Group</th>
+          <th data-col="2">TT</th>
+          <th data-col="3" class="num-col">Mastered</th>
+          <th data-col="4" class="num-col">Y4 %</th>
+          <th data-col="5" class="num-col">Phase %</th>
+          <th data-col="6" class="num-col">KS %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="pupil-name">{{ r.first }} {{ r.last }}</td>
+          <td>
+            <span class="group-pill group-{{ r.group }}">{{ r.group | title }}</span>
+          </td>
+          <td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>
+          <td class="num-col">{{ r.mastered }}</td>
+          <td class="num-col">
+            <div class="prog-cell">
+              <div class="prog-fill" style="width:{{ r.y4_pct }}%"></div>
+              <span>{{ r.y4_pct }}%</span>
+            </div>
+          </td>
+          <td class="num-col">
+            <div class="prog-cell">
+              <div class="prog-fill prog-fill--phase" style="width:{{ r.phase_pct }}%"></div>
+              <span>{{ r.phase_pct }}%</span>
+            </div>
+          </td>
+          <td class="num-col">
+            <div class="prog-cell">
+              <div class="prog-fill prog-fill--ks" style="width:{{ r.ks_pct }}%"></div>
+              <span>{{ r.ks_pct }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// TT bar chart
+const ctx = document.getElementById('ttChart');
+if (ctx) {
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: {{ tt_labels | safe }},
+      datasets: [{
+        data: {{ tt_values | safe }},
+        backgroundColor: '#1798d3',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { grid: { display: false } }
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+    }
+  });
+}
+
+// Sortable table
+let sortCol = -1, sortAsc = true;
+document.querySelectorAll('#masteryTable th[data-col]').forEach(th => {
+  th.style.cursor = 'pointer';
+  th.addEventListener('click', () => {
+    const col = parseInt(th.dataset.col);
+    if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+    const tbody = document.querySelector('#masteryTable tbody');
+    const rows  = [...tbody.querySelectorAll('tr')];
+    rows.sort((a, b) => {
+      const va = a.cells[col].textContent.trim();
+      const vb = b.cells[col].textContent.trim();
+      const na = parseFloat(va), nb = parseFloat(vb);
+      const cmp = isNaN(na) ? va.localeCompare(vb) : na - nb;
+      return sortAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    document.querySelectorAll('#masteryTable th').forEach(h => h.textContent = h.textContent.replace(/ [▲▼]$/, ''));
+    th.textContent += sortAsc ? ' ▲' : ' ▼';
+  });
+});
+</script>
+{% endblock %}
