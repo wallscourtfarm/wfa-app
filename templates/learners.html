@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Learners{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Learners</h2>
+  <div class="header-actions">
+    <select class="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+{% if pupils %}
+<div class="tt-table-wrap" style="max-width:none;">
+  <table class="tt-table" id="learnersTable">
+    <thead>
+      <tr>
+        <th data-col="0">First</th>
+        <th data-col="1">Last</th>
+        <th data-col="2">Group</th>
+        <th data-col="3">TT</th>
+        <th data-col="4">Words done</th>
+        <th data-col="5">Partner</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pupils %}
+      <tr>
+        <td class="pupil-name">{{ p.first }}</td>
+        <td>{{ p.last }}</td>
+        <td><span class="group-pill group-{{ p.group or 'main' }}">{{ (p.group or 'main')|title }}</span></td>
+        <td><span class="tt-badge tt-badge--{{ 'xd' if p.tt_mode=='xd' else 'x' }}">{{ p.tt_set }}{{ '×÷' if p.tt_mode=='xd' else '×' }}</span></td>
+        <td>{{ p.word_pos }}</td>
+        <td>{{ p.pair_id or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state"><p>No pupils loaded.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let sortCol=-1,sortAsc=true;
+document.querySelectorAll('#learnersTable th[data-col]').forEach(th=>{
+  th.style.cursor='pointer';
+  th.addEventListener('click',()=>{
+    const col=parseInt(th.dataset.col);
+    if(sortCol===col) sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;}
+    const tbody=document.querySelector('#learnersTable tbody');
+    const rows=[...tbody.querySelectorAll('tr')];
+    rows.sort((a,b)=>{
+      const va=a.cells[col].textContent.trim(),vb=b.cells[col].textContent.trim();
+      const na=parseFloat(va),nb=parseFloat(vb);
+      const cmp=isNaN(na)?va.localeCompare(vb):na-nb;
+      return sortAsc?cmp:-cmp;
+    });
+    rows.forEach(r=>tbody.appendChild(r));
+    document.querySelectorAll('#learnersTable th').forEach(h=>h.textContent=h.textContent.replace(/ [▲▼]$/,''));
+    th.textContent+=sortAsc?' ▲':' ▼';
+  });
+});
+</script>
+{% endblock %}
