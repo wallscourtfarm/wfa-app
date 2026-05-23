@@ -7,25 +7,20 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-
   <nav class="topnav">
     <span class="nav-brand">🏫 WFA</span>
     <div class="nav-links">
-      <a href="{{ url_for('tt.tt_check') }}" class="{% if request.endpoint == 'tt.tt_check' %}active{% endif %}">TT Check</a>
-      {# Add more tabs here as they are built #}
+      <a href="{{ url_for('dash.dashboard') }}"
+         class="{% if request.endpoint == 'dash.dashboard' %}active{% endif %}">📊 Dashboard</a>
+      <a href="{{ url_for('bee.spelling_bee') }}"
+         class="{% if request.endpoint == 'bee.spelling_bee' %}active{% endif %}">🐝 Spelling Bee</a>
+      <a href="{{ url_for('tt.tt_check') }}"
+         class="{% if request.endpoint == 'tt.tt_check' %}active{% endif %}">🔢 TT Check</a>
     </div>
     <a href="{{ url_for('auth.logout') }}" class="nav-logout">Log out</a>
   </nav>
 
   <main class="content">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
     {% block content %}{% endblock %}
   </main>
 
