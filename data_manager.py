@@ -140,6 +140,7 @@ def load_dashboard(class_id='Y4_IM'):
             'y4_pct':  stats.get('Y4', 0),
             'phase_pct': stats.get('LKS2', 0),
             'ks_pct':  stats.get('KS2', 0),
+            'all_pct': stats.get('total', 0),
         })
     tt_dist = {t: sum(1 for p in pupils if p.get('tt_set') == t) for t in TT_ORDER}
     stats_summary = {
