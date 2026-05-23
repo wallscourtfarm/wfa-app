@@ -29,14 +29,6 @@ def digital_ipad():
         description='Create iPad spelling sessions for pupils to self-assess. Results import automatically.',
         coming='Session creation and result import')
 
-@stubs_bp.route('/print')
-def print_tools():
-    r = _auth()
-    if r: return r
-    return render_template('stub.html', title='Print', icon='🖨️',
-        description='Print word lists, pairing cards and weekly spelling sheets.',
-        coming='Print-ready PDF outputs')
-
 @stubs_bp.route('/classes')
 def classes():
     r = _auth()
