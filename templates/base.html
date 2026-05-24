@@ -5,10 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}WFA Staff{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% set yr_colours = {
+    '1': ('#e57d24', '#c4641a'),
+    '2': ('#2bae62', '#1f854a'),
+    '3': ('#c0157b', '#96105f'),
+    '4': ('#1798d3', '#1277aa'),
+    '5': ('#e57d24', '#c4641a'),
+    '6': ('#2bae62', '#1f854a')
+  } %}
+  {% if active_year in yr_colours %}
+  <style>
+    :root {
+      --brand:    {{ yr_colours[active_year][0] }};
+      --brand-dk: {{ yr_colours[active_year][1] }};
+    }
+  </style>
+  {% endif %}
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24aa</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24ab</span></a>
     <div class="year-switcher">
       {% for yr in all_year_groups %}
       <a href="/set-year/{{ yr }}" class="yr-btn {% if active_year == yr %}active{% endif %}">Y{{ yr }}</a>
