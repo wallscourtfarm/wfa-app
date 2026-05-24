@@ -24,10 +24,12 @@
   {% endfor %}
 </div>
 
+{% if active_year not in ("1", "2") %}
 <div class="section-block">
   <h3 class="section-title">Times Table distribution</h3>
   <div class="chart-wrap"><canvas id="ttChart"></canvas></div>
 </div>
+{% endif %}
 
 <div class="section-block">
   <h3 class="section-title">Spelling mastery</h3>
@@ -40,8 +42,8 @@
           <th data-col="1">Last</th>
           {% if cls=='all' %}<th data-col="2">Class</th>{% endif %}
           <th data-col="{{ 3 if cls=='all' else 2 }}">Group</th>
-          <th data-col="{{ 4 if cls=='all' else 3 }}">TT</th>
-          <th data-col="{{ 5 if cls=='all' else 4 }}" class="num-col">Y4 %</th>
+          {% if active_year not in ("1", "2") %}<th data-col="{{ 4 if cls=='all' else 3 }}">TT</th>{% endif %}
+          <th data-col="{{ 5 if cls=='all' else 4 }}" class="num-col">Y{{ active_year }} %</th>
           <th data-col="{{ 6 if cls=='all' else 5 }}" class="num-col">Phase %</th>
           <th data-col="{{ 7 if cls=='all' else 6 }}" class="num-col">KS %</th>
           <th data-col="{{ 8 if cls=='all' else 7 }}" class="num-col">All %</th>
@@ -54,7 +56,7 @@
           <td>{{ r.last }}</td>
           {% if cls=='all' %}<td>{{ r.cls }}</td>{% endif %}
           <td><span class="group-pill group-{{ r.group }}">{{ r.group|title }}</span></td>
-          <td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>
+          {% if active_year not in ("1", "2") %}<td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>{% endif %}
           {% for pct, cls_fill in [(r.y4_pct,''),(r.phase_pct,'--phase'),(r.ks_pct,'--ks'),(r.all_pct,'--all')] %}
           <td class="num-col">
             <div class="prog-cell">
