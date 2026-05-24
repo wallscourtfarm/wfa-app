@@ -176,37 +176,33 @@ async function saveResult(nCorrect) {
   }
 }
 
-// ── Wire up keyboard via addEventListener (not onclick) ───────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-
-  // Letter / symbol keys
-  document.querySelectorAll('.key[data-char]').forEach(function(btn) {
-    btn.addEventListener('pointerdown', function(e) {
-      e.preventDefault();
-      const ch = btn.dataset.char;
-      press(shifted ? ch.toUpperCase() : ch);
-      if (shifted) setShift(false);
-    });
-  });
-
-  // Shift
-  document.getElementById('shift-btn').addEventListener('pointerdown', function(e) {
+// ── Wire up keyboard — script is at bottom of body so DOM is already ready ───
+// Letter / symbol keys
+document.querySelectorAll('.key[data-char]').forEach(function(btn) {
+  btn.addEventListener('pointerdown', function(e) {
     e.preventDefault();
-    setShift(!shifted);
+    const ch = btn.dataset.char;
+    press(shifted ? ch.toUpperCase() : ch);
+    if (shifted) setShift(false);
   });
+});
 
-  // Delete
-  document.getElementById('del-btn').addEventListener('pointerdown', function(e) {
-    e.preventDefault();
-    del();
-  });
+// Shift
+document.getElementById('shift-btn').addEventListener('pointerdown', function(e) {
+  e.preventDefault();
+  setShift(!shifted);
+});
 
-  // Submit
-  document.getElementById('submit-btn').addEventListener('pointerdown', function(e) {
-    e.preventDefault();
-    submitWord();
-  });
+// Delete
+document.getElementById('del-btn').addEventListener('pointerdown', function(e) {
+  e.preventDefault();
+  del();
+});
 
+// Submit
+document.getElementById('submit-btn').addEventListener('pointerdown', function(e) {
+  e.preventDefault();
+  submitWord();
 });
 
 upd();
