@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Learners{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h2>Learners</h2>
@@ -13,6 +14,8 @@
 </div>
 
 {% if pupils %}
+<p class="learner-hint">Click a row to see full assessment data.</p>
+
 <div class="tt-table-wrap" style="max-width:none;">
   <table class="tt-table" id="learnersTable">
     <thead>
@@ -21,19 +24,88 @@
         <th data-col="1">Last</th>
         <th data-col="2">Group</th>
         <th data-col="3">TT</th>
-        <th data-col="4">Words learnt</th>
+        <th data-col="4">Key spellings</th>
         <th data-col="5">Partner</th>
       </tr>
     </thead>
     <tbody>
       {% for p in pupils %}
-      <tr>
+      {# Summary row #}
+      <tr class="learner-row" onclick="toggleDetail('{{ p.id }}')">
         <td class="pupil-name">{{ p.first }}</td>
         <td>{{ p.last }}</td>
         <td><span class="group-pill group-{{ p.group or 'main' }}">{{ (p.group or 'main')|title }}</span></td>
         <td><span class="tt-badge tt-badge--{{ 'xd' if p.tt_mode=='xd' else 'x' }}">{{ p.tt_set }}{{ '×÷' if p.tt_mode=='xd' else '×' }}</span></td>
-        <td>{{ p.word_pos }}</td>
+        <td>{{ p.mastered_count }} mastered · pos {{ p.word_pos }}</td>
         <td>{{ p.partner_name or '—' }}</td>
+      </tr>
+
+      {# Detail row — hidden by default #}
+      <tr class="learner-detail hidden" id="detail-{{ p.id }}">
+        <td colspan="6">
+          <div class="ld-grid">
+
+            {# Key Spellings #}
+            <div class="ld-section">
+              <h4 class="ld-heading">Key Spellings</h4>
+              <div class="ld-kv">Position in word bank: <strong>{{ p.word_pos }}</strong></div>
+              <div class="ld-kv">Words mastered: <strong>{{ p.mastered_count }}</strong></div>
+              {% if p.active_words %}
+              <div class="ld-kv" style="margin-top:4px">Next to learn:</div>
+              <div class="ld-wordlist">
+                {% for w in p.active_words %}<span class="ld-word">{{ w }}</span>{% endfor %}
+              </div>
+              {% endif %}
+            </div>
+
+            {# Homophones #}
+            <div class="ld-section">
+              <h4 class="ld-heading">Homophones</h4>
+              {% if p.hm_stages %}
+                {% for s in p.hm_stages %}
+                <div class="ld-stage-row">
+                  <span class="ld-stage-label">{{ s.label }}</span>
+                  {% if s.last_date %}
+                    <span class="ld-badge ld-badge--{{ s.status }}">
+                      {{ s.status|title }}
+                    </span>
+                    <span class="ld-score">{{ s.correct }}/{{ s.total }}
+                      ({{ s.pct }}%)</span>
+                    <span class="ld-date">{{ s.last_date }}</span>
+                  {% else %}
+                    <span class="ld-badge ld-badge--none">Not assessed</span>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              {% else %}
+                <p class="ld-empty">No homophone data yet.</p>
+              {% endif %}
+            </div>
+
+            {# Rule Confidence #}
+            <div class="ld-section ld-section--wide">
+              <h4 class="ld-heading">Rule Confidence
+                <span class="ld-count">({{ p.rc_latest|length }} rule{{ 's' if p.rc_latest|length != 1 else '' }} assessed)</span>
+              </h4>
+              {% if p.rc_latest %}
+              <div class="ld-rule-list">
+                {% for rc in p.rc_latest %}
+                <div class="ld-rule-row">
+                  <span class="ld-rule-id">{{ rc.rule_id }}</span>
+                  <span class="ld-rule-title">{{ rc.title }}</span>
+                  <span class="ld-badge ld-badge--{{ rc.status }}">{{ rc.status|title }}</span>
+                  <span class="ld-score">{{ rc.correct }}/{{ rc.total }}</span>
+                  <span class="ld-date">{{ rc.week }} · {{ rc.date }}</span>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+                <p class="ld-empty">No rule assessment data yet.</p>
+              {% endif %}
+            </div>
+
+          </div>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -46,23 +118,39 @@
 
 {% block scripts %}
 <script>
-let sortCol=-1,sortAsc=true;
-document.querySelectorAll('#learnersTable th[data-col]').forEach(th=>{
-  th.style.cursor='pointer';
-  th.addEventListener('click',()=>{
-    const col=parseInt(th.dataset.col);
-    if(sortCol===col) sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;}
-    const tbody=document.querySelector('#learnersTable tbody');
-    const rows=[...tbody.querySelectorAll('tr')];
-    rows.sort((a,b)=>{
-      const va=a.cells[col].textContent.trim(),vb=b.cells[col].textContent.trim();
-      const na=parseFloat(va),nb=parseFloat(vb);
-      const cmp=isNaN(na)?va.localeCompare(vb):na-nb;
-      return sortAsc?cmp:-cmp;
+function toggleDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  if (row) row.classList.toggle('hidden');
+}
+
+// Column sort
+let sortCol=-1, sortAsc=true;
+document.querySelectorAll('#learnersTable th[data-col]').forEach(th => {
+  th.style.cursor = 'pointer';
+  th.addEventListener('click', () => {
+    const col = parseInt(th.dataset.col);
+    if (sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+    const tbody = document.querySelector('#learnersTable tbody');
+    // Only sort summary rows, keep detail rows paired with their parent
+    const pairs = [];
+    const rows  = [...tbody.querySelectorAll('tr')];
+    for (let i = 0; i < rows.length; i += 2) {
+      pairs.push([rows[i], rows[i+1]]);
+    }
+    pairs.sort((a, b) => {
+      const va = a[0].cells[col]?.textContent.trim() || '';
+      const vb = b[0].cells[col]?.textContent.trim() || '';
+      const na = parseFloat(va), nb = parseFloat(vb);
+      const cmp = isNaN(na) ? va.localeCompare(vb) : na - nb;
+      return sortAsc ? cmp : -cmp;
     });
-    rows.forEach(r=>tbody.appendChild(r));
-    document.querySelectorAll('#learnersTable th').forEach(h=>h.textContent=h.textContent.replace(/ [▲▼]$/,''));
-    th.textContent+=sortAsc?' ▲':' ▼';
+    pairs.forEach(([summary, detail]) => {
+      tbody.appendChild(summary);
+      tbody.appendChild(detail);
+    });
+    document.querySelectorAll('#learnersTable th').forEach(h =>
+      h.textContent = h.textContent.replace(/ [▲▼]$/, ''));
+    th.textContent += sortAsc ? ' ▲' : ' ▼';
   });
 });
 </script>
