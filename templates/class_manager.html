@@ -10,6 +10,8 @@
       <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
+    <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import</button>
+    <button class="btn btn-secondary" onclick="openSettingsModal()" title="Edit class teacher label">⚙ Settings</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
     <button class="btn btn-primary" onclick="openAddModal()">+ Add pupil</button>
   </div>
@@ -19,7 +21,7 @@
 
 <!-- Pair mode banner -->
 <div id="pair-banner" style="display:none;background:#fef9c3;border:1.5px solid #fbbf24;
-  border-radius:10px;padding:12px 18px;margin-bottom:12px;display:none;
+  border-radius:10px;padding:12px 18px;margin-bottom:12px;
   justify-content:space-between;align-items:center;gap:12px">
   <span style="font-size:14px;color:#92400e;font-weight:600">
     🔗 Pair mode — click a pupil to select, then click their partner.
@@ -34,6 +36,13 @@
     </select>
     <button class="btn btn-secondary btn-sm" onclick="togglePairMode()">✕ Done</button>
   </div>
+</div>
+
+<!-- Pending pupils notice -->
+<div id="pending-notice" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;
+  border-radius:10px;padding:12px 18px;margin-bottom:12px;font-size:14px;color:#1e40af">
+  ⏳ <strong id="pending-count"></strong> pupils are unassigned after year-end rollover.
+  Edit each pupil to assign them to this class, or move them to another class.
 </div>
 
 <div id="loading" style="text-align:center;padding:40px;color:#64748b">
@@ -116,15 +125,21 @@
         </label>
       </div>
     </div>
-    <div class="cm-modal-footer">
+    <div class="cm-modal-footer" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
       <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
       <span class="print-spinner hidden" id="spin-edit"></span>
       <div style="flex:1"></div>
-      <button class="btn btn-ghost btn-sm" id="move-btn" onclick="moveCurrentPupil()"
-        style="color:#7c3aed;border-color:#7c3aed">Move to other class</button>
-      <button class="btn btn-ghost btn-sm" id="remove-btn" onclick="removeCurrentPupil()"
-        style="color:#dc2626;border-color:#dc2626">Remove pupil</button>
+      <!-- Move picker -->
+      <div id="move-picker" style="display:flex;gap:6px;align-items:center">
+        <select id="move-to-cls" class="cm-input" style="font-size:13px;padding:5px 8px;max-width:160px">
+          <!-- populated on open -->
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="moveCurrentPupil()"
+          style="color:#7c3aed;border-color:#7c3aed;white-space:nowrap">Move →</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="removeCurrentPupil()"
+        style="color:#dc2626;border-color:#dc2626">Remove</button>
     </div>
   </div>
 </div>
@@ -201,6 +216,76 @@
   </div>
 </div>
 
+<!-- ── Class settings modal ────────────────────────────────────────────────── -->
+<div id="settings-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:420px">
+    <div class="cm-modal-hdr">
+      <h3>⚙ Class settings</h3>
+      <button onclick="closeSettingsModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0">
+        Class ID <strong>{{ cls }}</strong> never changes.
+        Update the teacher label here if a teacher changes mid-year.
+      </p>
+      <div class="cm-field">
+        <label>Teacher initials / code</label>
+        <input id="settings-code" type="text" class="cm-input"
+          placeholder="e.g. IM" maxlength="10" style="text-transform:uppercase">
+      </div>
+      <div class="cm-field">
+        <label>Teacher full name <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
+        <input id="settings-name" type="text" class="cm-input" placeholder="e.g. Mr McLean">
+      </div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" onclick="saveSettings()">Save label</button>
+      <button class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-settings"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── CSV import modal ─────────────────────────────────────────────────────── -->
+<div id="import-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:560px">
+    <div class="cm-modal-hdr">
+      <h3>📥 Import pupils</h3>
+      <button onclick="closeImportModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <div class="cm-field">
+        <label>Import into class</label>
+        <select id="import-cls" class="cm-input" onchange="updateImportPreview()">
+          {% for val, label in class_options %}
+          {% if not val.endswith('_all') %}
+          <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="cm-field">
+        <label>Paste names — one per line, first name then last name</label>
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 6px">
+          Format: <code>First Last</code> or <code>First, Last</code> or two columns.
+          A header row is ignored automatically.
+        </p>
+        <textarea id="import-csv" class="cm-input" rows="10"
+          placeholder="Amelia Smith&#10;James Brown&#10;Olivia Jones"
+          oninput="updateImportPreview()"
+          style="font-family:monospace;font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div id="import-preview" style="font-size:13px;color:#1e40af;background:#eff6ff;
+        border-radius:8px;padding:10px 14px;display:none"></div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" id="import-btn" onclick="confirmImport()" disabled>Import</button>
+      <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-import"></span>
+    </div>
+  </div>
+</div>
+
 <style>
 .cm-table { width:100%; border-collapse:collapse; font-size:14px; }
 .cm-table th { background:#f8fafc; color:#64748b; font-size:12px; font-weight:700;
@@ -211,10 +296,12 @@
 .cm-table tr.pair-selected td { background:#fef9c3 !important; }
 .cm-table tr.pair-selectable:hover { cursor:pointer; }
 .cm-table tr.pair-selectable:hover td { background:#fef3c7; }
+.cm-table tr.pending-row td { background:#fffbeb; }
 
 .group-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; }
 .group-main     { background:#dbeafe; color:#1d4ed8; }
 .group-revision { background:#fce7f3; color:#9d174d; }
+.pending-badge  { background:#fef3c7; color:#92400e; }
 .pair-dot { display:inline-block; width:12px; height:12px; border-radius:50%;
   margin-right:6px; vertical-align:middle; border:1px solid rgba(0,0,0,.15); }
 .no-pair { font-size:12px; color:#94a3b8; font-style:italic; }
@@ -234,31 +321,32 @@
 .cm-field { display:flex;flex-direction:column;gap:5px;flex:1; }
 .cm-field label { font-size:12px;font-weight:600;color:#64748b; }
 .cm-input { border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:14px;
-  outline:none;width:100%; }
+  outline:none;width:100%;box-sizing:border-box; }
 .cm-input:focus { border-color:#1798d3; }
 .cm-field-row { display:flex;gap:12px; }
 
 .pair-list-item { display:flex;align-items:center;gap:10px;padding:8px 12px;
   border-radius:8px;cursor:pointer;font-size:14px; }
 .pair-list-item:hover { background:#f0f9ff; }
-.pair-list-item.hidden { display:none; }
 </style>
 
 <script>
-const CLS_ID     = "{{ cls }}";
+const CLS_ID     = {{ cls | tojson }};
 const TT_SETS    = {{ tt_sets | tojson }};
 const ALL_CLS    = {{ class_options | tojson }};
-const OTHER_CLS  = ALL_CLS.find(([v]) => v !== CLS_ID);
+// All individual classes except _all entries, excluding current
+const OTHER_CLASSES = ALL_CLS.filter(([v]) => !v.endsWith('_all') && v !== CLS_ID);
 
 let _pupils      = [];
-let _allPupils   = [];    // cross-class, for pair picker
+let _allPupils   = [];
 let _pairMode    = false;
-let _pairFirst   = null;  // pupil id of first selection in inline pair mode
-let _pairTarget  = null;  // pupil id of the pupil whose pair we're choosing (modal mode)
+let _pairFirst   = null;
+let _pairTarget  = null;
 
 function showStatus(msg, type='ok') {
   const bar = document.getElementById('status-bar');
   bar.textContent = msg; bar.className = `status-bar status-${type}`;
+  setTimeout(() => bar.className = 'status-bar hidden', 4000);
 }
 function showSpin(id, show) { document.getElementById('spin-'+id)?.classList.toggle('hidden',!show); }
 
@@ -272,6 +360,12 @@ async function load() {
     if (!d.ok) { showStatus('Could not load: ' + d.error, 'error'); return; }
     _pupils    = d.pupils;
     _allPupils = d.all_pupils;
+    const pending = _pupils.filter(p => p.pending);
+    if (pending.length) {
+      document.getElementById('pending-count').textContent =
+        `${pending.length} pupil${pending.length !== 1 ? 's' : ''}`;
+      document.getElementById('pending-notice').style.display = 'block';
+    }
     render();
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
@@ -281,9 +375,7 @@ async function load() {
   }
 }
 
-function switchClass(val) {
-  window.location = `/class-manager?cls=${val}`;
-}
+function switchClass(val) { window.location = `/class-manager?cls=${val}`; }
 
 // ── Render table ──────────────────────────────────────────────────────────────
 function render() {
@@ -295,20 +387,27 @@ function render() {
 
   _pupils.forEach(p => {
     const tr = document.createElement('tr');
+    const isPending = p.pending;
     if (_pairMode) tr.className = 'pair-selectable';
     if (_pairMode && _pairFirst === p.id) tr.className += ' pair-selected';
+    if (isPending) tr.className += ' pending-row';
     tr.dataset.id = p.id;
 
     const pairDot = p.pair_colour
-      ? `<span class="pair-dot" style="background:${p.pair_colour}"></span>`
-      : '';
+      ? `<span class="pair-dot" style="background:${p.pair_colour}"></span>` : '';
+    const clsShort = c => c.replace(/^Y\d+_/, '');
     const pairLabel = p.partner_name
-      ? `${pairDot}${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls ? ' <span style="font-size:11px;color:#94a3b8">('+(p.partner_cls.replace('Y4_',''))+')</span>' : ''}`
+      ? `${pairDot}${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
+          ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}`
       : `<span class="no-pair">Unpaired</span>`;
+
+    const groupBadge = isPending
+      ? `<span class="group-badge pending-badge">Pending</span>`
+      : `<span class="group-badge group-${p.group}">${p.group === 'main' ? 'Main' : 'Revision'}</span>`;
 
     tr.innerHTML = `
       <td><strong>${p.first}</strong> ${p.last || ''}</td>
-      <td><span class="group-badge group-${p.group}">${p.group === 'main' ? 'Main' : 'Revision'}</span></td>
+      <td>${groupBadge}</td>
       <td>${p.tt_set}${p.tt_mode === 'xd' ? '×÷' : '×'}</td>
       <td>${p.table || '—'}</td>
       <td>${p.adapted_hl ? '✅' : '—'}</td>
@@ -328,14 +427,12 @@ function render() {
       </td>
     `;
 
-    if (_pairMode) {
-      tr.onclick = (e) => handlePairClick(p.id, e);
-    }
+    if (_pairMode) tr.onclick = (e) => handlePairClick(p.id, e);
     tbody.appendChild(tr);
   });
 }
 
-// ── Pair mode (click-to-pair in table) ───────────────────────────────────────
+// ── Pair mode ─────────────────────────────────────────────────────────────────
 function togglePairMode() {
   _pairMode  = !_pairMode;
   _pairFirst = null;
@@ -349,7 +446,7 @@ function togglePairMode() {
 }
 
 function handlePairClick(pid, e) {
-  if (e.target.closest('button')) return;   // let other buttons work
+  if (e.target.closest('button')) return;
   if (!_pairFirst) {
     _pairFirst = pid;
     document.getElementById('pair-step').textContent = ' Step 2: click their partner.';
@@ -367,25 +464,20 @@ function handlePairClick(pid, e) {
 async function setPair(a, b, colour) {
   try {
     const resp = await fetch('/api/class/pair', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ pupil_a: a, pupil_b: b, colour }),
     });
     const d = await resp.json();
     if (d.ok) {
-      showStatus('Pair saved.', 'ok');
+      showStatus('Pair saved.');
       _pairFirst = null;
       document.getElementById('pair-step').textContent = ' Step 1: select first pupil.';
       await load();
-    } else {
-      showStatus('Could not save pair: ' + d.error, 'error');
-    }
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  }
+    } else showStatus('Could not save pair: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 
-// ── Pair modal (from + button on unpaired row) ────────────────────────────────
+// ── Pair modal ────────────────────────────────────────────────────────────────
 function openPairModal(pid, e) {
   if (e) e.stopPropagation();
   _pairTarget = pid;
@@ -406,13 +498,15 @@ function populatePairList(filter) {
   const list = document.getElementById('pair-list');
   list.innerHTML = '';
   const q = filter.toLowerCase();
+  const clsShort = c => c.replace(/^Y\d+_/, '');
   _allPupils.forEach(p => {
-    if (p.id === _pairTarget) return;   // don't show self
+    if (p.id === _pairTarget) return;
     const label = `${p.first} ${p.last || ''}`.trim();
     if (q && !label.toLowerCase().includes(q)) return;
     const item = document.createElement('div');
     item.className = 'pair-list-item';
-    const cls_label = p.cls_id !== CLS_ID ? ` <span style="font-size:11px;color:#94a3b8">(${p.cls_id.replace('Y4_','')})</span>` : '';
+    const cls_label = p.cls_id !== CLS_ID
+      ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.cls_id)})</span>` : '';
     item.innerHTML = `<span>${label}${cls_label}</span>`;
     item.onclick = () => {
       const colour = document.getElementById('pair-modal-colour').value;
@@ -421,9 +515,8 @@ function populatePairList(filter) {
     };
     list.appendChild(item);
   });
-  if (!list.children.length) {
+  if (!list.children.length)
     list.innerHTML = '<div style="color:#94a3b8;padding:12px;font-size:13px">No matches</div>';
-  }
 }
 
 function filterPairList() {
@@ -436,16 +529,13 @@ async function unpair(pid, e) {
   if (!confirm('Remove this pair?')) return;
   try {
     const resp = await fetch('/api/class/unpair', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ pupil_id: pid }),
     });
     const d = await resp.json();
     if (d.ok) { showStatus('Pair removed.'); await load(); }
     else showStatus('Could not unpair: ' + d.error, 'error');
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  }
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
@@ -453,17 +543,21 @@ function openEditModal(pid, e) {
   if (e) e.stopPropagation();
   const p = _pupils.find(x => x.id === pid);
   if (!p) return;
-  document.getElementById('edit-pupil-id').value   = pid;
+  document.getElementById('edit-pupil-id').value    = pid;
   document.getElementById('edit-title').textContent = `Edit — ${p.first} ${p.last || ''}`;
   document.getElementById('edit-first').value       = p.first;
   document.getElementById('edit-last').value        = p.last || '';
-  document.getElementById('edit-group').value       = p.group;
+  document.getElementById('edit-group').value       = p.group || 'main';
   document.getElementById('edit-tt-set').value      = p.tt_set;
   document.getElementById('edit-tt-mode').value     = p.tt_mode;
   document.getElementById('edit-table').value       = p.table || '';
   document.getElementById('edit-adapted-hl').checked = p.adapted_hl;
-  document.getElementById('move-btn').textContent   =
-    `Move to ${OTHER_CLS ? OTHER_CLS[1] : 'other class'}`;
+
+  // Populate move-to select with all classes except current
+  const sel = document.getElementById('move-to-cls');
+  sel.innerHTML = OTHER_CLASSES.map(([v, l]) =>
+    `<option value="${v}">${l}</option>`).join('');
+
   document.getElementById('edit-modal').style.display = 'flex';
 }
 
@@ -476,11 +570,9 @@ async function saveEdit() {
   showSpin('edit', true);
   try {
     const resp = await fetch('/api/class/pupil/update', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        cls:      CLS_ID,
-        pupil_id: pid,
+        cls: CLS_ID, pupil_id: pid,
         changes: {
           first:      document.getElementById('edit-first').value.trim(),
           last:       document.getElementById('edit-last').value.trim(),
@@ -495,55 +587,45 @@ async function saveEdit() {
     const d = await resp.json();
     if (d.ok) { closeEditModal(); showStatus('Saved.'); await load(); }
     else showStatus('Save failed: ' + d.error, 'error');
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  } finally {
-    showSpin('edit', false);
-  }
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+  finally { showSpin('edit', false); }
 }
 
 async function moveCurrentPupil() {
-  const pid = document.getElementById('edit-pupil-id').value;
-  const name = document.getElementById('edit-first').value;
-  if (!OTHER_CLS) { alert('No other class to move to.'); return; }
-  if (!confirm(`Move ${name} to ${OTHER_CLS[1]}?`)) return;
+  const pid    = document.getElementById('edit-pupil-id').value;
+  const name   = document.getElementById('edit-first').value;
+  const toCls  = document.getElementById('move-to-cls').value;
+  const toLabel = OTHER_CLASSES.find(([v]) => v === toCls)?.[1] || toCls;
+  if (!toCls) { alert('Select a destination class.'); return; }
+  if (!confirm(`Move ${name} to ${toLabel}?`)) return;
   try {
     const resp = await fetch('/api/class/pupil/move', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ from_cls: CLS_ID, to_cls: OTHER_CLS[0], pupil_id: pid }),
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ from_cls: CLS_ID, to_cls: toCls, pupil_id: pid }),
     });
     const d = await resp.json();
     if (d.ok) {
       closeEditModal();
-      showStatus(`${d.name} moved to ${OTHER_CLS[1]}.`);
+      showStatus(`${d.name} moved to ${toLabel}.`);
       await load();
     } else showStatus('Move failed: ' + d.error, 'error');
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  }
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 
 async function removeCurrentPupil() {
   const pid  = document.getElementById('edit-pupil-id').value;
-  const name = document.getElementById('edit-first').value + ' ' +
-               document.getElementById('edit-last').value;
-  if (!confirm(`Permanently remove ${name.trim()}? This cannot be undone.`)) return;
+  const name = (document.getElementById('edit-first').value + ' ' +
+                document.getElementById('edit-last').value).trim();
+  if (!confirm(`Permanently remove ${name}? This cannot be undone.`)) return;
   try {
     const resp = await fetch('/api/class/pupil/remove', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ cls: CLS_ID, pupil_id: pid }),
     });
     const d = await resp.json();
-    if (d.ok) {
-      closeEditModal();
-      showStatus(`${d.name} removed.`);
-      await load();
-    } else showStatus('Remove failed: ' + d.error, 'error');
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  }
+    if (d.ok) { closeEditModal(); showStatus(`${d.name} removed.`); await load(); }
+    else showStatus('Remove failed: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 
 // ── Add modal ─────────────────────────────────────────────────────────────────
@@ -567,11 +649,9 @@ async function confirmAdd() {
   showSpin('add', true);
   try {
     const resp = await fetch('/api/class/pupil/add', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        cls:        CLS_ID,
-        first,
+        cls: CLS_ID, first,
         last:       document.getElementById('add-last').value.trim(),
         group:      document.getElementById('add-group').value,
         table:      document.getElementById('add-table').value.trim(),
@@ -579,16 +659,123 @@ async function confirmAdd() {
       }),
     });
     const d = await resp.json();
+    if (d.ok) { closeAddModal(); showStatus(`${first} added (${d.pupil_id}).`); await load(); }
+    else showStatus('Add failed: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+  finally { showSpin('add', false); }
+}
+
+// ── Class settings modal ──────────────────────────────────────────────────────
+function openSettingsModal() {
+  document.getElementById('settings-code').value = '';
+  document.getElementById('settings-name').value = '';
+  document.getElementById('settings-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('settings-code').focus(), 50);
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').style.display = 'none';
+}
+
+async function saveSettings() {
+  const code = document.getElementById('settings-code').value.trim().toUpperCase();
+  const name = document.getElementById('settings-name').value.trim();
+  if (!code) { document.getElementById('settings-code').focus(); return; }
+  showSpin('settings', true);
+  try {
+    const resp = await fetch('/api/class/teacher/update', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ class_id: CLS_ID, teacher_code: code, teacher_name: name }),
+    });
+    const d = await resp.json();
     if (d.ok) {
-      closeAddModal();
-      showStatus(`${first} added (ID: ${d.pupil_id}).`);
-      await load();
-    } else showStatus('Add failed: ' + d.error, 'error');
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  } finally {
-    showSpin('add', false);
+      closeSettingsModal();
+      showStatus(`Teacher label updated to ${code}.`);
+    } else showStatus('Save failed: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+  finally { showSpin('settings', false); }
+}
+
+// ── CSV import modal ──────────────────────────────────────────────────────────
+function openImportModal() {
+  document.getElementById('import-csv').value = '';
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-btn').disabled = true;
+  document.getElementById('import-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('import-csv').focus(), 50);
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').style.display = 'none';
+}
+
+function parseImportCSV(text) {
+  // Accept: "First Last", "First, Last", "First\tLast", or two-column CSV
+  const lines = text.trim().split(/\n/);
+  const results = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    // Detect header
+    if (i === 0 && /^(first|name|forename)/i.test(line)) continue;
+    let first = '', last = '';
+    if (line.includes(',')) {
+      const parts = line.split(',').map(s => s.trim());
+      // Could be "Last, First" or "First, Last" — assume "First, Last"
+      first = parts[0]; last = parts[1] || '';
+    } else if (line.includes('\t')) {
+      const parts = line.split('\t');
+      first = parts[0].trim(); last = (parts[1] || '').trim();
+    } else {
+      const parts = line.split(/\s+/);
+      first = parts[0]; last = parts.slice(1).join(' ');
+    }
+    if (first) results.push({ first, last });
   }
+  return results;
+}
+
+function updateImportPreview() {
+  const text    = document.getElementById('import-csv').value;
+  const parsed  = parseImportCSV(text);
+  const preview = document.getElementById('import-preview');
+  const btn     = document.getElementById('import-btn');
+  if (!parsed.length) {
+    preview.style.display = 'none';
+    btn.disabled = true;
+    return;
+  }
+  const sample = parsed.slice(0, 5).map(p => `${p.first} ${p.last}`.trim()).join(', ');
+  const more   = parsed.length > 5 ? ` …and ${parsed.length - 5} more` : '';
+  preview.textContent = `${parsed.length} pupil${parsed.length !== 1 ? 's' : ''} detected: ${sample}${more}`;
+  preview.style.display = 'block';
+  btn.disabled = false;
+}
+
+async function confirmImport() {
+  const cls  = document.getElementById('import-cls').value;
+  const csv  = document.getElementById('import-csv').value;
+  const parsed = parseImportCSV(csv);
+  if (!parsed.length) return;
+  if (!confirm(`Import ${parsed.length} pupils into ${cls}?`)) return;
+  showSpin('import', true);
+  document.getElementById('import-btn').disabled = true;
+  try {
+    // Convert to simple CSV for backend
+    const csvText = parsed.map(p => `${p.first},${p.last}`).join('\n');
+    const resp = await fetch('/api/class/import', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ class_id: cls, csv: csvText }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      closeImportModal();
+      const errMsg = d.errors?.length ? ` (${d.errors.length} skipped)` : '';
+      showStatus(`${d.imported} pupils imported into ${cls}${errMsg}.`);
+      if (cls === CLS_ID) await load();
+    } else showStatus('Import failed: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+  finally { showSpin('import', false); document.getElementById('import-btn').disabled = false; }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
