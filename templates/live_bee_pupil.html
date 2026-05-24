@@ -49,7 +49,7 @@ button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;tra
     {% endif %}
   </div>
   <div id="prog-row">
-    <span id="prog-label">Word 1 of {{ pupil.items|length }}</span>
+    <span id="prog-label">Word 1 of {{ pupil["items"]|length }}</span>
     <div id="prog-bar"><div id="prog-fill"></div></div>
   </div>
   <div id="sentence-box">
