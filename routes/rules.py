@@ -23,7 +23,7 @@ def _build_stages():
     stages = {}
     for r in SPELLING_RULES:
         stage, step, title, words, rtype = r
-        if rtype == 1:  # skip Challenge Words
+        if rtype != 0:  # skip challenge and revision words
             continue
         rid = f'{stage}-{step}'
         stages.setdefault(stage, []).append({

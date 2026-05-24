@@ -13,7 +13,7 @@ def _homophone_words_by_stage():
     result = {}
     for r in SPELLING_RULES:
         stage, step, title, words, rtype = r
-        if rtype == 1: continue
+        if rtype != 0: continue  # skip challenge and revision
         if 'homophone' not in title.lower() and 'near-homophone' not in title.lower(): continue
         result.setdefault(stage, []).extend(words)
     return result

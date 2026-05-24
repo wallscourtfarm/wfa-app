@@ -48,7 +48,7 @@ def _plannable_rules():
     """Returns list of (rule_id, stage, step, title, words) for non-hidden rules."""
     return [
         (f'{r[0]}-{r[1]}', r[0], r[1], r[2], r[3])
-        for r in SPELLING_RULES if r[4] != 1
+        for r in SPELLING_RULES if r[4] == 0
     ]
 
 def _rule_sections(selected_ids, cloze_bank):

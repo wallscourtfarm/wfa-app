@@ -230,7 +230,7 @@ def list_plannable_rules():
     custom_rules = load_custom_rules()
     custom   = [(f'0-{cr["id"]}', f'Custom: {cr["title"]}') for cr in custom_rules]
     standard = [(f'{r[0]}-{r[1]}', f'S{r[0]} Step {r[1]}: {r[2]}')
-                for r in SPELLING_RULES if r[4] != 1]
+                for r in SPELLING_RULES if r[4] == 0]
     return custom + standard
 
 # ── Custom Rules ──────────────────────────────────────────────────────────────

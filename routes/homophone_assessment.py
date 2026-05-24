@@ -59,7 +59,7 @@ def _homophone_rules_by_stage():
         stage, step, title, words, rtype = r
         if 'homophone' not in title.lower() and 'near-homophone' not in title.lower():
             continue
-        if rtype == 1:   # skip challenge
+        if rtype != 0:  # skip challenge and revision
             continue
         rid = f'{stage}-{step}'
         result.setdefault(stage, []).append((rid, title, words))

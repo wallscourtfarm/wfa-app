@@ -249,7 +249,7 @@ def get_rule(rule_id_str):
 
 def plannable_rules():
     """Rules that can be selected as current week rule (no Challenge Words)."""
-    return [r for r in SPELLING_RULES if r[4] != 1]
+    return [r for r in SPELLING_RULES if r[4] == 0]
 
 def rules_by_stage(stage):
     return [r for r in SPELLING_RULES if r[0] == stage]
