@@ -33,7 +33,7 @@
 
   <div id="rule-stages">
     {% for stage, rules in stages.items() | sort %}
-    <details class="ra-stage" open>
+    <details class="ra-stage">
       <summary class="ra-stage-summary">
         <span>Stage {{ stage }}</span>
         <label class="ra-stage-all" onclick="event.stopPropagation()">
@@ -44,8 +44,8 @@
         {% for rule in rules %}
         <label class="ra-rule-label" data-title="{{ rule.title | lower }}" data-stage="{{ stage }}">
           <input type="checkbox" class="ra-rule-cb" value="{{ rule.id }}">
-          <span class="ra-rule-id">{{ rule.id }}</span>
           <span class="ra-rule-title">{{ rule.title }}</span>
+          <span class="ra-rule-id">{{ rule.id }}</span>
         </label>
         {% endfor %}
       </div>

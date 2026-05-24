@@ -143,7 +143,7 @@ def api_ra_generate():
 
         from assessment_builder import build_rule_assessment_pdf, build_rule_assessment_teacher_pdf
         pdf_bytes     = build_rule_assessment_pdf(pupils, sections, week_ref)
-        teacher_bytes = build_rule_assessment_teacher_pdf(pupils, sections, week_ref)
+        teacher_bytes = build_rule_assessment_teacher_pdf([], sections, week_ref)
 
         return jsonify({
             'ok':          True,

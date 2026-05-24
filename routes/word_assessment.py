@@ -115,7 +115,7 @@ def api_wa_generate():
 
         from assessment_builder import build_word_assessment_pdf, build_word_assessment_excel, build_word_assessment_teacher_pdf
         pdf_bytes     = build_word_assessment_pdf(pupils, sections, cloze, week_ref)
-        teacher_bytes = build_word_assessment_teacher_pdf(pupils, sections, cloze, week_ref)
+        teacher_bytes = build_word_assessment_teacher_pdf([], sections, cloze, week_ref)
         xl_bytes      = build_word_assessment_excel(pupils, sections)
 
         flagged = [w for w in missing if w.lower() not in cloze]

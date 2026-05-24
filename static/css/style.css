@@ -855,3 +855,11 @@ body {
 .ra-rule-id { color: var(--brand); font-weight: 700; white-space: nowrap; flex-shrink: 0; width: 36px; }
 .ra-rule-title { color: var(--text); }
 .muted-label { color: var(--muted); font-size: 12px; }
+
+/* Rule ID beside checkbox — updated layout */
+.ra-rule-label { justify-content: flex-start; }
+.ra-rule-title { flex: 1; }
+.ra-rule-id {
+  color: var(--muted); font-weight: 400; font-size: 11px;
+  width: auto; flex-shrink: 0; margin-left: 6px;
+}
