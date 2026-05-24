@@ -141,3 +141,91 @@ def insights():
         rule_rows=rule_rows, rule_count=len(rule_rows),
         homophone_rows=homophone_rows, n_assessed=n_assessed,
         zones=zones, median_pos=median_pos, median_zone=median_zone)
+
+
+# ── API: AI-generated actions ─────────────────────────────────────────────────
+
+import os as _os, json as _json, re as _re
+import requests as _requests
+
+@insights_bp.route('/api/insights/actions', methods=['POST'])
+def api_insights_actions():
+    from flask import request, jsonify
+    if not session.get('authenticated'):
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+
+    cls = request.get_json(force=True).get('cls', 'all')
+    pupils = _load_pupils(cls)
+    if not pupils:
+        return jsonify({'ok': False, 'error': 'No pupils found'})
+
+    rule_rows                  = _rule_priorities(pupils)
+    homophone_rows, n_assessed = _homophone_gaps(pupils)
+    zones, median_pos, median_zone, _ = _spelling_spread(pupils)
+
+    n_pupils  = len(pupils)
+    cls_label = {'all': 'Y4 (both classes)', 'Y4_IM': 'Y4 IM', 'Y4_WU': 'Y4 WU'}.get(cls, cls)
+
+    rule_lines = [
+        f"  {r['rule_id']} {r['title']}: {r['n']}/{n_pupils} assessed, "
+        f"{r['full']} full / {r['partial']} partial / {r['none']} not yet, avg {r['avg_pct']}%"
+        for r in rule_rows[:8]
+    ]
+    hom_lines = [
+        f"  \'{h['word']}\' ({h['stage']}): {h['mastered']}/{h['assessed']} mastered ({h['pct']}%)"
+        for h in homophone_rows[:10]
+    ]
+    zone_lines = [
+        f"  {z['label']} (words {z['start']}\u2013{z['end']}): {z['count']} pupils"
+        for z in zones if z['count']
+    ]
+
+    prompt = f"""You are an experienced UK primary school teaching advisor.
+A Year 4 teacher has shared assessment data for their class ({cls_label}, {n_pupils} pupils).
+Generate exactly 5 specific, prioritised actions to have the biggest impact on spelling outcomes.
+
+CLASS DATA:
+
+Rule confidence (worst first):
+{chr(10).join(rule_lines) if rule_lines else "  No rule assessments yet."}
+
+Homophone gaps (worst mastery first, {n_assessed} pupils assessed):
+{chr(10).join(hom_lines) if hom_lines else "  No homophone assessments yet."}
+
+Key spelling spread (word bank position):
+{chr(10).join(zone_lines)}
+Median pupil: word {median_pos}/630 ({median_zone})
+
+INSTRUCTIONS:
+- Each action must be specific and tied directly to the data above
+- Refer to actual rule IDs, word names, or zones — no vague generalities
+- Order by highest impact first
+- British English throughout
+- Return ONLY a JSON array of 5 objects with keys: "title" (max 8 words), "action" (one concrete sentence), "rationale" (one data-backed sentence)
+- No preamble, no markdown fences, no extra text"""
+
+    api_key = _os.environ.get('ANTHROPIC_API_KEY', '')
+    if not api_key:
+        return jsonify({'ok': False, 'error': 'ANTHROPIC_API_KEY not set'})
+
+    resp = _requests.post(
+        'https://api.anthropic.com/v1/messages',
+        headers={'x-api-key': api_key, 'anthropic-version': '2023-06-01',
+                 'content-type': 'application/json'},
+        json={'model': 'claude-sonnet-4-20250514', 'max_tokens': 1200,
+              'messages': [{'role': 'user', 'content': prompt}]},
+        timeout=30,
+    )
+
+    if resp.status_code != 200:
+        return jsonify({'ok': False, 'error': f'API error {resp.status_code}'})
+
+    text = resp.json()['content'][0]['text'].strip()
+    text = _re.sub(r'^```[a-z]*\n?', '', text)
+    text = _re.sub(r'\n?```$', '', text)
+
+    try:
+        actions = _json.loads(text)
+        return jsonify({'ok': True, 'actions': actions, 'cls': cls_label})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Parse error: {e}', 'raw': text})

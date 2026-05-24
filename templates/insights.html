@@ -1,5 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Class Insights{% endblock %}
+{% block title %}Class Insights
+<!-- ── Actions for Impact ───────────────────────────────────────── -->
+<div class="ins-card ins-card--actions">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <h3 class="ins-heading" style="margin:0">⚡ Actions for Impact
+      <span class="ins-sub">AI-generated from your class data</span>
+    </h3>
+    <button class="btn btn-primary" id="actions-btn" onclick="generateActions()">
+      ✨ Generate recommendations
+    </button>
+  </div>
+
+  <div id="actions-spinner" class="hidden" style="font-size:13px;color:var(--muted);padding:8px 0">
+    Analysing class data…
+  </div>
+  <div id="actions-error" class="hidden wa-flagged"></div>
+
+  <ol id="actions-list" class="ins-actions-list hidden"></ol>
+</div>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -123,4 +142,75 @@
     {% endfor %}
   </div>
 </div>
+
+<!-- ── Actions for Impact ───────────────────────────────────────── -->
+<div class="ins-card ins-card--actions">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <h3 class="ins-heading" style="margin:0">⚡ Actions for Impact
+      <span class="ins-sub">AI-generated from your class data</span>
+    </h3>
+    <button class="btn btn-primary" id="actions-btn" onclick="generateActions()">
+      ✨ Generate recommendations
+    </button>
+  </div>
+
+  <div id="actions-spinner" class="hidden" style="font-size:13px;color:var(--muted);padding:8px 0">
+    Analysing class data…
+  </div>
+  <div id="actions-error" class="hidden wa-flagged"></div>
+
+  <ol id="actions-list" class="ins-actions-list hidden"></ol>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS = "{{ cls }}";
+
+async function generateActions() {
+  const btn = document.getElementById('actions-btn');
+  const spinner = document.getElementById('actions-spinner');
+  const errEl  = document.getElementById('actions-error');
+  const list   = document.getElementById('actions-list');
+
+  btn.disabled = true;
+  spinner.classList.remove('hidden');
+  errEl.classList.add('hidden');
+  list.classList.add('hidden');
+  list.innerHTML = '';
+
+  try {
+    const resp = await fetch('/api/insights/actions', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS }),
+    });
+    const d = await resp.json();
+    if (!d.ok) {
+      errEl.textContent = '⚠️ ' + d.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    d.actions.forEach((a, i) => {
+      const li = document.createElement('li');
+      li.className = 'ins-action-item';
+      li.innerHTML = `
+        <div class="ins-action-num">${i + 1}</div>
+        <div class="ins-action-body">
+          <div class="ins-action-title">${a.title}</div>
+          <div class="ins-action-text">${a.action}</div>
+          <div class="ins-action-rationale">${a.rationale}</div>
+        </div>`;
+      list.appendChild(li);
+    });
+    list.classList.remove('hidden');
+  } catch(e) {
+    errEl.textContent = '⚠️ Request failed: ' + e.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    spinner.classList.add('hidden');
+  }
+}
+</script>
 {% endblock %}
