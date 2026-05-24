@@ -230,27 +230,10 @@ def _build_bee_cards(sess, base_url):
             c.line(0, ly, W, ly)
         c.restoreState()
 
-    def rounded_rect(rx, ry, rw, rh, radius):
-        """Draw a filled rounded rectangle (pill shape)."""
-        from reportlab.lib.units import mm as _mm
-        r = min(radius, rw / 2, rh / 2)
-        c.beginPath()
-        c.moveTo(rx + r, ry)
-        c.lineTo(rx + rw - r, ry)
-        c.curveTo(rx + rw, ry, rx + rw, ry, rx + rw, ry + r)
-        c.lineTo(rx + rw, ry + rh - r)
-        c.curveTo(rx + rw, ry + rh, rx + rw, ry + rh, rx + rw - r, ry + rh)
-        c.lineTo(rx + r, ry + rh)
-        c.curveTo(rx, ry + rh, rx, ry + rh, rx, ry + rh - r)
-        c.lineTo(rx, ry + r)
-        c.curveTo(rx, ry, rx, ry, rx + r, ry)
-        c.closePath()
-        c.fill()
-
     def draw_card(cx, cy, p_rec):
         """Draw one card at column-left cx, row-top cy."""
         PAD      = 5 * mm
-        HDR_H    = 22 * mm   # tall colour header
+        HDR_H    = 22 * mm
         words    = [it['word'] for it in p_rec.get('items', [])]
         n_wds    = len(words)
         colour_rgb = hex_to_rgb(p_rec.get('pair_colour') or '#1798d3')
@@ -261,30 +244,26 @@ def _build_bee_cards(sess, base_url):
         c.setFillColorRGB(*colour_rgb)
         c.rect(cx, cy - HDR_H, col_w, HDR_H, fill=1, stroke=0)
 
-        # Name pill (white rounded rect)
+        # Name pill — use ReportLab's built-in roundRect
         pill_w = min(col_w - 8 * mm, len(name) * 7.5 + 16)
         pill_h = 10 * mm
         pill_x = cx + (col_w - pill_w) / 2
         pill_y = cy - HDR_H / 2 - pill_h / 2 + (3 * mm if partner else 0)
         c.setFillColorRGB(1, 1, 1)
-        rounded_rect(pill_x, pill_y, pill_w, pill_h, 5)
+        c.roundRect(pill_x, pill_y, pill_w, pill_h, 5, stroke=0, fill=1)
         c.setFillColorRGB(*colour_rgb)
         c.setFont('Helvetica-Bold', 14)
         c.drawCentredString(cx + col_w / 2, pill_y + 2.5 * mm, name)
 
-        # Partner pill (smaller, semi-transparent white)
+        # Partner pill
         if partner:
             p_pill_w = min(col_w - 16 * mm, len(f'Partner: {partner}') * 5.2 + 14)
             p_pill_h = 6 * mm
             p_pill_x = cx + (col_w - p_pill_w) / 2
             p_pill_y = pill_y - p_pill_h - 2 * mm
-            c.setFillColorRGB(1, 1, 1, 0.25)  # translucent white
-            c.saveState()
-            c.setFillAlpha(0.3)
             c.setFillColorRGB(1, 1, 1)
-            rounded_rect(p_pill_x, p_pill_y, p_pill_w, p_pill_h, 3)
-            c.restoreState()
-            c.setFillColorRGB(1, 1, 1)
+            c.roundRect(p_pill_x, p_pill_y, p_pill_w, p_pill_h, 3, stroke=0, fill=1)
+            c.setFillColorRGB(*colour_rgb)
             c.setFont('Helvetica', 8)
             c.drawCentredString(cx + col_w / 2, p_pill_y + 1.5 * mm, f'Partner: {partner}')
 

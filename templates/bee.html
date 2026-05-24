@@ -56,28 +56,22 @@
     <span class="print-spinner hidden" id="spin-paired-lists"></span>
     <span class="print-spinner hidden" id="spin-create"></span>
   </div>
-</div>
 
-<!-- Session created result (hidden until session created) -->
-<div class="print-card hidden" id="session-card">
-  <div class="print-card-header">
-    <span class="print-card-icon">✅</span>
-    <div>
-      <h3 class="print-card-title" id="sess-title">Session created</h3>
-      <p class="print-card-desc" id="sess-desc"></p>
+  <!-- Session result — shown inline after creation -->
+  <div id="session-card" style="display:none;border-top:1px solid #f1f5f9;padding:12px 18px;
+    display:none;flex-direction:column;gap:8px">
+    <div style="font-size:13px;font-weight:600;color:#1a3c6e" id="sess-title"></div>
+    <div style="font-size:12px;color:#64748b" id="sess-desc"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <a id="cards-link" class="btn btn-primary" style="font-size:13px" target="_blank">🖨 Download QR cards PDF</a>
+      <button class="btn btn-secondary" id="process-btn" style="font-size:13px"
+        onclick="processSession()" disabled>✅ Process results</button>
+      <span class="print-spinner hidden" id="spin-process"></span>
+      <span style="font-size:12px;color:#94a3b8">
+        Also in <a href="{{ url_for('live.session_management') }}" style="color:#1798d3">Session Manager</a>
+      </span>
     </div>
   </div>
-  <div class="print-card-footer" style="gap:10px;flex-wrap:wrap">
-    <a id="cards-link" class="btn btn-primary" target="_blank">🖨 Download QR cards PDF</a>
-    <button class="btn btn-secondary" id="process-btn" onclick="processSession()" disabled>
-      ✅ Process results
-    </button>
-    <span class="print-spinner hidden" id="spin-process"></span>
-  </div>
-  <p class="muted-label" style="padding:0 18px 14px;font-size:12px">
-    Click <strong>Process results</strong> once all pupils have finished — this writes to their records.
-    You can also process from the <a href="{{ url_for('live.session_management') }}">Session Manager</a>.
-  </p>
 </div>
 
 <!-- ── Card 2: Enter results manually ────────────────────────────────────── -->
@@ -207,7 +201,7 @@ async function createSession() {
     document.getElementById('sess-desc').textContent  =
       `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
     document.getElementById('cards-link').href = `/api/live/bee/cards-pdf/${d.session_id}`;
-    document.getElementById('session-card').classList.remove('hidden');
+    document.getElementById('session-card').style.display = 'flex';
     document.getElementById('process-btn').disabled = false;
     showStatus(`Session ${d.session_id} created — download and print the QR cards.`);
   } catch(e) {
