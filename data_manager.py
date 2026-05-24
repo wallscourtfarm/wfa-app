@@ -663,58 +663,111 @@ def get_class_options_for_year(yr, include_all=True):
 
 def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
     """
-    Import pupils with their mastered word lists from a CSV.
+    Import pupils with mastered word lists.  Accepts two CSV formats:
 
-    CSV columns (header required): First, Last, Class, Mastered
-      - Class: class suffix only (e.g. "IM", "JH") — mapped to full ID for the year
-      - Mastered: space- or comma-separated list of mastered words
+    FORMAT A — single Mastered column (space/comma separated words):
+      First, Last, Class, Mastered
+      Asel, Acar, IM, "about accident address"
 
-    on_conflict: 'merge' (add words to existing pupil) or 'replace' (overwrite mastered list)
+    FORMAT B — wide format (one column per word, 1 = mastered):
+      First, Last, Class, about, accident, address, ...
+      Asel, Acar, IM, 1, 1, 1, ...
 
-    Returns:
-      {'ok': True, 'created': n, 'updated': n, 'skipped': n, 'warnings': [...]}
+    Format is auto-detected from the header row.
+    on_conflict: 'merge' (union) or 'replace' (overwrite).
     """
     import csv, io
     from word_bank import WORD_BANK
 
-    yr       = str(year_group)
-    classes  = YEAR_GROUP_CLASSES.get(yr, [])
-    # Build suffix -> class_id map for this year (e.g. 'IM' -> 'Y4_IM')
-    cls_map  = {cid.split('_')[1].upper(): cid for cid in classes}
-    word_set = {w[0] for w in WORD_BANK}  # all valid words
+    yr      = str(year_group)
+    classes = YEAR_GROUP_CLASSES.get(yr, [])
+    cls_map = {cid.split('_')[1].upper(): cid for cid in classes}
+    bank_words = {w[0] for w in WORD_BANK}
+
+    # Strip BOM if present
+    csv_text = csv_text.lstrip('\ufeff').lstrip('\xef\xbb\xbf')
+
+    reader = csv.reader(io.StringIO(csv_text.strip()))
+    raw_headers = next(reader, None)
+    if not raw_headers:
+        return {'ok': False, 'error': 'Empty CSV'}
+
+    # Normalise header names
+    headers = [h.strip() for h in raw_headers]
+    h_lower = [h.lower() for h in headers]
+
+    # Detect format
+    has_mastered_col = 'mastered' in h_lower
+    # Ensure at minimum First, Last, Class exist
+    for req in ('first', 'last', 'class'):
+        if req not in h_lower:
+            return {'ok': False, 'error': f'Missing required column: {req}'}
+
+    rows     = list(reader)
+    warnings = []
+
+    if has_mastered_col:
+        # FORMAT A — single Mastered column
+        fi = h_lower.index('first')
+        li = h_lower.index('last')
+        ci = h_lower.index('class')
+        mi = h_lower.index('mastered')
+
+        def parse_row_mastered(row):
+            raw = row[mi].strip() if mi < len(row) else ''
+            if ',' in raw:
+                return {w.strip() for w in raw.split(',') if w.strip()}
+            return {w.strip() for w in raw.split() if w.strip()}
+
+        def get_fields(row):
+            return (row[fi].strip().title() if fi < len(row) else '',
+                    row[li].strip().title() if li < len(row) else '',
+                    row[ci].strip().upper() if ci < len(row) else '')
+
+    else:
+        # FORMAT B — wide (one column per word)
+        fi = h_lower.index('first')
+        li = h_lower.index('last')
+        ci = h_lower.index('class')
+        # Remaining columns are word names
+        word_cols = [(i, headers[i]) for i in range(len(headers)) if i not in (fi, li, ci)]
+        unknown_words = {w for _, w in word_cols if w not in bank_words}
+        if unknown_words:
+            warnings.append(f'{len(unknown_words)} words in CSV not in word bank and will be skipped: '
+                           f'{", ".join(sorted(unknown_words)[:8])}{"…" if len(unknown_words)>8 else ""}')
+
+        def parse_row_mastered(row):
+            mastered = set()
+            for col_idx, word in word_cols:
+                if word in bank_words and col_idx < len(row) and row[col_idx].strip() == '1':
+                    mastered.add(word)
+            return mastered
+
+        def get_fields(row):
+            return (row[fi].strip().title() if fi < len(row) else '',
+                    row[li].strip().title() if li < len(row) else '',
+                    row[ci].strip().upper() if ci < len(row) else '')
 
     def compute_word_pos(mastered):
-        """Set word_pos to just after the last mastered word in WORD_BANK order."""
         pos = YEAR_WORD_ZONE.get(yr, 0)
         for i, (word, *_) in enumerate(WORD_BANK):
             if word in mastered:
                 pos = i + 1
         return pos
 
-    reader = csv.DictReader(io.StringIO(csv_text.strip()))
-    # Normalise header keys
-    def norm(h): return h.strip().lower().replace(' ', '_')
-    reader.fieldnames = [norm(f) for f in (reader.fieldnames or [])]
-
-    rows = list(reader)
-    if not rows:
-        return {'ok': False, 'error': 'No data rows found'}
-
-    required = {'first', 'last', 'class', 'mastered'}
-    missing  = required - set(reader.fieldnames)
-    if missing:
-        return {'ok': False, 'error': f'Missing columns: {", ".join(missing)}. Required: First, Last, Class, Mastered'}
-
-    # Group rows by class_id
+    # Group by class
     by_class = {}
-    warnings = []
     for i, row in enumerate(rows):
-        suffix   = row.get('class', '').strip().upper()
+        if not any(v.strip() for v in row):
+            continue  # skip blank rows
+        first, last, suffix = get_fields(row)
+        if not first:
+            continue
         class_id = cls_map.get(suffix)
         if not class_id:
             warnings.append(f'Row {i+2}: unknown class "{suffix}" for Y{yr} — skipped')
             continue
-        by_class.setdefault(class_id, []).append(row)
+        by_class.setdefault(class_id, []).append((first, last, parse_row_mastered(row)))
 
     created = updated = skipped = 0
 
@@ -722,10 +775,9 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
         path = f'data/classes/{class_id}.json'
         data, sha = _get_file(path)
         if not data:
-            warnings.append(f'Could not load class file {class_id} — skipped')
+            warnings.append(f'Could not load {class_id}')
             continue
 
-        # Build name -> pupil index map for conflict detection
         name_map = {}
         for idx, p in enumerate(data.get('pupils', [])):
             key = (p.get('first','').strip().lower(), p.get('last','').strip().lower())
@@ -733,72 +785,38 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
 
         suffix_short = class_id.split('_')[1]
 
-        for row in class_rows:
-            first = row.get('first','').strip().title()
-            last  = row.get('last','').strip().title()
-            if not first:
-                warnings.append(f'Empty first name in class {class_id} row — skipped')
-                skipped += 1
-                continue
-
-            # Parse mastered words — accept comma or space separated
-            raw = row.get('mastered','').strip()
-            if ',' in raw:
-                incoming = {w.strip() for w in raw.split(',') if w.strip()}
-            else:
-                incoming = {w.strip() for w in raw.split() if w.strip()}
-
-            # Warn about words not in word bank (but still import known ones)
-            unknown = incoming - word_set
-            if unknown:
-                sample = ', '.join(sorted(unknown)[:5])
-                warnings.append(f'{first} {last}: {len(unknown)} unrecognised word(s) ignored ({sample}{"…" if len(unknown)>5 else ""})')
-            incoming = incoming & word_set
-
+        for first, last, incoming in class_rows:
+            incoming = incoming & bank_words  # ensure only valid words
             key = (first.lower(), last.lower())
+
             if key in name_map:
-                # Pupil exists — merge or replace
-                idx = name_map[key]
+                idx      = name_map[key]
                 existing = set(data['pupils'][idx].get('mastered', []))
-                if on_conflict == 'merge':
-                    merged = sorted(existing | incoming)
-                else:
-                    merged = sorted(incoming)
-                data['pupils'][idx]['mastered'] = merged
-                data['pupils'][idx]['word_pos'] = compute_word_pos(set(merged))
+                merged   = sorted(existing | incoming) if on_conflict == 'merge' else sorted(incoming)
+                data['pupils'][idx]['mastered']  = merged
+                data['pupils'][idx]['word_pos']  = compute_word_pos(set(merged))
                 updated += 1
             else:
-                # New pupil — create
                 existing_ids = {p['id'] for p in data['pupils']}
                 max_n = max((int(pid[1:]) for pid in existing_ids
                              if pid.startswith('p') and pid[1:].isdigit()), default=0)
-                pid = f'p{max_n+1:02d}'
+                pid      = f'p{max_n+1:02d}'
                 mastered = sorted(incoming)
                 data['pupils'].append({
-                    'id':               pid,
-                    'first':            first,
-                    'last':             last,
-                    'cls':              suffix_short,
-                    'group':            'main',
-                    'tt_set':           '2',
-                    'tt_mode':          'x',
-                    'table':            '',
-                    'adapted_hl':       False,
-                    'pair_id':          '',
-                    'pair_colour':      '',
-                    'word_pos':         compute_word_pos(set(mastered)),
-                    'mastered':         mastered,
-                    'rule_confidence':  {},
-                    'homophone_mastered': [],
-                    'homophone_history':  {},
-                    'ss_user':          '',
-                    'ss_pass':          '',
+                    'id': pid, 'first': first, 'last': last,
+                    'cls': suffix_short, 'group': 'main',
+                    'tt_set': '2', 'tt_mode': 'x', 'table': '',
+                    'adapted_hl': False, 'pair_id': '', 'pair_colour': '',
+                    'word_pos': compute_word_pos(set(mastered)),
+                    'mastered': mastered, 'rule_confidence': {},
+                    'homophone_mastered': [], 'homophone_history': {},
+                    'ss_user': '', 'ss_pass': '',
                 })
                 name_map[key] = len(data['pupils']) - 1
                 created += 1
 
         ok = _put_file(path, data, sha,
-                       f'Mastery import Y{yr}: {class_id} ({created} created, {updated} updated)')
+                       f'Mastery import Y{yr}: {class_id} ({created} new, {updated} updated)')
         if not ok:
             return {'ok': False, 'error': f'GitHub write failed for {class_id}'}
 
