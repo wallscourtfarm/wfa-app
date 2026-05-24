@@ -251,7 +251,7 @@ def _build_bee_cards(sess, base_url):
         pill_y = cy - HDR_H / 2 - pill_h / 2 + (3 * mm if partner else 0)
         c.setFillColorRGB(1, 1, 1)
         c.roundRect(pill_x, pill_y, pill_w, pill_h, 5, stroke=0, fill=1)
-        c.setFillColorRGB(*colour_rgb)
+        c.setFillColorRGB(*NAVY)
         c.setFont('Helvetica-Bold', 14)
         c.drawCentredString(cx + col_w / 2, pill_y + 2.5 * mm, name)
 
@@ -263,7 +263,7 @@ def _build_bee_cards(sess, base_url):
             p_pill_y = pill_y - p_pill_h - 2 * mm
             c.setFillColorRGB(1, 1, 1)
             c.roundRect(p_pill_x, p_pill_y, p_pill_w, p_pill_h, 3, stroke=0, fill=1)
-            c.setFillColorRGB(*colour_rgb)
+            c.setFillColorRGB(*NAVY)
             c.setFont('Helvetica', 8)
             c.drawCentredString(cx + col_w / 2, p_pill_y + 1.5 * mm, f'Partner: {partner}')
 

@@ -6,22 +6,23 @@
 <title>Spelling Bee — {{ pupil.first }}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{height:-webkit-fill-available}body{min-height:100vh;min-height:-webkit-fill-available;overflow:hidden;background:#e8f4fd;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+html{height:-webkit-fill-available}
+body{min-height:100vh;min-height:-webkit-fill-available;overflow:hidden;background:#e8f4fd;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 #wrap{display:flex;flex-direction:column;height:100vh;height:100dvh;padding:8px 8px env(safe-area-inset-bottom,20px);gap:6px}
-#hdr{background:#1a3c6e;border-radius:10px;padding:9px 14px;color:white;text-align:center}
+#hdr{background:#1a3c6e;border-radius:10px;padding:9px 14px;color:white;text-align:center;flex-shrink:0}
 #hdr .name{font-size:19px;font-weight:800}
 #hdr .partner{font-size:12px;opacity:.8;margin-top:2px}
-#prog-row{display:flex;align-items:center;gap:10px;padding:0 2px}
+#prog-row{display:flex;align-items:center;gap:10px;padding:0 2px;flex-shrink:0}
 #prog-label{font-size:13px;color:#475569;font-weight:600;white-space:nowrap;min-width:80px}
 #prog-bar{flex:1;background:#cbd5e1;border-radius:99px;height:6px}
 #prog-fill{background:#1798d3;border-radius:99px;height:100%;width:0;transition:width .3s}
-#sentence-box{background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,.08);flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;min-height:0}
+#sentence-box{background:white;border-radius:12px;padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,.08);flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;min-height:0;overflow:hidden}
 #prompt{font-size:clamp(13px,2.2vw,17px);color:#64748b;text-align:center;font-weight:500}
 #typed-wrap{border-bottom:3px solid #1798d3;min-width:200px;padding-bottom:3px;min-height:48px;display:flex;align-items:center;justify-content:center}
 #typed-text{font-size:clamp(26px,5vw,38px);font-weight:700;color:#1a3c6e;letter-spacing:2px;min-width:20px}
 #cursor{font-size:clamp(26px,5vw,38px);color:#1798d3;font-weight:200;animation:blink 1s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-#kbd{background:#c8d0d8;border-radius:14px;padding:6px 5px 8px}
+#kbd{background:#c8d0d8;border-radius:14px;padding:6px 5px 8px;flex-shrink:0}
 .krow{display:flex;justify-content:center;gap:4px;margin-bottom:4px}
 .krow:last-child{margin-bottom:0}
 button.key{background:white;border:none;border-radius:7px;box-shadow:0 3px 0 #8a9199;color:#111;cursor:pointer;font-size:clamp(14px,2.2vw,19px);font-weight:700;height:44px;flex:1;min-width:0;max-width:56px;touch-action:manipulation;user-select:none;-webkit-user-select:none;transition:transform .07s,box-shadow .07s}
@@ -60,28 +61,43 @@ button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;tra
   </div>
   <div id="kbd">
     <div class="krow">
-      {% for ch in ['Q','W','E','R','T','Y','U','I','O','P'] %}
-      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch }}</button>
-      {% endfor %}
+      <button type="button" class="key" data-char="q">Q</button>
+      <button type="button" class="key" data-char="w">W</button>
+      <button type="button" class="key" data-char="e">E</button>
+      <button type="button" class="key" data-char="r">R</button>
+      <button type="button" class="key" data-char="t">T</button>
+      <button type="button" class="key" data-char="y">Y</button>
+      <button type="button" class="key" data-char="u">U</button>
+      <button type="button" class="key" data-char="i">I</button>
+      <button type="button" class="key" data-char="o">O</button>
+      <button type="button" class="key" data-char="p">P</button>
     </div>
     <div class="krow" style="padding:0 3%">
-      {% for ch in ['A','S','D','F','G','H','J','K','L'] %}
-      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch }}</button>
-      {% endfor %}
+      <button type="button" class="key" data-char="a">A</button>
+      <button type="button" class="key" data-char="s">S</button>
+      <button type="button" class="key" data-char="d">D</button>
+      <button type="button" class="key" data-char="f">F</button>
+      <button type="button" class="key" data-char="g">G</button>
+      <button type="button" class="key" data-char="h">H</button>
+      <button type="button" class="key" data-char="j">J</button>
+      <button type="button" class="key" data-char="k">K</button>
+      <button type="button" class="key" data-char="l">L</button>
     </div>
     <div class="krow">
-      <button type="button" id="shift-btn" class="key back" onclick="toggleShift()">&#8679;</button>
-      <button type="button" class="key punct" onclick="press(&quot;&apos;&quot;)">&apos;</button>
-      <button type="button" class="key punct" onclick="press('-')">-</button>
-      {% for ch in ['Z','X','C','V','B','N','M'] %}
-      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch }}</button>
-      {% endfor %}
-      <button type="button" class="key back" onclick="del()">&#9003;</button>
+      <button type="button" id="shift-btn" class="key back">&#8679;</button>
+      <button type="button" class="key punct" data-char="'">&apos;</button>
+      <button type="button" class="key punct" data-char="-">-</button>
+      <button type="button" class="key" data-char="z">Z</button>
+      <button type="button" class="key" data-char="x">X</button>
+      <button type="button" class="key" data-char="c">C</button>
+      <button type="button" class="key" data-char="v">V</button>
+      <button type="button" class="key" data-char="b">B</button>
+      <button type="button" class="key" data-char="n">N</button>
+      <button type="button" class="key" data-char="m">M</button>
+      <button type="button" id="del-btn" class="key back">&#9003;</button>
     </div>
     <div class="krow" style="margin-top:2px">
-      <button type="button" id="submit-btn" class="key submit" onclick="submitWord()" disabled>
-        Submit &#10003;
-      </button>
+      <button type="button" id="submit-btn" class="key submit" disabled>Submit &#10003;</button>
     </div>
   </div>
 </div>
@@ -107,21 +123,19 @@ const PNAME    = {{ (pupil.first + ' ' + (pupil.last or ''))|tojson }};
 const WEEK_REF = {{ week_ref|tojson }};
 let q = 0, typed = '', answers = [], shifted = false;
 
-function toggleShift() {
-  const btn = document.getElementById('shift-btn');
-  shifted = !shifted;
-  btn.style.background = shifted ? '#1798d3' : '';
-  btn.style.color = shifted ? 'white' : '';
-  document.querySelectorAll('.key[data-char]').forEach(k => {
-    k.textContent = shifted ? k.dataset.char.toUpperCase() : k.dataset.char.toUpperCase();
-  });
-}
-function pressKey(btn) { press(shifted ? btn.dataset.char.toUpperCase() : btn.dataset.char); if(shifted) toggleShift(); }
-function press(c) { typed += c; upd(); }
-function del()   { typed = typed.slice(0,-1); upd(); }
 function upd() {
   document.getElementById('typed-text').textContent = typed;
   document.getElementById('submit-btn').disabled = !typed.trim();
+}
+
+function press(ch) { typed += ch; upd(); }
+function del()     { typed = typed.slice(0, -1); upd(); }
+
+function setShift(on) {
+  shifted = on;
+  const btn = document.getElementById('shift-btn');
+  btn.style.background = on ? '#1798d3' : '';
+  btn.style.color      = on ? 'white' : '';
 }
 
 function submitWord() {
@@ -132,34 +146,26 @@ function submitWord() {
   typed = ''; q++;
   if (q >= total) {
     const nCorrect = answers.filter(a => a.correct).length;
-    showDone(nCorrect);
+    document.getElementById('wrap').style.display = 'none';
+    document.getElementById('done').style.display = 'flex';
+    document.getElementById('done-score').textContent = `${nCorrect} out of ${total} correct`;
     saveResult(nCorrect);
   } else {
-    document.getElementById('prog-label').textContent = `Word ${q+1} of ${total}`;
-    document.getElementById('prog-fill').style.width  = Math.round(q/total*100) + '%';
-    document.getElementById('submit-btn').disabled    = true;
+    document.getElementById('prog-label').textContent = `Word ${q + 1} of ${total}`;
+    document.getElementById('prog-fill').style.width = Math.round(q / total * 100) + '%';
+    document.getElementById('submit-btn').disabled = true;
     upd();
   }
 }
 
-function showDone(correct) {
-  document.getElementById('wrap').style.display = 'none';
-  document.getElementById('done').style.display = 'flex';
-  document.getElementById('done-score').textContent = `${correct} out of ${total} correct`;
-}
-
-async function saveResult(correct) {
+async function saveResult(nCorrect) {
   try {
     const resp = await fetch('/api/live/submit', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        session_id:   SID,
-        pupil_id:     PID,
-        name:         PNAME,
-        week_ref:     WEEK_REF,
-        session_type: 'spelling_bee',
-        answers,
+        session_id: SID, pupil_id: PID, name: PNAME,
+        week_ref: WEEK_REF, session_type: 'spelling_bee', answers,
       }),
     });
     const d = await resp.json();
@@ -169,6 +175,39 @@ async function saveResult(correct) {
     document.getElementById('save-status').textContent = '⚠️ Could not save — tell your teacher.';
   }
 }
+
+// ── Wire up keyboard via addEventListener (not onclick) ───────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Letter / symbol keys
+  document.querySelectorAll('.key[data-char]').forEach(function(btn) {
+    btn.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      const ch = btn.dataset.char;
+      press(shifted ? ch.toUpperCase() : ch);
+      if (shifted) setShift(false);
+    });
+  });
+
+  // Shift
+  document.getElementById('shift-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    setShift(!shifted);
+  });
+
+  // Delete
+  document.getElementById('del-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    del();
+  });
+
+  // Submit
+  document.getElementById('submit-btn').addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    submitWord();
+  });
+
+});
 
 upd();
 </script>

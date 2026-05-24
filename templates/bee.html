@@ -55,23 +55,17 @@
     <button class="btn btn-secondary" id="create-btn" onclick="createSession()">🐝 Create session</button>
     <span class="print-spinner hidden" id="spin-paired-lists"></span>
     <span class="print-spinner hidden" id="spin-create"></span>
-  </div>
-
-  <!-- Session result — shown inline after creation -->
-  <div id="session-card" style="display:none;border-top:1px solid #f1f5f9;padding:12px 18px;
-    display:none;flex-direction:column;gap:8px">
-    <div style="font-size:13px;font-weight:600;color:#1a3c6e" id="sess-title"></div>
-    <div style="font-size:12px;color:#64748b" id="sess-desc"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <a id="cards-link" class="btn btn-primary" style="font-size:13px" target="_blank">🖨 Download QR cards PDF</a>
+    <!-- Session result — appears inline after Create session -->
+    <div id="session-card" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="filter-sep" style="height:24px;width:1px;background:#e2e8f0;margin:0 2px"></div>
+      <span id="sess-title" style="font-size:13px;font-weight:600;color:#1a3c6e"></span>
+      <a id="cards-link" class="btn btn-primary" style="font-size:13px" target="_blank">🖨 QR cards PDF</a>
       <button class="btn btn-secondary" id="process-btn" style="font-size:13px"
         onclick="processSession()" disabled>✅ Process results</button>
       <span class="print-spinner hidden" id="spin-process"></span>
-      <span style="font-size:12px;color:#94a3b8">
-        Also in <a href="{{ url_for('live.session_management') }}" style="color:#1798d3">Session Manager</a>
-      </span>
     </div>
   </div>
+  <p id="sess-desc" style="display:none;font-size:12px;color:#94a3b8;padding:4px 0 0 18px"></p>
 </div>
 
 <!-- ── Card 2: Enter results manually ────────────────────────────────────── -->
@@ -197,9 +191,10 @@ async function createSession() {
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
     _sessionId = d.session_id;
-    document.getElementById('sess-title').textContent = `Session ${d.session_id} — ready`;
-    document.getElementById('sess-desc').textContent  =
-      `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
+    document.getElementById('sess-title').textContent = `Session ${d.session_id}`;
+    const descEl = document.getElementById('sess-desc');
+    descEl.textContent = `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
+    descEl.style.display = 'block';
     document.getElementById('cards-link').href = `/api/live/bee/cards-pdf/${d.session_id}`;
     document.getElementById('session-card').style.display = 'flex';
     document.getElementById('process-btn').disabled = false;
