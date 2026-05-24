@@ -14,7 +14,7 @@
 </div>
 
 {% if pupils %}
-<p class="learner-hint">Click a row to see full assessment data.</p>
+<div style="display:flex;align-items:center;justify-content:space-between;margin:-6px 0 10px"><p class="learner-hint" style="margin:0">Click a row to see full assessment data.</p><button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="collapseAll()">Collapse all</button></div>
 
 <div class="tt-table-wrap" style="max-width:none;">
   <table class="tt-table" id="learnersTable">
@@ -36,7 +36,7 @@
         <td>{{ p.last }}</td>
         <td><span class="group-pill group-{{ p.group or 'main' }}">{{ (p.group or 'main')|title }}</span></td>
         <td><span class="tt-badge tt-badge--{{ 'xd' if p.tt_mode=='xd' else 'x' }}">{{ p.tt_set }}{{ '×÷' if p.tt_mode=='xd' else '×' }}</span></td>
-        <td>{{ p.mastered_count }} mastered · pos {{ p.word_pos }}</td>
+        <td>{{ p.mastered_count }} mastered · word {{ p.word_pos }}/630</td>
         <td>{{ p.partner_name or '—' }}</td>
       </tr>
 
@@ -118,6 +118,9 @@
 
 {% block scripts %}
 <script>
+function collapseAll() {
+  document.querySelectorAll('.learner-detail').forEach(r => r.classList.add('hidden'));
+}
 function toggleDetail(id) {
   const row = document.getElementById('detail-' + id);
   if (row) row.classList.toggle('hidden');

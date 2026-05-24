@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23an</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23ao</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -50,6 +50,11 @@
       <a href="{{ url_for('learners.learners') }}"
          class="nav-item {% if request.endpoint=='learners.learners' %}active{% endif %}">
         👤 Learners
+      </a>
+
+      <a href="{{ url_for('insights.insights') }}"
+         class="nav-item {% if request.endpoint=='insights.insights' %}active{% endif %}">
+        📊 Insights
       </a>
 
       <a href="{{ url_for('hl.home_learning') }}"

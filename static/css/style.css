@@ -942,3 +942,63 @@ body {
 .ld-badge--developing { background: #fee2e2; color: #991b1b; }
 .ld-badge--none,
 .ld-badge--not-assessed { background: #f1f5f9; color: #64748b; }
+
+/* ── Insights page ───────────────────────────────────────────────── */
+.ins-card {
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 22px; margin-bottom: 16px;
+}
+.ins-heading {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  margin: 0 0 14px; display: flex; align-items: baseline; gap: 10px;
+}
+.ins-sub { font-size: 12px; font-weight: 400; color: var(--muted); }
+.ins-empty { font-size: 13px; color: var(--muted); font-style: italic; margin: 0; }
+
+/* Rule table */
+.ins-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ins-table th {
+  background: var(--brand); color: #fff; font-weight: 600;
+  padding: 6px 10px; text-align: left; border: 1px solid var(--border);
+}
+.ins-table td { padding: 5px 10px; border: 1px solid var(--border); }
+.ins-table tbody tr:nth-child(even) td { background: var(--surface); }
+.ins-center { text-align: center; }
+.ins-rule-id { color: var(--brand); font-weight: 700; font-size: 11px; white-space: nowrap; }
+.ins-action { font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 99px; white-space: nowrap; }
+.ins-action--whole { background: #fee2e2; color: #991b1b; }
+.ins-action--group { background: #fef9c3; color: #854d0e; }
+.ins-action--ok    { background: #dcfce7; color: #166534; }
+
+/* Homophone grid */
+.ins-hom-grid { display: flex; flex-direction: column; gap: 5px; }
+.ins-hom-row {
+  display: grid;
+  grid-template-columns: 110px 160px 1fr 90px;
+  align-items: center; gap: 10px; font-size: 12px;
+}
+.ins-hom-word  { font-weight: 700; color: var(--text); }
+.ins-hom-stage { color: var(--muted); font-size: 11px; }
+.ins-hom-score { color: var(--muted); font-size: 11px; text-align: right; }
+
+/* Zone spread */
+.ins-zones { display: flex; flex-direction: column; gap: 6px; }
+.ins-zone-row {
+  display: grid;
+  grid-template-columns: 100px 80px 1fr 120px;
+  align-items: center; gap: 10px; font-size: 12px;
+}
+.ins-zone-label { font-weight: 600; color: var(--text); }
+.ins-zone-range { color: var(--muted); font-size: 11px; }
+.ins-zone-count { font-size: 12px; color: var(--text); }
+.ins-none { color: var(--muted); font-style: italic; }
+
+/* Shared bar */
+.ins-bar-wrap { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
+.ins-bar-wrap--wide { }
+.ins-bar { height: 100%; border-radius: 99px; transition: width .3s; }
+.ins-bar--good  { background: #22c55e; }
+.ins-bar--warn  { background: #eab308; }
+.ins-bar--bad   { background: #ef4444; }
+.ins-bar--brand { background: var(--brand); }

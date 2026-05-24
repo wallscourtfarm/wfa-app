@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Class Insights{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>📊 Class Insights</h2>
+  <div class="header-actions">
+    <select class="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+<div class="hl-meta">
+  <span>{{ n_pupils }} pupils</span>
+</div>
+
+<!-- ── Rule Priorities ──────────────────────────────────────────── -->
+<div class="ins-card">
+  <h3 class="ins-heading">Rule Priorities
+    <span class="ins-sub">{{ rule_count }} rule{{ 's' if rule_count != 1 }} assessed · sorted by impact</span>
+  </h3>
+  {% if rule_rows %}
+  <table class="ins-table">
+    <thead>
+      <tr>
+        <th>Rule</th>
+        <th>Title</th>
+        <th class="ins-center">Assessed</th>
+        <th class="ins-center">Full</th>
+        <th class="ins-center">Partial</th>
+        <th class="ins-center">Not yet</th>
+        <th class="ins-center">Avg</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rule_rows %}
+      {% set pct_full    = (r.full    / r.n * 100) | round | int %}
+      {% set pct_partial = (r.partial / r.n * 100) | round | int %}
+      {% set pct_none    = (r.none    / r.n * 100) | round | int %}
+      <tr>
+        <td class="ins-rule-id">{{ r.rule_id }}</td>
+        <td>{{ r.title }}</td>
+        <td class="ins-center">{{ r.n }}/{{ n_pupils }}</td>
+        <td class="ins-center">
+          {% if r.full %}<span class="ld-badge ld-badge--full">{{ r.full }}</span>{% else %}—{% endif %}
+        </td>
+        <td class="ins-center">
+          {% if r.partial %}<span class="ld-badge ld-badge--partial">{{ r.partial }}</span>{% else %}—{% endif %}
+        </td>
+        <td class="ins-center">
+          {% if r.none %}<span class="ld-badge ld-badge--developing">{{ r.none }}</span>{% else %}—{% endif %}
+        </td>
+        <td class="ins-center">{{ r.avg_pct }}%</td>
+        <td>
+          {% if r.needs_work >= (n_pupils * 0.6) | round %}
+            <span class="ins-action ins-action--whole">Whole class</span>
+          {% elif r.needs_work >= 2 %}
+            <span class="ins-action ins-action--group">Small group</span>
+          {% else %}
+            <span class="ins-action ins-action--ok">Monitor</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="ins-empty">No rule assessments recorded yet. Run a Rule Reassessment to see priorities here.</p>
+  {% endif %}
+</div>
+
+<!-- ── Homophone Gaps ───────────────────────────────────────────── -->
+<div class="ins-card">
+  <h3 class="ins-heading">Homophone Gaps
+    {% if n_assessed %}
+    <span class="ins-sub">{{ n_assessed }} pupil{{ 's' if n_assessed != 1 }} assessed · worst gaps first</span>
+    {% endif %}
+  </h3>
+  {% if homophone_rows %}
+  <div class="ins-hom-grid">
+    {% for h in homophone_rows %}
+    <div class="ins-hom-row">
+      <span class="ins-hom-word">{{ h.word }}</span>
+      <span class="ins-hom-stage">{{ h.stage }}</span>
+      <div class="ins-bar-wrap">
+        <div class="ins-bar ins-bar--{{ 'good' if h.pct >= 90 else 'warn' if h.pct >= 60 else 'bad' }}"
+             style="width:{{ h.pct }}%"></div>
+      </div>
+      <span class="ins-hom-score">{{ h.mastered }}/{{ h.assessed }} ({{ h.pct }}%)</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="ins-empty">No homophone assessments recorded yet. Run a Homophone Assessment to see gaps here.</p>
+  {% endif %}
+</div>
+
+<!-- ── Key Spelling Spread ──────────────────────────────────────── -->
+<div class="ins-card">
+  <h3 class="ins-heading">Key Spelling Spread
+    <span class="ins-sub">Median pupil: word {{ median_pos }} of 630 ({{ median_zone }})</span>
+  </h3>
+  <div class="ins-zones">
+    {% for z in zones %}
+    <div class="ins-zone-row">
+      <span class="ins-zone-label">{{ z.label }}</span>
+      <span class="ins-zone-range">{{ z.start }}–{{ z.end }}</span>
+      <div class="ins-bar-wrap ins-bar-wrap--wide">
+        <div class="ins-bar ins-bar--brand"
+             style="width:{{ [z.pct, 2] | max if z.count else 0 }}%"></div>
+      </div>
+      <span class="ins-zone-count">
+        {% if z.count %}
+          <strong>{{ z.count }}</strong> pupil{{ 's' if z.count != 1 }}
+        {% else %}
+          <span class="ins-none">none</span>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
