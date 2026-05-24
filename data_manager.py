@@ -657,3 +657,150 @@ def get_class_options_for_year(yr, include_all=True):
         suffix = cid.split('_')[1]
         options.append((cid, f'Y{yr} \u2014 {suffix}'))
     return options
+
+
+# ── Mastery import ─────────────────────────────────────────────────────────────
+
+def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
+    """
+    Import pupils with their mastered word lists from a CSV.
+
+    CSV columns (header required): First, Last, Class, Mastered
+      - Class: class suffix only (e.g. "IM", "JH") — mapped to full ID for the year
+      - Mastered: space- or comma-separated list of mastered words
+
+    on_conflict: 'merge' (add words to existing pupil) or 'replace' (overwrite mastered list)
+
+    Returns:
+      {'ok': True, 'created': n, 'updated': n, 'skipped': n, 'warnings': [...]}
+    """
+    import csv, io
+    from word_bank import WORD_BANK
+
+    yr       = str(year_group)
+    classes  = YEAR_GROUP_CLASSES.get(yr, [])
+    # Build suffix -> class_id map for this year (e.g. 'IM' -> 'Y4_IM')
+    cls_map  = {cid.split('_')[1].upper(): cid for cid in classes}
+    word_set = {w[0] for w in WORD_BANK}  # all valid words
+
+    def compute_word_pos(mastered):
+        """Set word_pos to just after the last mastered word in WORD_BANK order."""
+        pos = YEAR_WORD_ZONE.get(yr, 0)
+        for i, (word, *_) in enumerate(WORD_BANK):
+            if word in mastered:
+                pos = i + 1
+        return pos
+
+    reader = csv.DictReader(io.StringIO(csv_text.strip()))
+    # Normalise header keys
+    def norm(h): return h.strip().lower().replace(' ', '_')
+    reader.fieldnames = [norm(f) for f in (reader.fieldnames or [])]
+
+    rows = list(reader)
+    if not rows:
+        return {'ok': False, 'error': 'No data rows found'}
+
+    required = {'first', 'last', 'class', 'mastered'}
+    missing  = required - set(reader.fieldnames)
+    if missing:
+        return {'ok': False, 'error': f'Missing columns: {", ".join(missing)}. Required: First, Last, Class, Mastered'}
+
+    # Group rows by class_id
+    by_class = {}
+    warnings = []
+    for i, row in enumerate(rows):
+        suffix   = row.get('class', '').strip().upper()
+        class_id = cls_map.get(suffix)
+        if not class_id:
+            warnings.append(f'Row {i+2}: unknown class "{suffix}" for Y{yr} — skipped')
+            continue
+        by_class.setdefault(class_id, []).append(row)
+
+    created = updated = skipped = 0
+
+    for class_id, class_rows in by_class.items():
+        path = f'data/classes/{class_id}.json'
+        data, sha = _get_file(path)
+        if not data:
+            warnings.append(f'Could not load class file {class_id} — skipped')
+            continue
+
+        # Build name -> pupil index map for conflict detection
+        name_map = {}
+        for idx, p in enumerate(data.get('pupils', [])):
+            key = (p.get('first','').strip().lower(), p.get('last','').strip().lower())
+            name_map[key] = idx
+
+        suffix_short = class_id.split('_')[1]
+
+        for row in class_rows:
+            first = row.get('first','').strip().title()
+            last  = row.get('last','').strip().title()
+            if not first:
+                warnings.append(f'Empty first name in class {class_id} row — skipped')
+                skipped += 1
+                continue
+
+            # Parse mastered words — accept comma or space separated
+            raw = row.get('mastered','').strip()
+            if ',' in raw:
+                incoming = {w.strip() for w in raw.split(',') if w.strip()}
+            else:
+                incoming = {w.strip() for w in raw.split() if w.strip()}
+
+            # Warn about words not in word bank (but still import known ones)
+            unknown = incoming - word_set
+            if unknown:
+                sample = ', '.join(sorted(unknown)[:5])
+                warnings.append(f'{first} {last}: {len(unknown)} unrecognised word(s) ignored ({sample}{"…" if len(unknown)>5 else ""})')
+            incoming = incoming & word_set
+
+            key = (first.lower(), last.lower())
+            if key in name_map:
+                # Pupil exists — merge or replace
+                idx = name_map[key]
+                existing = set(data['pupils'][idx].get('mastered', []))
+                if on_conflict == 'merge':
+                    merged = sorted(existing | incoming)
+                else:
+                    merged = sorted(incoming)
+                data['pupils'][idx]['mastered'] = merged
+                data['pupils'][idx]['word_pos'] = compute_word_pos(set(merged))
+                updated += 1
+            else:
+                # New pupil — create
+                existing_ids = {p['id'] for p in data['pupils']}
+                max_n = max((int(pid[1:]) for pid in existing_ids
+                             if pid.startswith('p') and pid[1:].isdigit()), default=0)
+                pid = f'p{max_n+1:02d}'
+                mastered = sorted(incoming)
+                data['pupils'].append({
+                    'id':               pid,
+                    'first':            first,
+                    'last':             last,
+                    'cls':              suffix_short,
+                    'group':            'main',
+                    'tt_set':           '2',
+                    'tt_mode':          'x',
+                    'table':            '',
+                    'adapted_hl':       False,
+                    'pair_id':          '',
+                    'pair_colour':      '',
+                    'word_pos':         compute_word_pos(set(mastered)),
+                    'mastered':         mastered,
+                    'rule_confidence':  {},
+                    'homophone_mastered': [],
+                    'homophone_history':  {},
+                    'ss_user':          '',
+                    'ss_pass':          '',
+                })
+                name_map[key] = len(data['pupils']) - 1
+                created += 1
+
+        ok = _put_file(path, data, sha,
+                       f'Mastery import Y{yr}: {class_id} ({created} created, {updated} updated)')
+        if not ok:
+            return {'ok': False, 'error': f'GitHub write failed for {class_id}'}
+
+    return {'ok': True, 'created': created, 'updated': updated,
+            'skipped': skipped, 'warnings': warnings}

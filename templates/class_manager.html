@@ -10,7 +10,8 @@
       <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import</button>
+    <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import names</button>
+    <button class="btn btn-secondary" onclick="openMasteryModal()" title="Import pupils with spelling mastery data">📊 Import mastery</button>
     <button class="btn btn-secondary" onclick="openSettingsModal()" title="Edit class teacher label">⚙ Settings</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
     <button class="btn btn-primary" onclick="openAddModal()">+ Add pupil</button>
@@ -329,6 +330,58 @@
   border-radius:8px;cursor:pointer;font-size:14px; }
 .pair-list-item:hover { background:#f0f9ff; }
 </style>
+
+
+<!-- ── Mastery import modal ──────────────────────────────────────────────────── -->
+<div id="mastery-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:600px">
+    <div class="cm-modal-hdr">
+      <h3>📊 Import pupils with mastery data</h3>
+      <button onclick="closeMasteryModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0;line-height:1.6">
+        Import names, classes and secured spelling words for <strong>Y{{ active_year }}</strong>.
+        One row per pupil. Words can be space- or comma-separated in the Mastered column.
+        If a pupil already exists their mastered words are merged by default.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a href="/api/class/mastery-template" download
+           style="font-size:13px;color:#1798d3;text-decoration:none;font-weight:600">
+          ⬇ Download CSV template
+        </a>
+        <span style="font-size:12px;color:#94a3b8">— fill from your existing records, then upload below</span>
+      </div>
+      <div class="cm-field">
+        <label>Paste CSV content</label>
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 4px">
+          Required columns: <code>First, Last, Class, Mastered</code><br>
+          Class = suffix only (e.g. IM, JH). Mastered = space or comma separated words.
+        </p>
+        <textarea id="mastery-csv" class="cm-input" rows="10"
+          placeholder="First,Last,Class,Mastered&#10;Asel,Acar,IM,about accident address after&#10;James,Brown,WU,&quot;I Mr Mrs about after again&quot;"
+          oninput="updateMasteryPreview()"
+          style="font-family:monospace;font-size:12px;resize:vertical"></textarea>
+      </div>
+      <div class="cm-field-row" style="gap:16px;align-items:center">
+        <div class="cm-field" style="flex:0 0 auto">
+          <label>If pupil already exists</label>
+          <select id="mastery-conflict" class="cm-input" style="max-width:200px">
+            <option value="merge">Merge — add new words to existing</option>
+            <option value="replace">Replace — overwrite mastered list</option>
+          </select>
+        </div>
+        <div id="mastery-preview" style="font-size:13px;color:#1e40af;background:#eff6ff;
+          border-radius:8px;padding:8px 12px;flex:1;display:none"></div>
+      </div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" id="mastery-btn" onclick="confirmMasteryImport()" disabled>Import</button>
+      <button class="btn btn-secondary" onclick="closeMasteryModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-mastery"></span>
+    </div>
+  </div>
+</div>
 
 <script>
 const CLS_ID     = {{ cls | tojson }};
@@ -776,6 +829,95 @@ async function confirmImport() {
     } else showStatus('Import failed: ' + d.error, 'error');
   } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
   finally { showSpin('import', false); document.getElementById('import-btn').disabled = false; }
+}
+
+
+// ── Mastery import modal ──────────────────────────────────────────────────────
+function openMasteryModal() {
+  document.getElementById('mastery-csv').value = '';
+  document.getElementById('mastery-preview').style.display = 'none';
+  document.getElementById('mastery-btn').disabled = true;
+  document.getElementById('mastery-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('mastery-csv').focus(), 50);
+}
+
+function closeMasteryModal() {
+  document.getElementById('mastery-modal').style.display = 'none';
+}
+
+function updateMasteryPreview() {
+  const text = document.getElementById('mastery-csv').value.trim();
+  const lines = text.split('\n').filter(l => l.trim());
+  const preview = document.getElementById('mastery-preview');
+  const btn = document.getElementById('mastery-btn');
+
+  // Detect header row
+  const dataLines = lines.filter((l, i) => {
+    if (i === 0 && l.toLowerCase().includes('first')) return false;
+    return l.trim().length > 0;
+  });
+
+  if (!dataLines.length) {
+    preview.style.display = 'none';
+    btn.disabled = true;
+    return;
+  }
+
+  // Count unique classes in data
+  const classes = new Set();
+  dataLines.forEach(l => {
+    const cols = l.split(',');
+    if (cols.length >= 3) classes.add(cols[2].trim().toUpperCase());
+  });
+
+  preview.textContent = `${dataLines.length} pupil${dataLines.length !== 1 ? 's' : ''} across class${classes.size !== 1 ? 'es' : ''}: ${[...classes].join(', ')}`;
+  preview.style.display = 'block';
+  btn.disabled = false;
+}
+
+async function confirmMasteryImport() {
+  const csv         = document.getElementById('mastery-csv').value.trim();
+  const on_conflict = document.getElementById('mastery-conflict').value;
+  if (!csv) return;
+
+  const lines = csv.split('\n').filter(l => l.trim());
+  const count = lines.filter((l, i) => i === 0 && l.toLowerCase().includes('first') ? false : true).length;
+
+  if (!confirm(`Import ${count} pupils into Y{{ active_year }}?\n\nConflict mode: ${on_conflict === 'merge' ? 'merge new words into existing records' : 'replace existing mastered lists'}`)) return;
+
+  document.getElementById('spin-mastery').classList.remove('hidden');
+  document.getElementById('mastery-btn').disabled = true;
+
+  try {
+    const resp = await fetch('/api/class/import-mastery', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        year_group:  '{{ active_year }}',
+        csv,
+        on_conflict,
+      }),
+    });
+    const d = await resp.json();
+    closeMasteryModal();
+    if (d.ok) {
+      let msg = `Import complete — ${d.created} created, ${d.updated} updated`;
+      if (d.skipped) msg += `, ${d.skipped} skipped`;
+      showStatus(msg);
+      if (d.warnings?.length) {
+        console.warn('Import warnings:', d.warnings);
+        showStatus(msg + ` (${d.warnings.length} warning${d.warnings.length !== 1 ? 's' : ''} — see console)`);
+      }
+      await load();
+    } else {
+      showStatus('Import failed: ' + d.error, 'error');
+    }
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    document.getElementById('spin-mastery').classList.add('hidden');
+    document.getElementById('mastery-btn').disabled = false;
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

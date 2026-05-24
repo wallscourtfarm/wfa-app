@@ -465,3 +465,45 @@ def api_rollover():
         return jsonify(result)
     except Exception as e:
         return _err(e)
+
+
+# ── API: Mastery import ───────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/import-mastery', methods=['POST'])
+def api_import_mastery():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        from data_manager import import_pupils_with_mastery
+        body        = request.get_json(force=True)
+        year_group  = body.get('year_group', session.get('year_group', '4'))
+        csv_text    = body.get('csv', '')
+        on_conflict = body.get('on_conflict', 'merge')
+        if not csv_text.strip():
+            return jsonify({'ok': False, 'error': 'No CSV data provided'})
+        result = import_pupils_with_mastery(year_group, csv_text, on_conflict)
+        return jsonify(result)
+    except Exception as e:
+        return _err(e)
+
+
+@cm_bp.route('/api/class/mastery-template')
+def api_mastery_template():
+    """Download a CSV template for the mastery import."""
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    from flask import Response
+    yr      = session.get('year_group', '4')
+    classes = YEAR_GROUP_CLASSES.get(yr, [])
+    example_cls = classes[0].split('_')[1] if classes else 'IM'
+    lines = [
+        'First,Last,Class,Mastered',
+        f'Example,Pupil,{example_cls},"about accident address after again"',
+        f'Another,Learner,{example_cls},"I Mr Mrs about after"',
+    ]
+    csv_content = '\n'.join(lines)
+    return Response(
+        csv_content,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=mastery_import_Y{yr}_template.csv'}
+    )
