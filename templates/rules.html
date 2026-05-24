@@ -10,6 +10,7 @@
     <div class="rules-header-right">
       <input type="text" id="ruleSearch" placeholder="Search rules or words…"
              class="rules-search" oninput="filterRules(this.value)">
+      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="collapseAllStages()">Collapse all</button>
       <button class="btn btn-primary" onclick="openAddModal()">+ Add custom rule</button>
     </div>
   </div>
@@ -167,6 +168,19 @@
 const CONF_LABELS  = ['○○○','●○○','●●○','●●●'];
 const CONF_CLASSES = ['conf-0','conf-1','conf-2','conf-3'];
 const CONF_TITLES  = ['Not set','Low','Medium','High'];
+
+function collapseAllStages() {
+  // Close all stage sections
+  document.querySelectorAll('.stage-section:not(.collapsed)').forEach(sec => {
+    sec.classList.add('collapsed');
+  });
+  // Close all rule detail cards too
+  document.querySelectorAll('.rule-detail:not(.hidden)').forEach(d => {
+    d.classList.add('hidden');
+  });
+  // Save to localStorage
+  try { localStorage.setItem('wfa_rules_expanded_stages', '[]'); } catch(e) {}
+}
 
 // Section toggle (saves state to localStorage)
 function toggleSection(id) {

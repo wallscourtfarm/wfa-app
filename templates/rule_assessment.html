@@ -29,7 +29,10 @@
     </div>
   </div>
 
-  <input type="text" id="rule-search" class="print-textarea" style="height:auto;padding:6px 10px;margin:8px 0 12px;font-size:13px" placeholder="Search rules…" oninput="filterRules(this.value)">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+    <input type="text" id="rule-search" style="margin:0;flex:1" class="print-textarea" style="height:auto;padding:6px 10px;margin:8px 0 12px;font-size:13px" placeholder="Search rules…" oninput="filterRules(this.value)">
+    <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;white-space:nowrap" onclick="collapseAllStages()">Collapse all</button>
+  </div>
 
   <div id="rule-stages">
     {% for stage, rules in stages.items() | sort %}
@@ -107,6 +110,10 @@ const CLS      = "{{ cls }}";
 const WEEK_REF = "{{ week_ref }}";
 
 // ── Rule selection ────────────────────────────────────────────────
+function collapseAllStages() {
+  document.querySelectorAll('.ra-stage[open]').forEach(d => d.removeAttribute('open'));
+}
+
 function selectedRules() {
   return [...document.querySelectorAll('.ra-rule-cb:checked')].map(cb => cb.value);
 }
