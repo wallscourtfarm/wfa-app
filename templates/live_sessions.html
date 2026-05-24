@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Session Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>📋 Session Manager</h2>
+  <div class="header-actions">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;cursor:pointer">
+      <input type="checkbox" id="show-archived" onchange="loadSessions()"> Show archived
+    </label>
+    <button class="btn btn-secondary" style="font-size:13px" onclick="loadSessions()">↻ Refresh</button>
+  </div>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<div id="loading" style="text-align:center;padding:40px;color:#64748b">
+  <span class="print-spinner" style="display:inline-block"></span> Loading sessions…
+</div>
+
+<div id="sessions-wrap" style="display:none;display:flex;flex-direction:column;gap:10px"></div>
+
+<div id="empty-msg" style="display:none;text-align:center;padding:48px;color:#94a3b8;font-size:15px">
+  No sessions found.
+</div>
+
+<!-- Re-process modal -->
+<div id="process-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:1000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:white;border-radius:14px;padding:24px;max-width:420px;width:100%;
+    box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="font-size:17px;color:#1a3c6e" id="pm-title">Process results</h3>
+      <button onclick="closeProcessModal()" style="background:none;border:none;font-size:22px;
+        cursor:pointer;color:#64748b">&times;</button>
+    </div>
+    <p id="pm-desc" style="font-size:14px;color:#475569;margin:0"></p>
+    <div style="display:flex;gap:8px">
+      <button id="pm-confirm-btn" class="btn btn-primary" onclick="confirmProcess()">✅ Process now</button>
+      <button class="btn btn-secondary" onclick="closeProcessModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-pm"></span>
+    </div>
+    <div id="pm-result" style="font-size:13px;color:#475569;display:none"></div>
+  </div>
+</div>
+
+<script>
+const TYPE_LABELS = {
+  spelling_bee: { label: '🐝 Spelling Bee',         colour: '#7c3aed' },
+  word:         { label: '📝 Word Assessment',        colour: '#1798d3' },
+  rule:         { label: '📐 Rule Reassessment',      colour: '#0891b2' },
+  homophone:    { label: '🔤 Homophone Assessment',   colour: '#0d9488' },
+};
+
+let _allSessions = [];
+let _processSid  = null;
+let _processSessType = null;
+
+function showStatus(msg, type='ok') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.className   = `status-bar status-${type}`;
+}
+
+function showSpin(id, show) {
+  document.getElementById('spin-' + id)?.classList.toggle('hidden', !show);
+}
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function loadSessions() {
+  document.getElementById('loading').style.display        = 'block';
+  document.getElementById('sessions-wrap').style.display  = 'none';
+  document.getElementById('empty-msg').style.display      = 'none';
+  try {
+    const resp = await fetch('/api/sessions/list');
+    const d    = await resp.json();
+    if (!d.ok) { showStatus('Failed to load sessions: ' + d.error, 'error'); return; }
+    _allSessions = d.sessions;
+    renderSessions();
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderSessions() {
+  const showArchived = document.getElementById('show-archived').checked;
+  const wrap  = document.getElementById('sessions-wrap');
+  const empty = document.getElementById('empty-msg');
+  wrap.innerHTML = '';
+
+  const visible = _allSessions.filter(s => showArchived || !s.archived);
+  if (!visible.length) {
+    empty.style.display = 'block';
+    wrap.style.display  = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  wrap.style.display  = 'flex';
+
+  visible.forEach(s => {
+    const meta   = TYPE_LABELS[s.type] || { label: s.type, colour: '#64748b' };
+    const date   = s.created_at ? new Date(s.created_at).toLocaleString('en-GB',
+      { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+    const statusClass = s.archived ? 'archived' : (s.complete ? 'complete' : 'partial');
+    const statusLabel = s.archived ? 'Archived'
+      : (s.complete ? '✅ Complete' : `⏳ ${s.n_results} / ${s.n_pupils} results`);
+
+    const isBee     = s.type === 'spelling_bee';
+    const qrHref    = isBee
+      ? `/api/live/bee/cards-pdf/${s.session_id}`
+      : `/api/live/assess/qr/${s.session_id}`;
+    const qrLabel   = isBee ? '🖨 QR cards PDF' : '⬇ QR card PDF';
+    const pupilUrl  = isBee ? '' : `/live/assess/${s.session_id}`;
+
+    const card = document.createElement('div');
+    card.className = 'print-card session-card' + (s.archived ? ' session-archived' : '');
+    card.innerHTML = `
+      <div class="session-card-top">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="type-badge" style="background:${meta.colour}">${meta.label}</span>
+          <span class="session-id-label">${s.session_id}</span>
+          ${s.week_ref ? `<span class="week-ref-label">${s.week_ref}</span>` : ''}
+          <span class="status-chip status-${statusClass}">${statusLabel}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+          ${!s.archived ? `<button class="btn btn-ghost btn-sm" onclick="archiveSession('${s.session_id}', true)">Archive</button>` : ''}
+          ${s.archived  ? `<button class="btn btn-ghost btn-sm" onclick="archiveSession('${s.session_id}', false)">Unarchive</button>` : ''}
+        </div>
+      </div>
+      <div class="session-card-meta">
+        <span>${date}</span>
+        <span>${s.n_pupils} pupils</span>
+        ${s.n_items ? `<span>${s.n_items} words</span>` : ''}
+      </div>
+      <div class="session-card-actions">
+        <a href="${qrHref}" download class="btn btn-secondary btn-sm">${qrLabel}</a>
+        ${pupilUrl ? `<a href="${pupilUrl}" target="_blank" class="btn btn-secondary btn-sm">🔗 Pupil URL</a>` : ''}
+        ${!isBee
+          ? `<button class="btn btn-primary btn-sm"
+               onclick="openProcessModal('${s.session_id}','${s.type}',${s.n_results},${s.n_pupils})">
+               ✅ Process results
+             </button>`
+          : `<button class="btn btn-primary btn-sm"
+               onclick="openProcessModal('${s.session_id}','${s.type}',${s.n_results},${s.n_pupils})">
+               ✅ Process results
+             </button>`
+        }
+      </div>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+// ── Archive ───────────────────────────────────────────────────────────────────
+async function archiveSession(sid, archive) {
+  try {
+    const resp = await fetch('/api/sessions/archive', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ session_id: sid, archived: archive }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      const s = _allSessions.find(x => x.session_id === sid);
+      if (s) s.archived = archive;
+      renderSessions();
+    } else {
+      showStatus('Could not archive: ' + d.error, 'error');
+    }
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  }
+}
+
+// ── Process modal ─────────────────────────────────────────────────────────────
+function openProcessModal(sid, type, nRes, nPupils) {
+  _processSid      = sid;
+  _processSessType = type;
+  const meta = TYPE_LABELS[type] || { label: type };
+  document.getElementById('pm-title').textContent = 'Process: ' + meta.label;
+  document.getElementById('pm-desc').textContent  =
+    `Session ${sid} — ${nRes} result${nRes !== 1 ? 's' : ''} received from ${nPupils} pupils. `
+    + 'Processing will write to class records. This can be run again if needed.';
+  document.getElementById('pm-result').style.display = 'none';
+  document.getElementById('pm-confirm-btn').disabled  = false;
+  document.getElementById('pm-confirm-btn').textContent = '✅ Process now';
+  document.getElementById('process-modal').style.display = 'flex';
+}
+
+function closeProcessModal() {
+  document.getElementById('process-modal').style.display = 'none';
+  _processSid = null;
+}
+
+async function confirmProcess() {
+  if (!_processSid) return;
+  const btn = document.getElementById('pm-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Processing…';
+  showSpin('pm', true);
+
+  const endpoint = (_processSessType === 'spelling_bee')
+    ? '/api/live/bee/process'
+    : '/api/live/assess/process';
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ session_id: _processSid }),
+    });
+    const d = await resp.json();
+    const resultEl = document.getElementById('pm-result');
+    resultEl.style.display = 'block';
+    if (d.ok) {
+      resultEl.textContent = `✅ Saved ${d.saved} pupils. ${d.skipped ? d.skipped + ' skipped.' : ''}`;
+      resultEl.style.color = '#16a34a';
+      btn.textContent = 'Done';
+      // Update result count in list
+      const s = _allSessions.find(x => x.session_id === _processSid);
+      if (s) { s.complete = d.saved > 0; renderSessions(); }
+    } else {
+      resultEl.textContent = '⚠️ ' + d.error;
+      resultEl.style.color = '#dc2626';
+      btn.disabled = false;
+      btn.textContent = '↻ Retry';
+    }
+  } catch(e) {
+    document.getElementById('pm-result').style.display = 'block';
+    document.getElementById('pm-result').textContent   = '⚠️ Request failed: ' + e.message;
+    btn.disabled = false; btn.textContent = '↻ Retry';
+  } finally {
+    showSpin('pm', false);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadSessions();
+</script>
+
+<style>
+.session-card { gap: 0; padding: 0; overflow: hidden; }
+.session-archived { opacity: .55; }
+
+.session-card-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 14px 18px 10px; gap: 10px; flex-wrap: wrap;
+}
+.session-card-meta {
+  display: flex; gap: 16px; padding: 0 18px 10px;
+  font-size: 12px; color: #94a3b8;
+}
+.session-card-actions {
+  display: flex; gap: 8px; padding: 10px 18px 14px;
+  border-top: 1px solid #f1f5f9; flex-wrap: wrap;
+}
+
+.type-badge {
+  color: white; font-size: 12px; font-weight: 700;
+  padding: 3px 10px; border-radius: 99px;
+}
+.session-id-label {
+  font-size: 15px; font-weight: 800; color: #1a3c6e; letter-spacing: 1px;
+}
+.week-ref-label {
+  font-size: 12px; background: #f1f5f9; color: #475569;
+  padding: 2px 8px; border-radius: 6px; font-weight: 600;
+}
+
+.status-chip {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 99px;
+}
+.status-complete  { background: #dcfce7; color: #16a34a; }
+.status-partial   { background: #fef9c3; color: #854d0e; }
+.status-archived  { background: #f1f5f9; color: #64748b; }
+
+.btn-sm { font-size: 12px; padding: 5px 12px; }
+.btn-ghost {
+  background: none; border: 1px solid #cbd5e1; color: #64748b;
+  border-radius: 7px; cursor: pointer; font-size: 12px; padding: 4px 10px;
+}
+.btn-ghost:hover { background: #f8fafc; }
+</style>
+{% endblock %}

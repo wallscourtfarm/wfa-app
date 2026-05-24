@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.23au</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24a</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -37,8 +37,12 @@
             🔤 Homophones
           </a>
           <a href="{{ url_for('live.bee_sessions') }}"
-             class="{% if 'live' in (request.endpoint or '') %}active{% endif %}">
+             class="{% if request.endpoint == 'live.bee_sessions' %}active{% endif %}">
             📲 Digital / iPad
+          </a>
+          <a href="{{ url_for('live.session_management') }}"
+             class="{% if request.endpoint == 'live.session_management' %}active{% endif %}">
+            📋 Session Manager
           </a>
           <a href="{{ url_for('tt.tt_check') }}"
              class="{% if request.endpoint=='tt.tt_check' %}active{% endif %}">
@@ -58,7 +62,7 @@
       </a>
 
       <a href="{{ url_for('live.bee_sessions') }}"
-         class="nav-item {% if 'live' in request.endpoint %}active{% endif %}">
+         class="nav-item {% if 'live' in (request.endpoint or '') %}active{% endif %}">
         📲 Digital
       </a>
 

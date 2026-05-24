@@ -878,3 +878,111 @@ def api_assess_process():
                         'total_results': len(results)})
     except Exception as e:
         return _err(e)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SESSION MANAGEMENT  (/sessions)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@live_bp.route('/sessions')
+def session_management():
+    r = _auth()
+    if r: return r
+    return render_template('live_sessions.html')
+
+
+@live_bp.route('/api/sessions/list')
+def api_sessions_list():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        # Load all session files
+        sess_r = _req.get(
+            f'https://api.github.com/repos/{DATA_REPO}/contents/data/sessions',
+            headers=_HDR, timeout=10)
+        sessions_raw = []
+        if sess_r.status_code == 200:
+            for f in sess_r.json():
+                if not f['name'].endswith('.json'):
+                    continue
+                r2 = _req.get(f['download_url'], timeout=10)
+                if r2.status_code == 200:
+                    try:
+                        sessions_raw.append(r2.json())
+                    except Exception:
+                        pass
+
+        # Load results directory — build {session_id: n_results}
+        res_r = _req.get(
+            f'https://api.github.com/repos/{DATA_REPO}/contents/data/results',
+            headers=_HDR, timeout=10)
+        result_counts = {}
+        if res_r.status_code == 200:
+            for f in res_r.json():
+                if not f['name'].endswith('.json'):
+                    continue
+                parts = f['name'].replace('.json', '').rsplit('_', 1)
+                if len(parts) == 2:
+                    sid = parts[0]
+                    result_counts[sid] = result_counts.get(sid, 0) + 1
+
+        # Build response list
+        out = []
+        for s in sessions_raw:
+            sid      = s.get('session_id', '')
+            archived = s.get('archived', False)
+            n_res    = result_counts.get(sid, 0)
+            n_pupils = len(s.get('pupils', []))
+            sess_type = s.get('type', 'spelling_bee')
+            out.append({
+                'session_id':  sid,
+                'type':        sess_type,
+                'week_ref':    s.get('week_ref', ''),
+                'created_at':  s.get('created_at', ''),
+                'n_pupils':    n_pupils,
+                'n_items':     len(s.get('items', [])),
+                'n_results':   n_res,
+                'archived':    archived,
+                'complete':    n_res >= n_pupils and n_pupils > 0,
+            })
+
+        # Sort newest first
+        out.sort(key=lambda x: x['created_at'], reverse=True)
+        return jsonify({'ok': True, 'sessions': out})
+    except Exception as e:
+        return _err(e)
+
+
+@live_bp.route('/api/sessions/archive', methods=['POST'])
+def api_sessions_archive():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body       = request.get_json(force=True)
+        session_id = body.get('session_id', '')
+        archived   = body.get('archived', True)
+        if not session_id:
+            return jsonify({'ok': False, 'error': 'No session_id'})
+
+        path = f'data/sessions/{session_id}.json'
+        r2 = _req.get(
+            f'https://api.github.com/repos/{DATA_REPO}/contents/{path}',
+            headers=_HDR, timeout=10)
+        if r2.status_code != 200:
+            return jsonify({'ok': False, 'error': 'Session not found'})
+
+        file_data  = r2.json()
+        sha        = file_data['sha']
+        sess       = json.loads(base64.b64decode(file_data['content']).decode())
+        sess['archived'] = archived
+        content    = base64.b64encode(json.dumps(sess, indent=2).encode()).decode()
+        verb       = 'Archive' if archived else 'Unarchive'
+        _req.put(
+            f'https://api.github.com/repos/{DATA_REPO}/contents/{path}',
+            headers=_HDR,
+            json={'message': f'{verb} session {session_id}',
+                  'content': content, 'sha': sha, 'branch': 'main'},
+            timeout=15)
+        return jsonify({'ok': True, 'archived': archived})
+    except Exception as e:
+        return _err(e)
