@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+{% block title %}Class Manager{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h2>🏫 Class Manager</h2>
+  <div class="header-actions">
+    <select class="cls-select" id="cls-select" onchange="switchClass(this.value)">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add pupil</button>
+  </div>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<!-- Pair mode banner -->
+<div id="pair-banner" style="display:none;background:#fef9c3;border:1.5px solid #fbbf24;
+  border-radius:10px;padding:12px 18px;margin-bottom:12px;display:none;
+  justify-content:space-between;align-items:center;gap:12px">
+  <span style="font-size:14px;color:#92400e;font-weight:600">
+    🔗 Pair mode — click a pupil to select, then click their partner.
+    <span id="pair-step" style="opacity:.7"> Step 1: select first pupil.</span>
+  </span>
+  <div style="display:flex;gap:8px;align-items:center">
+    <label style="font-size:13px;color:#92400e">Colour:</label>
+    <select id="pair-colour-sel" style="font-size:13px;border-radius:6px;padding:3px 6px;border:1px solid #fbbf24">
+      {% for colour in pair_colours %}
+      <option value="{{ colour }}" style="background:{{ colour }}">{{ colour }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary btn-sm" onclick="togglePairMode()">✕ Done</button>
+  </div>
+</div>
+
+<div id="loading" style="text-align:center;padding:40px;color:#64748b">
+  <span class="print-spinner" style="display:inline-block"></span> Loading…
+</div>
+
+<!-- Pupil table -->
+<div id="table-wrap" style="display:none">
+  <table class="cm-table" id="pupil-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Group</th>
+        <th>TT</th>
+        <th>Table</th>
+        <th>Adapted HL</th>
+        <th>Pair</th>
+        <th>Word pos.</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="pupil-tbody"></tbody>
+  </table>
+  <p id="empty-msg" style="display:none;text-align:center;padding:32px;color:#94a3b8">No pupils found.</p>
+</div>
+
+<!-- ── Edit modal ──────────────────────────────────────────────────────────── -->
+<div id="edit-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal">
+    <div class="cm-modal-hdr">
+      <h3 id="edit-title">Edit pupil</h3>
+      <button onclick="closeEditModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <input type="hidden" id="edit-pupil-id">
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>First name</label>
+          <input id="edit-first" type="text" class="cm-input">
+        </div>
+        <div class="cm-field">
+          <label>Last name</label>
+          <input id="edit-last" type="text" class="cm-input">
+        </div>
+      </div>
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>Group</label>
+          <select id="edit-group" class="cm-input">
+            <option value="main">Main</option>
+            <option value="revision">Revision</option>
+          </select>
+        </div>
+        <div class="cm-field">
+          <label>Table</label>
+          <input id="edit-table" type="text" class="cm-input" placeholder="e.g. 1">
+        </div>
+      </div>
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>TT set</label>
+          <select id="edit-tt-set" class="cm-input">
+            {% for s in tt_sets %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="cm-field">
+          <label>TT mode</label>
+          <select id="edit-tt-mode" class="cm-input">
+            <option value="x">× only</option>
+            <option value="xd">× and ÷</option>
+          </select>
+        </div>
+      </div>
+      <div class="cm-field">
+        <label>
+          <input type="checkbox" id="edit-adapted-hl" style="margin-right:6px">
+          Adapted home learning
+        </label>
+      </div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
+      <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-edit"></span>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" id="move-btn" onclick="moveCurrentPupil()"
+        style="color:#7c3aed;border-color:#7c3aed">Move to other class</button>
+      <button class="btn btn-ghost btn-sm" id="remove-btn" onclick="removeCurrentPupil()"
+        style="color:#dc2626;border-color:#dc2626">Remove pupil</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add modal ───────────────────────────────────────────────────────────── -->
+<div id="add-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal">
+    <div class="cm-modal-hdr">
+      <h3>Add pupil</h3>
+      <button onclick="closeAddModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>First name <span style="color:#dc2626">*</span></label>
+          <input id="add-first" type="text" class="cm-input" placeholder="First name">
+        </div>
+        <div class="cm-field">
+          <label>Last name</label>
+          <input id="add-last" type="text" class="cm-input" placeholder="Last name">
+        </div>
+      </div>
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>Group</label>
+          <select id="add-group" class="cm-input">
+            <option value="main">Main</option>
+            <option value="revision">Revision</option>
+          </select>
+        </div>
+        <div class="cm-field">
+          <label>Table</label>
+          <input id="add-table" type="text" class="cm-input" placeholder="e.g. 1">
+        </div>
+      </div>
+      <div class="cm-field">
+        <label>
+          <input type="checkbox" id="add-adapted-hl" style="margin-right:6px">
+          Adapted home learning
+        </label>
+      </div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" onclick="confirmAdd()">Add pupil</button>
+      <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-add"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pair picker modal ────────────────────────────────────────────────────── -->
+<div id="pair-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal">
+    <div class="cm-modal-hdr">
+      <h3 id="pair-modal-title">Pair with…</h3>
+      <button onclick="closePairModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <input type="text" id="pair-search" class="cm-input" placeholder="Search by name…"
+        oninput="filterPairList()" style="margin-bottom:12px">
+      <div id="pair-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+    </div>
+    <div class="cm-modal-footer">
+      <div class="cm-field" style="flex:1">
+        <label>Pair colour</label>
+        <select id="pair-modal-colour" class="cm-input" style="max-width:160px">
+          {% for colour in pair_colours %}
+          <option value="{{ colour }}" style="background:{{ colour }}">{{ colour }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="closePairModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.cm-table { width:100%; border-collapse:collapse; font-size:14px; }
+.cm-table th { background:#f8fafc; color:#64748b; font-size:12px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.5px; padding:8px 12px; text-align:left;
+  border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+.cm-table td { padding:9px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.cm-table tr:hover td { background:#f8fafc; }
+.cm-table tr.pair-selected td { background:#fef9c3 !important; }
+.cm-table tr.pair-selectable:hover { cursor:pointer; }
+.cm-table tr.pair-selectable:hover td { background:#fef3c7; }
+
+.group-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; }
+.group-main     { background:#dbeafe; color:#1d4ed8; }
+.group-revision { background:#fce7f3; color:#9d174d; }
+.pair-dot { display:inline-block; width:12px; height:12px; border-radius:50%;
+  margin-right:6px; vertical-align:middle; border:1px solid rgba(0,0,0,.15); }
+.no-pair { font-size:12px; color:#94a3b8; font-style:italic; }
+
+.cm-modal-wrap { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;
+  display:flex;align-items:center;justify-content:center;padding:16px; }
+.cm-modal { background:white;border-radius:14px;max-width:520px;width:100%;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:90vh; }
+.cm-modal-hdr { display:flex;justify-content:space-between;align-items:center;
+  padding:18px 24px 12px;border-bottom:1px solid #f1f5f9; }
+.cm-modal-hdr h3 { font-size:17px;color:#1a3c6e;margin:0; }
+.cm-close { background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1; }
+.cm-modal-body { padding:18px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:14px; }
+.cm-modal-footer { display:flex;gap:8px;align-items:center;padding:14px 24px;
+  border-top:1px solid #f1f5f9;flex-wrap:wrap; }
+
+.cm-field { display:flex;flex-direction:column;gap:5px;flex:1; }
+.cm-field label { font-size:12px;font-weight:600;color:#64748b; }
+.cm-input { border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:14px;
+  outline:none;width:100%; }
+.cm-input:focus { border-color:#1798d3; }
+.cm-field-row { display:flex;gap:12px; }
+
+.pair-list-item { display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border-radius:8px;cursor:pointer;font-size:14px; }
+.pair-list-item:hover { background:#f0f9ff; }
+.pair-list-item.hidden { display:none; }
+</style>
+
+<script>
+const CLS_ID     = "{{ cls }}";
+const TT_SETS    = {{ tt_sets | tojson }};
+const ALL_CLS    = {{ class_options | tojson }};
+const OTHER_CLS  = ALL_CLS.find(([v]) => v !== CLS_ID);
+
+let _pupils      = [];
+let _allPupils   = [];    // cross-class, for pair picker
+let _pairMode    = false;
+let _pairFirst   = null;  // pupil id of first selection in inline pair mode
+let _pairTarget  = null;  // pupil id of the pupil whose pair we're choosing (modal mode)
+
+function showStatus(msg, type='ok') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg; bar.className = `status-bar status-${type}`;
+}
+function showSpin(id, show) { document.getElementById('spin-'+id)?.classList.toggle('hidden',!show); }
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function load() {
+  document.getElementById('loading').style.display    = 'block';
+  document.getElementById('table-wrap').style.display = 'none';
+  try {
+    const resp = await fetch(`/api/class/list?cls=${CLS_ID}`);
+    const d    = await resp.json();
+    if (!d.ok) { showStatus('Could not load: ' + d.error, 'error'); return; }
+    _pupils    = d.pupils;
+    _allPupils = d.all_pupils;
+    render();
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    document.getElementById('loading').style.display    = 'none';
+    document.getElementById('table-wrap').style.display = 'block';
+  }
+}
+
+function switchClass(val) {
+  window.location = `/class-manager?cls=${val}`;
+}
+
+// ── Render table ──────────────────────────────────────────────────────────────
+function render() {
+  const tbody = document.getElementById('pupil-tbody');
+  tbody.innerHTML = '';
+  const empty = document.getElementById('empty-msg');
+  if (!_pupils.length) { empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  _pupils.forEach(p => {
+    const tr = document.createElement('tr');
+    if (_pairMode) tr.className = 'pair-selectable';
+    if (_pairMode && _pairFirst === p.id) tr.className += ' pair-selected';
+    tr.dataset.id = p.id;
+
+    const pairDot = p.pair_colour
+      ? `<span class="pair-dot" style="background:${p.pair_colour}"></span>`
+      : '';
+    const pairLabel = p.partner_name
+      ? `${pairDot}${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls ? ' <span style="font-size:11px;color:#94a3b8">('+(p.partner_cls.replace('Y4_',''))+')</span>' : ''}`
+      : `<span class="no-pair">Unpaired</span>`;
+
+    tr.innerHTML = `
+      <td><strong>${p.first}</strong> ${p.last || ''}</td>
+      <td><span class="group-badge group-${p.group}">${p.group === 'main' ? 'Main' : 'Revision'}</span></td>
+      <td>${p.tt_set}${p.tt_mode === 'xd' ? '×÷' : '×'}</td>
+      <td>${p.table || '—'}</td>
+      <td>${p.adapted_hl ? '✅' : '—'}</td>
+      <td>${pairLabel}
+        ${p.partner_name && !_pairMode
+          ? `<button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
+              style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">
+              Unpair</button>` : ''}
+        ${!p.partner_name && !_pairMode
+          ? `<button class="btn btn-ghost btn-sm" onclick="openPairModal('${p.id}',event)"
+              style="margin-left:6px;font-size:11px;padding:2px 8px">
+              + Pair</button>` : ''}
+      </td>
+      <td style="color:#94a3b8;font-size:12px">${p.word_pos}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="openEditModal('${p.id}', event)">Edit</button>
+      </td>
+    `;
+
+    if (_pairMode) {
+      tr.onclick = (e) => handlePairClick(p.id, e);
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Pair mode (click-to-pair in table) ───────────────────────────────────────
+function togglePairMode() {
+  _pairMode  = !_pairMode;
+  _pairFirst = null;
+  const btn    = document.getElementById('pair-mode-btn');
+  const banner = document.getElementById('pair-banner');
+  btn.textContent = _pairMode ? '✕ Exit pair mode' : '🔗 Manage pairs';
+  btn.className   = _pairMode ? 'btn btn-primary' : 'btn btn-secondary';
+  banner.style.display = _pairMode ? 'flex' : 'none';
+  document.getElementById('pair-step').textContent = ' Step 1: select first pupil.';
+  render();
+}
+
+function handlePairClick(pid, e) {
+  if (e.target.closest('button')) return;   // let other buttons work
+  if (!_pairFirst) {
+    _pairFirst = pid;
+    document.getElementById('pair-step').textContent = ' Step 2: click their partner.';
+    render();
+  } else if (_pairFirst === pid) {
+    _pairFirst = null;
+    document.getElementById('pair-step').textContent = ' Step 1: select first pupil.';
+    render();
+  } else {
+    const colour = document.getElementById('pair-colour-sel').value;
+    setPair(_pairFirst, pid, colour);
+  }
+}
+
+async function setPair(a, b, colour) {
+  try {
+    const resp = await fetch('/api/class/pair', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pupil_a: a, pupil_b: b, colour }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      showStatus('Pair saved.', 'ok');
+      _pairFirst = null;
+      document.getElementById('pair-step').textContent = ' Step 1: select first pupil.';
+      await load();
+    } else {
+      showStatus('Could not save pair: ' + d.error, 'error');
+    }
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  }
+}
+
+// ── Pair modal (from + button on unpaired row) ────────────────────────────────
+function openPairModal(pid, e) {
+  if (e) e.stopPropagation();
+  _pairTarget = pid;
+  const pupil = _pupils.find(p => p.id === pid);
+  document.getElementById('pair-modal-title').textContent =
+    `Pair ${pupil ? pupil.first : pid} with…`;
+  document.getElementById('pair-search').value = '';
+  populatePairList('');
+  document.getElementById('pair-modal').style.display = 'flex';
+}
+
+function closePairModal() {
+  document.getElementById('pair-modal').style.display = 'none';
+  _pairTarget = null;
+}
+
+function populatePairList(filter) {
+  const list = document.getElementById('pair-list');
+  list.innerHTML = '';
+  const q = filter.toLowerCase();
+  _allPupils.forEach(p => {
+    if (p.id === _pairTarget) return;   // don't show self
+    const label = `${p.first} ${p.last || ''}`.trim();
+    if (q && !label.toLowerCase().includes(q)) return;
+    const item = document.createElement('div');
+    item.className = 'pair-list-item';
+    const cls_label = p.cls_id !== CLS_ID ? ` <span style="font-size:11px;color:#94a3b8">(${p.cls_id.replace('Y4_','')})</span>` : '';
+    item.innerHTML = `<span>${label}${cls_label}</span>`;
+    item.onclick = () => {
+      const colour = document.getElementById('pair-modal-colour').value;
+      closePairModal();
+      setPair(_pairTarget, p.id, colour);
+    };
+    list.appendChild(item);
+  });
+  if (!list.children.length) {
+    list.innerHTML = '<div style="color:#94a3b8;padding:12px;font-size:13px">No matches</div>';
+  }
+}
+
+function filterPairList() {
+  populatePairList(document.getElementById('pair-search').value);
+}
+
+// ── Unpair ────────────────────────────────────────────────────────────────────
+async function unpair(pid, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Remove this pair?')) return;
+  try {
+    const resp = await fetch('/api/class/unpair', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ pupil_id: pid }),
+    });
+    const d = await resp.json();
+    if (d.ok) { showStatus('Pair removed.'); await load(); }
+    else showStatus('Could not unpair: ' + d.error, 'error');
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  }
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEditModal(pid, e) {
+  if (e) e.stopPropagation();
+  const p = _pupils.find(x => x.id === pid);
+  if (!p) return;
+  document.getElementById('edit-pupil-id').value   = pid;
+  document.getElementById('edit-title').textContent = `Edit — ${p.first} ${p.last || ''}`;
+  document.getElementById('edit-first').value       = p.first;
+  document.getElementById('edit-last').value        = p.last || '';
+  document.getElementById('edit-group').value       = p.group;
+  document.getElementById('edit-tt-set').value      = p.tt_set;
+  document.getElementById('edit-tt-mode').value     = p.tt_mode;
+  document.getElementById('edit-table').value       = p.table || '';
+  document.getElementById('edit-adapted-hl').checked = p.adapted_hl;
+  document.getElementById('move-btn').textContent   =
+    `Move to ${OTHER_CLS ? OTHER_CLS[1] : 'other class'}`;
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+async function saveEdit() {
+  const pid = document.getElementById('edit-pupil-id').value;
+  showSpin('edit', true);
+  try {
+    const resp = await fetch('/api/class/pupil/update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        cls:      CLS_ID,
+        pupil_id: pid,
+        changes: {
+          first:      document.getElementById('edit-first').value.trim(),
+          last:       document.getElementById('edit-last').value.trim(),
+          group:      document.getElementById('edit-group').value,
+          tt_set:     document.getElementById('edit-tt-set').value,
+          tt_mode:    document.getElementById('edit-tt-mode').value,
+          table:      document.getElementById('edit-table').value.trim(),
+          adapted_hl: document.getElementById('edit-adapted-hl').checked,
+        },
+      }),
+    });
+    const d = await resp.json();
+    if (d.ok) { closeEditModal(); showStatus('Saved.'); await load(); }
+    else showStatus('Save failed: ' + d.error, 'error');
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin('edit', false);
+  }
+}
+
+async function moveCurrentPupil() {
+  const pid = document.getElementById('edit-pupil-id').value;
+  const name = document.getElementById('edit-first').value;
+  if (!OTHER_CLS) { alert('No other class to move to.'); return; }
+  if (!confirm(`Move ${name} to ${OTHER_CLS[1]}?`)) return;
+  try {
+    const resp = await fetch('/api/class/pupil/move', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ from_cls: CLS_ID, to_cls: OTHER_CLS[0], pupil_id: pid }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      closeEditModal();
+      showStatus(`${d.name} moved to ${OTHER_CLS[1]}.`);
+      await load();
+    } else showStatus('Move failed: ' + d.error, 'error');
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  }
+}
+
+async function removeCurrentPupil() {
+  const pid  = document.getElementById('edit-pupil-id').value;
+  const name = document.getElementById('edit-first').value + ' ' +
+               document.getElementById('edit-last').value;
+  if (!confirm(`Permanently remove ${name.trim()}? This cannot be undone.`)) return;
+  try {
+    const resp = await fetch('/api/class/pupil/remove', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS_ID, pupil_id: pid }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      closeEditModal();
+      showStatus(`${d.name} removed.`);
+      await load();
+    } else showStatus('Remove failed: ' + d.error, 'error');
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  }
+}
+
+// ── Add modal ─────────────────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('add-first').value = '';
+  document.getElementById('add-last').value  = '';
+  document.getElementById('add-group').value = 'main';
+  document.getElementById('add-table').value = '';
+  document.getElementById('add-adapted-hl').checked = false;
+  document.getElementById('add-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('add-first').focus(), 50);
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').style.display = 'none';
+}
+
+async function confirmAdd() {
+  const first = document.getElementById('add-first').value.trim();
+  if (!first) { document.getElementById('add-first').focus(); return; }
+  showSpin('add', true);
+  try {
+    const resp = await fetch('/api/class/pupil/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        cls:        CLS_ID,
+        first,
+        last:       document.getElementById('add-last').value.trim(),
+        group:      document.getElementById('add-group').value,
+        table:      document.getElementById('add-table').value.trim(),
+        adapted_hl: document.getElementById('add-adapted-hl').checked,
+      }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      closeAddModal();
+      showStatus(`${first} added (ID: ${d.pupil_id}).`);
+      await load();
+    } else showStatus('Add failed: ' + d.error, 'error');
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin('add', false);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+load();
+</script>
+{% endblock %}

@@ -56,6 +56,11 @@
         👤 Learners
       </a>
 
+      <a href="{{ url_for('class_manager.class_manager') }}"
+         class="nav-item {% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
+        🏫 Classes
+      </a>
+
       <a href="{{ url_for('insights.insights') }}"
          class="nav-item {% if request.endpoint=='insights.insights' %}active{% endif %}">
         📊 Insights

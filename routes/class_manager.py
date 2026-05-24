@@ -1,0 +1,405 @@
+"""
+routes/class_manager.py
+Pupil and class management: add, edit, remove, move, pair.
+"""
+import os, json, base64, traceback
+import requests as _req
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from data_manager import ALL_CLASSES, load_class
+
+cm_bp = Blueprint('class_manager', __name__)
+
+PAT       = os.environ.get('GITHUB_TOKEN', '')
+DATA_REPO = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
+_HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.v3+json'}
+
+CLASS_OPTIONS  = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+TT_SETS        = ['2', '5', '4', '8', '3', '6', '9', '7', '11', '12', 'All']
+PAIR_COLOURS   = [
+    '#0070C0', '#00B050', '#FF0000', '#FF6600', '#7030A0',
+    '#00FFFF', '#66FF33', '#FF99CC', '#FFC000', '#000000',
+]
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _auth():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+
+def _err(e):
+    return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+
+def _load_class_file(cls_id):
+    """Returns (class_obj, sha) direct from GitHub."""
+    r = _req.get(
+        f'https://api.github.com/repos/{DATA_REPO}/contents/data/classes/{cls_id}.json',
+        headers=_HDR, timeout=10)
+    if r.status_code == 200:
+        fd  = r.json()
+        obj = json.loads(base64.b64decode(fd['content']).decode())
+        return obj, fd['sha']
+    return None, None
+
+def _save_class_file(cls_id, class_obj, sha, message):
+    content = base64.b64encode(
+        json.dumps(class_obj, indent=2, ensure_ascii=False).encode()).decode()
+    r = _req.put(
+        f'https://api.github.com/repos/{DATA_REPO}/contents/data/classes/{cls_id}.json',
+        headers=_HDR,
+        json={'message': message, 'content': content, 'sha': sha, 'branch': 'main'},
+        timeout=15)
+    return r.status_code in (200, 201)
+
+def _all_pupils_map():
+    """Returns {pupil_id: {first, last, cls_id}} across all classes."""
+    result = {}
+    for cid in ALL_CLASSES:
+        obj, _ = _load_class_file(cid)
+        if obj:
+            for p in obj.get('pupils', []):
+                result[p['id']] = {
+                    'first': p.get('first', ''),
+                    'last':  p.get('last', ''),
+                    'cls_id': cid,
+                }
+    return result
+
+def _next_pupil_id():
+    """Find the highest p-number across all classes and return the next one."""
+    max_n = 0
+    for cid in ALL_CLASSES:
+        obj, _ = _load_class_file(cid)
+        if obj:
+            for p in obj.get('pupils', []):
+                pid = p.get('id', '')
+                if pid.startswith('p') and pid[1:].isdigit():
+                    max_n = max(max_n, int(pid[1:]))
+    return f'p{max_n + 1:02d}'
+
+def _cls_short(cls_id):
+    """Y4_IM → IM, Y4_WU → WU"""
+    return cls_id.replace('Y4_', '')
+
+
+# ── Page ──────────────────────────────────────────────────────────────────────
+
+@cm_bp.route('/class-manager')
+def class_manager():
+    r = _auth()
+    if r: return r
+    cls = request.args.get('cls', 'Y4_IM')
+    if cls not in [c[0] for c in CLASS_OPTIONS]:
+        cls = 'Y4_IM'
+    return render_template('class_manager.html',
+        cls=cls, class_options=CLASS_OPTIONS,
+        tt_sets=TT_SETS, pair_colours=PAIR_COLOURS)
+
+
+# ── API: List pupils ──────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/list')
+def api_class_list():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    cls = request.args.get('cls', 'Y4_IM')
+    try:
+        id_map = _all_pupils_map()   # for partner name lookup
+
+        obj, _ = _load_class_file(cls)
+        if not obj:
+            return jsonify({'ok': False, 'error': f'Could not load {cls}'}), 404
+
+        pupils = []
+        for p in obj.get('pupils', []):
+            pid     = p.get('pair_id', '')
+            partner = id_map.get(pid, {})
+            pupils.append({
+                'id':           p['id'],
+                'first':        p.get('first', ''),
+                'last':         p.get('last', ''),
+                'group':        p.get('group', 'main'),
+                'tt_set':       str(p.get('tt_set', '2')),
+                'tt_mode':      p.get('tt_mode', 'x'),
+                'pair_id':      pid,
+                'pair_colour':  p.get('pair_colour', ''),
+                'partner_name': f"{partner.get('first','')} {partner.get('last','')}".strip() if partner else '',
+                'partner_cls':  partner.get('cls_id', '') if partner else '',
+                'table':        str(p.get('table', '')),
+                'adapted_hl':   bool(p.get('adapted_hl', False)),
+                'cls':          p.get('cls', _cls_short(cls)),
+                'word_pos':     p.get('word_pos', 0),
+            })
+
+        pupils.sort(key=lambda p: (p['first'].lower(), p['last'].lower()))
+
+        # Cross-class pupils for pairing selector
+        all_for_pairing = [
+            {'id': pid, 'first': v['first'], 'last': v['last'], 'cls_id': v['cls_id']}
+            for pid, v in id_map.items()
+        ]
+        all_for_pairing.sort(key=lambda p: (p['first'].lower(), p['last'].lower()))
+
+        return jsonify({'ok': True, 'pupils': pupils,
+                        'all_pupils': all_for_pairing, 'cls': cls})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Update pupil ─────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/pupil/update', methods=['POST'])
+def api_pupil_update():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body      = request.get_json(force=True)
+        cls       = body.get('cls', 'Y4_IM')
+        pupil_id  = body.get('pupil_id', '')
+        changes   = body.get('changes', {})
+
+        ALLOWED = {'first', 'last', 'group', 'tt_set', 'tt_mode',
+                   'table', 'adapted_hl'}
+        changes = {k: v for k, v in changes.items() if k in ALLOWED}
+
+        obj, sha = _load_class_file(cls)
+        if not obj:
+            return jsonify({'ok': False, 'error': f'Could not load {cls}'})
+
+        found = False
+        for p in obj.get('pupils', []):
+            if p['id'] == pupil_id:
+                p.update(changes)
+                if 'adapted_hl' in changes:
+                    p['adapted_hl'] = bool(changes['adapted_hl'])
+                found = True
+                break
+
+        if not found:
+            return jsonify({'ok': False, 'error': f'Pupil {pupil_id} not found in {cls}'})
+
+        name = next((f"{p.get('first','')} {p.get('last','')}".strip()
+                     for p in obj['pupils'] if p['id'] == pupil_id), pupil_id)
+        ok = _save_class_file(cls, obj, sha, f'Edit pupil {name} ({pupil_id})')
+        return jsonify({'ok': ok})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Add pupil ────────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/pupil/add', methods=['POST'])
+def api_pupil_add():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body  = request.get_json(force=True)
+        cls   = body.get('cls', 'Y4_IM')
+        first = body.get('first', '').strip()
+        last  = body.get('last', '').strip()
+
+        if not first:
+            return jsonify({'ok': False, 'error': 'First name is required'})
+
+        obj, sha = _load_class_file(cls)
+        if not obj:
+            return jsonify({'ok': False, 'error': f'Could not load {cls}'})
+
+        new_id = _next_pupil_id()
+        new_pupil = {
+            'id':              new_id,
+            'first':           first,
+            'last':            last,
+            'cls':             _cls_short(cls),
+            'group':           body.get('group', 'main'),
+            'tt_set':          body.get('tt_set', '2'),
+            'tt_mode':         'x',
+            'table':           body.get('table', ''),
+            'adapted_hl':      bool(body.get('adapted_hl', False)),
+            'pair_id':         '',
+            'pair_colour':     '',
+            'word_pos':        0,
+            'mastered':        [],
+            'rule_confidence': {},
+            'homophone_mastered': [],
+            'homophone_history':  {},
+        }
+        obj.setdefault('pupils', []).append(new_pupil)
+        ok = _save_class_file(cls, obj, sha, f'Add pupil {first} {last} ({new_id})')
+        return jsonify({'ok': ok, 'pupil_id': new_id})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Remove pupil ─────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/pupil/remove', methods=['POST'])
+def api_pupil_remove():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body     = request.get_json(force=True)
+        cls      = body.get('cls', 'Y4_IM')
+        pupil_id = body.get('pupil_id', '')
+
+        obj, sha = _load_class_file(cls)
+        if not obj:
+            return jsonify({'ok': False, 'error': f'Could not load {cls}'})
+
+        target = next((p for p in obj.get('pupils', []) if p['id'] == pupil_id), None)
+        if not target:
+            return jsonify({'ok': False, 'error': f'Pupil {pupil_id} not found'})
+
+        name = f"{target.get('first','')} {target.get('last','')}".strip()
+
+        # If they have a pair, clear the partner's pair_id too (may be in other class)
+        partner_id = target.get('pair_id', '')
+        if partner_id:
+            _clear_pair_field(partner_id, pupil_id)
+
+        obj['pupils'] = [p for p in obj['pupils'] if p['id'] != pupil_id]
+        ok = _save_class_file(cls, obj, sha, f'Remove pupil {name} ({pupil_id})')
+        return jsonify({'ok': ok, 'name': name})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Move pupil ───────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/pupil/move', methods=['POST'])
+def api_pupil_move():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body     = request.get_json(force=True)
+        from_cls = body.get('from_cls', '')
+        to_cls   = body.get('to_cls', '')
+        pupil_id = body.get('pupil_id', '')
+
+        if from_cls == to_cls:
+            return jsonify({'ok': False, 'error': 'Source and destination are the same'})
+
+        src, src_sha = _load_class_file(from_cls)
+        dst, dst_sha = _load_class_file(to_cls)
+        if not src or not dst:
+            return jsonify({'ok': False, 'error': 'Could not load class files'})
+
+        target = next((p for p in src.get('pupils', []) if p['id'] == pupil_id), None)
+        if not target:
+            return jsonify({'ok': False, 'error': f'Pupil {pupil_id} not found in {from_cls}'})
+
+        name = f"{target.get('first','')} {target.get('last','')}".strip()
+
+        # Update cls field and move
+        target['cls'] = _cls_short(to_cls)
+        src['pupils'] = [p for p in src['pupils'] if p['id'] != pupil_id]
+        dst.setdefault('pupils', []).append(target)
+
+        ok1 = _save_class_file(from_cls, src, src_sha, f'Move {name} out to {to_cls}')
+        dst2, dst_sha2 = _load_class_file(to_cls)   # re-fetch sha after first write
+        ok2 = _save_class_file(to_cls, dst, dst_sha, f'Move {name} in from {from_cls}')
+
+        return jsonify({'ok': ok1 and ok2, 'name': name})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Set pair ─────────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/pair', methods=['POST'])
+def api_pair():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body         = request.get_json(force=True)
+        pupil_a_id   = body.get('pupil_a', '')
+        pupil_b_id   = body.get('pupil_b', '')
+        colour       = body.get('colour', '#0070C0')
+
+        if not pupil_a_id or not pupil_b_id or pupil_a_id == pupil_b_id:
+            return jsonify({'ok': False, 'error': 'Invalid pair selection'})
+
+        # Locate both pupils (may be in different classes)
+        id_map = _all_pupils_map()
+        cls_a  = id_map.get(pupil_a_id, {}).get('cls_id')
+        cls_b  = id_map.get(pupil_b_id, {}).get('cls_id')
+
+        if not cls_a or not cls_b:
+            return jsonify({'ok': False, 'error': 'Could not locate one or both pupils'})
+
+        # Load relevant class files (may be the same)
+        classes_to_update = list(dict.fromkeys([cls_a, cls_b]))   # dedupe, preserve order
+        files = {}
+        for cid in classes_to_update:
+            obj, sha = _load_class_file(cid)
+            files[cid] = (obj, sha)
+
+        for cid, (obj, sha) in files.items():
+            for p in obj.get('pupils', []):
+                if p['id'] == pupil_a_id:
+                    p['pair_id'] = pupil_b_id
+                    p['pair_colour'] = colour
+                elif p['id'] == pupil_b_id:
+                    p['pair_id'] = pupil_a_id
+                    p['pair_colour'] = colour
+            name_a = id_map[pupil_a_id]['first']
+            name_b = id_map[pupil_b_id]['first']
+            _save_class_file(cid, obj, sha, f'Pair {name_a} ↔ {name_b}')
+
+        return jsonify({'ok': True})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Remove pair ──────────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/unpair', methods=['POST'])
+def api_unpair():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body     = request.get_json(force=True)
+        pupil_id = body.get('pupil_id', '')
+
+        id_map   = _all_pupils_map()
+        cls_a    = id_map.get(pupil_id, {}).get('cls_id')
+        if not cls_a:
+            return jsonify({'ok': False, 'error': 'Pupil not found'})
+
+        obj_a, sha_a = _load_class_file(cls_a)
+        partner_id   = next((p.get('pair_id','') for p in obj_a.get('pupils',[])
+                             if p['id'] == pupil_id), '')
+
+        # Clear pair on pupil A
+        for p in obj_a.get('pupils', []):
+            if p['id'] == pupil_id:
+                p['pair_id']    = ''
+                p['pair_colour'] = ''
+        name = id_map[pupil_id]['first']
+        _save_class_file(cls_a, obj_a, sha_a, f'Unpair {name}')
+
+        # Clear pair on partner (may be different class)
+        if partner_id:
+            _clear_pair_field(partner_id, pupil_id)
+
+        return jsonify({'ok': True})
+    except Exception as e:
+        return _err(e)
+
+
+# ── Internal: clear one side of a broken pair ─────────────────────────────────
+
+def _clear_pair_field(pupil_id, former_pair_id):
+    """Remove pair_id/pair_colour from a pupil who was paired with former_pair_id."""
+    id_map = _all_pupils_map()
+    cid    = id_map.get(pupil_id, {}).get('cls_id')
+    if not cid:
+        return
+    obj, sha = _load_class_file(cid)
+    if not obj:
+        return
+    for p in obj.get('pupils', []):
+        if p['id'] == pupil_id and p.get('pair_id') == former_pair_id:
+            p['pair_id']    = ''
+            p['pair_colour'] = ''
+    _save_class_file(cid, obj, sha, f'Clear stale pair ref on {pupil_id}')
