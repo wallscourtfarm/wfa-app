@@ -8,7 +8,7 @@ VALID_CLASSES = ['Y4_IM', 'Y4_WU', 'all']
 def spelling_bee():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls          = request.args.get('cls', 'Y4_IM')
+    cls          = request.args.get('cls', 'all')
     if cls not in VALID_CLASSES: cls = 'all'
     group_filter = request.args.get('group', 'all')
 
