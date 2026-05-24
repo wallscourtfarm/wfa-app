@@ -45,10 +45,12 @@
              class="{% if request.endpoint == 'live.session_management' %}active{% endif %}">
             📋 Session Manager
           </a>
+          {% if active_year not in ('1', '2') %}
           <a href="{{ url_for('tt.tt_check') }}"
              class="{% if request.endpoint=='tt.tt_check' %}active{% endif %}">
             🔢 TT Check
           </a>
+          {% endif %}
         </div>
       </div>
 

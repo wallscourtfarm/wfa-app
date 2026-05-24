@@ -44,7 +44,8 @@ def _pupil_active_words(p, n=5):
 
 def _rule_words(wc, cls):
     """Get up to 5 rule words for the current week from weekly config."""
-    cfg  = wc.get('classes', {}).get(cls.replace('all', 'Y4_IM'), {})
+    from data_manager import get_ref_class as _grc
+    cfg  = wc.get('classes', {}).get(_grc(cls), {})
     words = []
     for key in ('main_rule_id', 'revision_rule_id'):
         rid = cfg.get(key, '')

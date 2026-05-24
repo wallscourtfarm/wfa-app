@@ -165,7 +165,9 @@ def api_insights_actions():
     zones, median_pos, median_zone, _ = _spelling_spread(pupils)
 
     n_pupils  = len(pupils)
-    cls_label = {'all': 'Y4 (both classes)', 'Y4_IM': 'Y4 IM', 'Y4_WU': 'Y4 WU'}.get(cls, cls)
+    yr = session.get('year_group', '4')
+    _opts = {v: l for v, l in __import__('data_manager').get_class_options_for_year(yr)}
+    cls_label = _opts.get(cls, cls)
 
     rule_lines = [
         f"  {r['rule_id']} {r['title']}: {r['n']}/{n_pupils} assessed, "

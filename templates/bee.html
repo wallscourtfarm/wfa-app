@@ -7,9 +7,12 @@
   <div class="header-actions bee-filters">
     <div class="filter-group">
       <span class="filter-label">Class</span>
-      <a href="?cls=Y4_IM&group={{ group_filter }}" class="btn {% if cls=='Y4_IM' %}btn-primary{% else %}btn-secondary{% endif %}">IM</a>
-      <a href="?cls=Y4_WU&group={{ group_filter }}" class="btn {% if cls=='Y4_WU' %}btn-primary{% else %}btn-secondary{% endif %}">WU</a>
-      <a href="?cls=all&group={{ group_filter }}"   class="btn {% if cls=='all'   %}btn-primary{% else %}btn-secondary{% endif %}">All Y4</a>
+      {% for val, label in class_options %}
+      <a href="?cls={{ val }}&group={{ group_filter }}"
+         class="btn {% if cls==val %}btn-primary{% else %}btn-secondary{% endif %}">
+        {{ label.split('—')[1].strip() if '—' in label else label }}
+      </a>
+      {% endfor %}
     </div>
     <div class="filter-sep"></div>
     <div class="filter-group">
