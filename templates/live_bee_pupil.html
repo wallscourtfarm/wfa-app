@@ -176,32 +176,43 @@ async function saveResult(nCorrect) {
   }
 }
 
-// ── Wire up keyboard — script is at bottom of body so DOM is already ready ───
+// ── Wire up keyboard ─────────────────────────────────────────────────────────
+// Use touchstart (supported iOS 2+) with click fallback for non-touch devices.
+// pointerdown is NOT used — only available iOS 13+ which excludes older school iPads.
+function addKeyListener(el, handler) {
+  var touched = false;
+  el.addEventListener('touchstart', function(e) {
+    e.preventDefault();   // prevents 300ms click delay AND double-fire
+    touched = true;
+    handler();
+  }, {passive: false});
+  el.addEventListener('click', function() {
+    if (!touched) handler();   // mouse/desktop fallback only
+    touched = false;
+  });
+}
+
 // Letter / symbol keys
 document.querySelectorAll('.key[data-char]').forEach(function(btn) {
-  btn.addEventListener('pointerdown', function(e) {
-    e.preventDefault();
-    const ch = btn.dataset.char;
+  addKeyListener(btn, function() {
+    var ch = btn.dataset.char;
     press(shifted ? ch.toUpperCase() : ch);
     if (shifted) setShift(false);
   });
 });
 
 // Shift
-document.getElementById('shift-btn').addEventListener('pointerdown', function(e) {
-  e.preventDefault();
+addKeyListener(document.getElementById('shift-btn'), function() {
   setShift(!shifted);
 });
 
 // Delete
-document.getElementById('del-btn').addEventListener('pointerdown', function(e) {
-  e.preventDefault();
+addKeyListener(document.getElementById('del-btn'), function() {
   del();
 });
 
 // Submit
-document.getElementById('submit-btn').addEventListener('pointerdown', function(e) {
-  e.preventDefault();
+addKeyListener(document.getElementById('submit-btn'), function() {
   submitWord();
 });
 
