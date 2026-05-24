@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_ref_class
+from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -53,8 +53,9 @@ def _err(e):
 def print_page():
     r = _auth()
     if r: return r
-    cls = request.args.get('cls', DEFAULT_CLASS)
-    if cls not in [c[0] for c in CLASS_OPTIONS]:
+    yr  = session.get('year_group', '4')
+    cls = request.args.get('cls', f'Y{yr}_all')
+    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
         cls = DEFAULT_CLASS
     try:
         main_rule, rev_rule, week_ref = _get_rules(cls)
@@ -63,7 +64,7 @@ def print_page():
         week_ref = '—'
     return render_template('print_tools.html',
         cls=cls,
-        class_options=CLASS_OPTIONS,
+        class_options=get_class_options_for_year(session.get("year_group","4")),
         week_ref=week_ref,
         main_rule_title=main_rule[2] if main_rule else '—',
         rev_rule_title=rev_rule[2]   if rev_rule  else '—',

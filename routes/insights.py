@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_class, ALL_CLASSES, get_class_options, get_ref_class
+from data_manager import load_class, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 from spelling_rules import SPELLING_RULES
 from word_bank import WORD_BANK
 
@@ -126,8 +126,9 @@ def _spelling_spread(pupils):
 def insights():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls = request.args.get('cls', 'all')
-    if cls not in [c[0] for c in CLASS_OPTIONS]:
+    yr  = session.get('year_group', '4')
+    cls = request.args.get('cls', f'Y{yr}_all')
+    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
         cls = 'all'
     pupils = _load_pupils(cls)
     n = len(pupils)
@@ -137,7 +138,7 @@ def insights():
     zones, median_pos, median_zone, _ = _spelling_spread(pupils)
 
     return render_template('insights.html',
-        cls=cls, class_options=CLASS_OPTIONS, n_pupils=n,
+        cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")), n_pupils=n,
         rule_rows=rule_rows, rule_count=len(rule_rows),
         homophone_rows=homophone_rows, n_assessed=n_assessed,
         zones=zones, median_pos=median_pos, median_zone=median_zone)

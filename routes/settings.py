@@ -26,7 +26,7 @@ def settings():
     rules      = list_plannable_rules()   # [(id_str, label), ...]
     term_dates = term_dates_by_term(load_term_dates())  # {'1': [{label,display,...}], ...}
     return render_template('settings.html',
-        wc=wc, rules=rules, class_options=CLASS_OPTIONS, term_dates=term_dates)
+        wc=wc, rules=rules, class_options=get_class_options_for_year(session.get("year_group","4"), include_all=False), term_dates=term_dates)
 
 
 @settings_bp.route('/api/settings/save', methods=['POST'])

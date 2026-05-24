@@ -25,5 +25,21 @@ from routes.rollover import rollover_bp
 for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, rollover_bp]:
     app.register_blueprint(bp)
 
+# ── Year group session context ─────────────────────────────────────────────────
+from flask import session, request as _req, redirect as _redirect
+from data_manager import YEAR_GROUP_CLASSES as _YGC
+
+@app.route('/set-year/<yr>')
+def set_year(yr):
+    """Persist the active year group in session and redirect back."""
+    if yr in _YGC:
+        session['year_group'] = yr
+    return _redirect(_req.referrer or '/')
+
+@app.context_processor
+def inject_year():
+    yr = session.get('year_group', '4')
+    return {'active_year': yr, 'all_year_groups': list(_YGC.keys())}
+
 if __name__ == '__main__':
     app.run(debug=True)

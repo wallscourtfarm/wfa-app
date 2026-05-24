@@ -3,7 +3,7 @@ from datetime import datetime, date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, send_file, make_response)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_ref_class
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 

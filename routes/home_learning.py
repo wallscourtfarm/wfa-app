@@ -1,6 +1,6 @@
 import base64
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_ref_class
+from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
@@ -59,8 +59,9 @@ def _load_class_pupils(cls):
 def home_learning():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls = request.args.get('cls', 'all')
-    if cls not in [c[0] for c in CLASS_OPTIONS]:
+    yr  = session.get('year_group', '4')
+    cls = request.args.get('cls', f'Y{yr}_all')
+    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
         cls = 'all'
     wc = load_weekly_config()
     week_ref = wc.get('week_ref', '')
@@ -69,7 +70,7 @@ def home_learning():
     cls_cfg  = wc.get('classes', {}).get(ref_cls, {})
     main_rule = get_rule(cls_cfg.get('main_rule_id', ''))
     return render_template('home_learning.html',
-        cls=cls, class_options=CLASS_OPTIONS,
+        cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")),
         week_ref=week_ref,
         main_rule_title=main_rule[2] if main_rule else '— (set in Settings)')
 

@@ -2,7 +2,7 @@ import os, io, base64, json, traceback, uuid, re
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_ref_class
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 
 wa_bp = Blueprint('word_assessment', __name__)
 
@@ -75,13 +75,14 @@ def _vision_prompt(word_list_text):
 def word_assessment():
     r = _auth()
     if r: return r
-    cls = request.args.get('cls', DEFAULT_CLASS)
-    if cls not in [c[0] for c in CLASS_OPTIONS]:
+    yr  = session.get('year_group', '4')
+    cls = request.args.get('cls', f'Y{yr}_all')
+    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
         cls = DEFAULT_CLASS
     wc       = load_weekly_config()
     week_ref = wc.get('week_ref', 'TxWy')
     return render_template('word_assessment.html',
-        cls=cls, class_options=CLASS_OPTIONS,
+        cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")),
         week_ref=week_ref, section_keys=SECTION_KEYS)
 
 

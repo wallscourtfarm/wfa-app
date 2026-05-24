@@ -43,9 +43,32 @@ body {
 .nav-brand {
   font-weight: 700;
   font-size: 15px;
-  margin-right: 24px;
+  margin-right: 12px;
   white-space: nowrap;
 }
+
+.year-switcher {
+  display: flex;
+  gap: 3px;
+  margin-right: 16px;
+  background: rgba(0,0,0,.2);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.yr-btn {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.65);
+  padding: 3px 7px;
+  border-radius: 5px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+
+.yr-btn:hover { color: #fff; background: rgba(255,255,255,.15); }
+.yr-btn.active { color: #fff; background: rgba(255,255,255,.25); }
 
 .nav-links {
   display: flex;

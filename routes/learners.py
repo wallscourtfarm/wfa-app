@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_learners, get_class_options, get_ref_class
+from data_manager import load_learners, get_class_options, get_class_options_for_year, get_ref_class
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
@@ -78,11 +78,12 @@ def _enrich(pupils, homophone_words_by_stage):
 def learners():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls = request.args.get('cls', 'all')
-    if cls not in [c[0] for c in CLASS_OPTIONS]:
+    yr  = session.get('year_group', '4')
+    cls = request.args.get('cls', f'Y{yr}_all')
+    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
         cls = 'all'
     pupils = load_learners(cls)
     hw_by_stage = _homophone_words_by_stage()
     pupils = _enrich(pupils, hw_by_stage)
     return render_template('learners.html', pupils=pupils, cls=cls,
-                           class_options=CLASS_OPTIONS)
+                           class_options=get_class_options_for_year(session.get("year_group","4")))

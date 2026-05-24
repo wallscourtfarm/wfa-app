@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from data_manager import load_tt_pupils, advance_tt_pupils
 
 tt_bp = Blueprint('tt', __name__)
-DEFAULT_CLASS = 'Y4_IM'  # sensible default; UI always lets user pick
+# DEFAULT_CLASS now derived from session
 
 
 def require_auth():
@@ -36,6 +36,9 @@ def api_tt_advance():
 def api_tt_data():
     if not session.get('authenticated'):
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    cls = request.args.get('cls', DEFAULT_CLASS)
+    yr  = session.get('year_group', '4')
+    from data_manager import YEAR_GROUP_CLASSES
+    _yr_cls = YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])
+    cls = request.args.get('cls', _yr_cls[0] if _yr_cls else 'Y4_IM')
     pupils = load_tt_pupils(cls)
     return jsonify({'ok': True, 'pupils': pupils})

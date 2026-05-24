@@ -90,12 +90,18 @@ def _cls_short(cls_id):
 def class_manager():
     r = _auth()
     if r: return r
-    cls = request.args.get('cls', 'Y4_IM')
-    valid = [c[0] for c in CLASS_OPTIONS]
+    yr  = session.get('year_group', '4')
+    _yr_classes = __import__('data_manager').YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])
+    _yr_default = _yr_classes[0] if _yr_classes else 'Y4_IM'
+    cls = request.args.get('cls', _yr_default)
+    yr  = session.get('year_group', '4')
+    from data_manager import YEAR_GROUP_CLASSES
+    valid = [c[0] for c in get_class_options_for_year(yr, include_all=False)]
+    cls = request.args.get('cls', (YEAR_GROUP_CLASSES.get(yr,['Y4_IM'])[0]))
     if cls not in valid:
-        cls = 'Y4_IM'
+        cls = YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])[0]
     return render_template('class_manager.html',
-        cls=cls, class_options=CLASS_OPTIONS,
+        cls=cls, class_options=get_class_options_for_year(session.get("year_group","4"), include_all=False),
         tt_sets=TT_SETS, pair_colours=PAIR_COLOURS)
 
 
@@ -105,7 +111,10 @@ def class_manager():
 def api_class_list():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    cls = request.args.get('cls', 'Y4_IM')
+    yr  = session.get('year_group', '4')
+    _yr_classes = __import__('data_manager').YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])
+    _yr_default = _yr_classes[0] if _yr_classes else 'Y4_IM'
+    cls = request.args.get('cls', _yr_default)
     try:
         id_map = _all_pupils_map()   # for partner name lookup
 

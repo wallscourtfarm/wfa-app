@@ -8,7 +8,8 @@ VALID_CLASSES = ['Y4_IM', 'Y4_WU', 'Y4_all'] + __import__('data_manager').ALL_CL
 def spelling_bee():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls          = request.args.get('cls', 'all')
+    yr  = session.get('year_group', '4')
+    cls = request.args.get('cls', f'Y{yr}_all')
     if cls not in VALID_CLASSES: cls = 'all'
     group_filter = request.args.get('group', 'all')
 

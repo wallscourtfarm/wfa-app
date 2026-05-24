@@ -633,3 +633,19 @@ def get_year_counts():
             'classes': cls_info,
         }
     return result
+
+
+def get_class_options_for_year(yr, include_all=True):
+    """
+    Class options filtered to a single year group — used by all routes so the
+    dropdown only shows the active year's classes.
+    """
+    yr      = str(yr)
+    classes = YEAR_GROUP_CLASSES.get(yr, [])
+    options = []
+    if include_all:
+        options.append((f'Y{yr}_all', f'Y{yr} \u2014 All'))
+    for cid in classes:
+        suffix = cid.split('_')[1]
+        options.append((cid, f'Y{yr} \u2014 {suffix}'))
+    return options
