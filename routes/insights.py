@@ -166,7 +166,7 @@ def api_insights_actions():
 
     n_pupils  = len(pupils)
     yr = session.get('year_group', '4')
-    _opts = {v: l for v, l in __import__('data_manager').get_class_options_for_year(yr)}
+    _opts = {v: l for v, l in get_class_options_for_year(yr)}
     cls_label = _opts.get(cls, cls)
 
     rule_lines = [

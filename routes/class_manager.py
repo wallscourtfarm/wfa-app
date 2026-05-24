@@ -6,8 +6,8 @@ import os, json, base64, traceback
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
-                          get_class_options, get_year_group, YEAR_WORD_ZONE,
-                          update_teacher_label, bulk_import_pupils, year_end_rollover)
+                          get_class_options, get_class_options_for_year, get_year_group,
+                          YEAR_WORD_ZONE, update_teacher_label, bulk_import_pupils, year_end_rollover)
 
 cm_bp = Blueprint('class_manager', __name__)
 
@@ -90,18 +90,14 @@ def _cls_short(cls_id):
 def class_manager():
     r = _auth()
     if r: return r
-    yr  = session.get('year_group', '4')
-    _yr_classes = __import__('data_manager').YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])
-    _yr_default = _yr_classes[0] if _yr_classes else 'Y4_IM'
-    cls = request.args.get('cls', _yr_default)
-    yr  = session.get('year_group', '4')
-    from data_manager import YEAR_GROUP_CLASSES
-    valid = [c[0] for c in get_class_options_for_year(yr, include_all=False)]
-    cls = request.args.get('cls', (YEAR_GROUP_CLASSES.get(yr,['Y4_IM'])[0]))
+    yr    = session.get('year_group', '4')
+    opts  = get_class_options_for_year(yr, include_all=False)
+    valid = [c[0] for c in opts]
+    cls   = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])[0])
     if cls not in valid:
         cls = YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])[0]
     return render_template('class_manager.html',
-        cls=cls, class_options=get_class_options_for_year(session.get("year_group","4"), include_all=False),
+        cls=cls, class_options=opts,
         tt_sets=TT_SETS, pair_colours=PAIR_COLOURS)
 
 
@@ -112,9 +108,7 @@ def api_class_list():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     yr  = session.get('year_group', '4')
-    _yr_classes = __import__('data_manager').YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])
-    _yr_default = _yr_classes[0] if _yr_classes else 'Y4_IM'
-    cls = request.args.get('cls', _yr_default)
+    cls = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])[0])
     try:
         id_map = _all_pupils_map()   # for partner name lookup
 
