@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24u</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24v</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <div class="nav-dropdown {% if request.endpoint in ['learners.learners','class_manager.class_manager'] %}active{% endif %}">
+      <div class="nav-dropdown {% if request.endpoint in ['learners.learners','class_manager.class_manager','rollover.rollover_page'] %}active{% endif %}">
         <span class="nav-item nav-dropdown-toggle">👤 Pupils ▾</span>
         <div class="dropdown-menu">
           <a href="{{ url_for('learners.learners') }}"
@@ -57,6 +57,10 @@
           <a href="{{ url_for('class_manager.class_manager') }}"
              class="{% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
             ✏️ Manage
+          </a>
+          <a href="{{ url_for('rollover.rollover_page') }}"
+             class="{% if request.endpoint=='rollover.rollover_page' %}active{% endif %}">
+            🔄 Year-End Rollover
           </a>
         </div>
       </div>

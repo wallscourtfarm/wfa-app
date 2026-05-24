@@ -600,3 +600,36 @@ def year_end_rollover(year_group):
         _put_file(path, data, sha, f'Year-end rollover: clear {path}')
 
     return {'ok': True, 'moved': moved, 'archived': 0}
+
+
+# ── Year group pupil counts ────────────────────────────────────────────────────
+
+def get_year_counts():
+    """
+    Return dict of year_group -> {total, pending, classes: [{id, display, count}]}
+    Used by the rollover page to show current state before acting.
+    """
+    result = {}
+    for yr, classes in YEAR_GROUP_CLASSES.items():
+        yr_total, yr_pending = 0, 0
+        cls_info = []
+        for cid in classes:
+            d = load_class(cid)
+            pupils  = d.get('pupils', []) if d else []
+            count   = len(pupils)
+            pending = sum(1 for p in pupils if p.get('pending'))
+            yr_total   += count
+            yr_pending += pending
+            cls_info.append({
+                'id':      cid,
+                'display': d.get('class_display', cid.split('_')[1]) if d else cid.split('_')[1],
+                'teacher': d.get('teacher_name', d.get('teacher', '')) if d else '',
+                'count':   count,
+                'pending': pending,
+            })
+        result[yr] = {
+            'total':   yr_total,
+            'pending': yr_pending,
+            'classes': cls_info,
+        }
+    return result

@@ -20,8 +20,9 @@ from routes.homophone_assessment import ha_bp
 from routes.insights import insights_bp
 from routes.digital_sessions import live_bp
 from routes.class_manager import cm_bp
+from routes.rollover import rollover_bp
 
-for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp]:
+for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, rollover_bp]:
     app.register_blueprint(bp)
 
 if __name__ == '__main__':
