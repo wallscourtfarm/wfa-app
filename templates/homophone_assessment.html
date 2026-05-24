@@ -43,6 +43,8 @@
 
   <div class="print-card-footer" style="margin-top:14px; gap:10px; flex-wrap:wrap">
     <button class="btn btn-primary" id="generate-btn" onclick="generate()">✨ Generate sheets</button>
+    <button class="btn btn-secondary" id="digital-btn" onclick="createDigitalSession()">📱 Digital session</button>
+    <span class="print-spinner hidden" id="spin-digital"></span>
     <span class="print-spinner hidden" id="spin-generate"></span>
     <a id="dl-pdf"         class="btn btn-primary   hidden" download>⬇ Pupil sheets PDF</a>
     <a id="dl-teacher-pdf" class="btn btn-secondary hidden" download>⬇ Teacher copy PDF</a>
@@ -267,5 +269,102 @@ function resetImport() {
   document.getElementById('pdf-upload').value='';
   _importResults={}; _errorPages=[]; _totalWords=0;
 }
+
+// ── Digital session ───────────────────────────────────────────────────────────
+let _digitalSessionId = null;
+
+async function createDigitalSession() {
+  const stages = selectedStages();
+  if (!stages.length) { showStatus('Select at least one stage.', 'error'); return; }
+  showSpin('digital', true);
+  document.getElementById('digital-btn').disabled = true;
+  try {
+    const resp = await fetch('/api/live/assess/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ type: 'homophone', cls: CLS, stages, week_ref: WEEK_REF }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus('Error: ' + d.error, 'error'); return; }
+    _digitalSessionId = d.session_id;
+    showDigitalModal(d);
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin('digital', false);
+    document.getElementById('digital-btn').disabled = false;
+  }
+}
+
+function showDigitalModal(d) {
+  document.getElementById('dm-session-id').textContent = d.session_id;
+  document.getElementById('dm-url').textContent        = d.url;
+  document.getElementById('dm-url').href               = d.url;
+  document.getElementById('dm-stats').textContent      = d.n_pupils + ' pupils \u00b7 ' + d.n_items + ' words';
+  document.getElementById('dm-qr-link').href           = '/api/live/assess/qr/' + d.session_id;
+  document.getElementById('digital-modal').style.display = 'flex';
+  if (window.QRCode) renderModalQR(d.url);
+}
+
+function renderModalQR(url) {
+  const el = document.getElementById('dm-qr-canvas');
+  el.innerHTML = '';
+  new QRCode(el, { text: url, width: 180, height: 180,
+    colorDark: '#1a3c6e', colorLight: '#ffffff' });
+}
+
+async function processDigitalResults() {
+  if (!_digitalSessionId) return;
+  const btn = document.getElementById('dm-process-btn');
+  btn.disabled = true; btn.textContent = 'Processing\u2026';
+  try {
+    const resp = await fetch('/api/live/assess/process', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ session_id: _digitalSessionId }),
+    });
+    const d = await resp.json();
+    btn.textContent = d.ok ? '\u2705 Saved ' + d.saved + ' pupils' : '\u26a0\ufe0f ' + d.error;
+  } catch(e) {
+    btn.textContent = '\u26a0\ufe0f Failed \u2014 try again';
+    btn.disabled = false;
+  }
+}
+
+function closeDigitalModal() {
+  document.getElementById('digital-modal').style.display = 'none';
+}
 </script>
+<!-- Digital session modal -->
+<div id="digital-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:1000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:white;border-radius:14px;padding:24px;max-width:480px;width:100%;
+    box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="font-size:18px;color:#1a3c6e">&#128241; Digital session ready</h3>
+      <button onclick="closeDigitalModal()" style="background:none;border:none;font-size:22px;
+        cursor:pointer;color:#64748b;line-height:1">&times;</button>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div id="dm-qr-canvas" style="flex-shrink:0"></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:13px;color:#64748b">Session ID</div>
+        <div id="dm-session-id" style="font-size:20px;font-weight:800;color:#1a3c6e;letter-spacing:2px"></div>
+        <div id="dm-stats" style="font-size:13px;color:#64748b"></div>
+        <a id="dm-url" href="#" target="_blank" style="font-size:12px;color:#1798d3;word-break:break-all"></a>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a id="dm-qr-link" href="#" download class="btn btn-secondary" style="font-size:13px">&#11015; QR card PDF</a>
+      <button id="dm-process-btn" class="btn btn-primary" style="font-size:13px"
+        onclick="processDigitalResults()">&#10003; Process results</button>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin:0">
+      Pupils open the URL on a shared iPad, pick their name, and type each word as you read it aloud.
+      Click <strong>Process results</strong> when everyone is done.
+    </p>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 {% endblock %}
