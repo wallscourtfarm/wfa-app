@@ -141,16 +141,19 @@ def api_ra_generate():
         if not sections:
             return jsonify({'ok': False, 'error': 'No cloze sentences found for selected rules'})
 
-        from assessment_builder import build_rule_assessment_pdf
-        pdf_bytes = build_rule_assessment_pdf(pupils, sections, week_ref)
+        from assessment_builder import build_rule_assessment_pdf, build_rule_assessment_teacher_pdf
+        pdf_bytes     = build_rule_assessment_pdf(pupils, sections, week_ref)
+        teacher_bytes = build_rule_assessment_teacher_pdf(pupils, sections, week_ref)
 
         return jsonify({
-            'ok':      True,
-            'pdf':     base64.b64encode(pdf_bytes).decode(),
-            'pdf_name': f'Rule_Assessment_{week_ref}_{cls}.pdf',
-            'n_pupils': len(pupils),
-            'n_rules':  len(sections),
-            'n_words':  len(sections) * WORDS_PER_RULE,
+            'ok':          True,
+            'pdf':         base64.b64encode(pdf_bytes).decode(),
+            'teacher_pdf': base64.b64encode(teacher_bytes).decode(),
+            'pdf_name':         f'Rule_Assessment_{week_ref}_{cls}_Pupils.pdf',
+            'teacher_pdf_name': f'Rule_Assessment_{week_ref}_{cls}_Teacher.pdf',
+            'n_pupils':  len(pupils),
+            'n_rules':   len(sections),
+            'n_words':   len(sections) * WORDS_PER_RULE,
         })
     except Exception as e:
         return _err(e)

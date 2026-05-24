@@ -422,7 +422,8 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
                     c.rect(M, cy - SEC_H, UW, SEC_H, fill=1, stroke=0)
                     c.setFillColorRGB(*NAVY)
                     c.setFont('Helvetica-Bold', 7.5)
-                    c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 7.5) / 2, label)
+                    pupil_label = label.split('  —  ')[0].strip()
+                    c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 7.5) / 2, pupil_label)
                     cy -= SEC_H
                 else:
                     _, num, word, sentence = item
@@ -460,6 +461,180 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
                     c.setLineWidth(0.7)
                     c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
 
+                    cy -= ROW_H
+
+            c.setStrokeColorRGB(0.82, 0.82, 0.82)
+            c.setLineWidth(0.3)
+            c.line(M, cy, M + UW, cy)
+            c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()
+
+
+# ── Teacher version PDF (shared helper) ───────────────────────────────────────
+
+def _draw_teacher_row(c, cy, num, word, sentence, W, M, UW, ROW_H):
+    """
+    Draw one teacher-version row: number | WORD (bold) | completed sentence.
+    No marking box, no writing line, no alternating fill.
+    """
+    NUM_W  = 8  * mm
+    WORD_W = 32 * mm   # prominent word column
+
+    row_bot = cy - ROW_H
+
+    # Light top divider
+    c.setStrokeColorRGB(0.82, 0.82, 0.82)
+    c.setLineWidth(0.3)
+    c.line(M, cy, M + UW, cy)
+
+    # Number
+    c.setFillColorRGB(*NAVY)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawCentredString(M + NUM_W / 2, row_bot + ROW_H / 2 - 2.8, str(num))
+
+    # Word — bold, blue, larger
+    c.setFillColorRGB(*BLUE)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(M + NUM_W + 2 * mm, row_bot + ROW_H / 2 - 3.5, word)
+
+    # Completed sentence (blank replaced with word)
+    completed = re.sub(r'_+', word, sentence)
+    c.setFillColorRGB(*BLACK)
+    c.setFont('Helvetica', 8)
+    c.drawString(M + NUM_W + WORD_W + 2 * mm, row_bot + ROW_H / 2 - 2.8, completed)
+
+
+def build_word_assessment_teacher_pdf(pupils, sections, cloze_lookup, week_ref=""):
+    """
+    Teacher version: word shown prominently, completed sentence (no blank),
+    no marking box, label bar says TEACHER COPY.
+    sections: list of (label, [words])
+    """
+    buf = io.BytesIO()
+    W, H = A4
+    M    = 12 * mm
+    UW   = W - 2 * M
+    ROW_H   = 9  * mm
+    SEC_H   = 6  * mm
+    NUM_W   = 8  * mm
+    FIRST_Y = H - 14 * mm - 5 * mm
+
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    for pupil in pupils:
+        name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
+
+        items   = []
+        counter = 1
+        for label, words in sections:
+            items.append(('section', label))
+            for word in words:
+                sentence = cloze_lookup.get(word.lower(), f'Write the word: {word}.')
+                items.append(('word', counter, word, sentence))
+                counter += 1
+
+        def paginate(items, first_y):
+            pages, current, cy = [], [], first_y
+            for item in items:
+                need = SEC_H if item[0] == 'section' else ROW_H
+                if current and cy - need < M:
+                    pages.append(current); current = []; cy = first_y
+                current.append(item); cy -= need
+            if current: pages.append(current)
+            return pages
+
+        pages   = paginate(items, FIRST_Y)
+        n_pages = len(pages)
+
+        for pg_idx, page_items in enumerate(pages):
+            pg_label = f'TEACHER COPY  ·  Page {pg_idx + 1} of {n_pages}'
+            top_y    = _draw_page_header(c, W, H, name, week_ref, pg_label)
+            cy       = top_y - 5 * mm
+
+            for item in page_items:
+                if item[0] == 'section':
+                    _, label = item
+                    c.setFillColorRGB(*LGREY)
+                    c.rect(M, cy - SEC_H, UW, SEC_H, fill=1, stroke=0)
+                    c.setFillColorRGB(*NAVY)
+                    c.setFont('Helvetica-Bold', 8.5)
+                    c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 8.5) / 2, label)
+                    cy -= SEC_H
+                else:
+                    _, num, word, sentence = item
+                    _draw_teacher_row(c, cy, num, word, sentence, W, M, UW, ROW_H)
+                    cy -= ROW_H
+
+            c.setStrokeColorRGB(0.82, 0.82, 0.82)
+            c.setLineWidth(0.3)
+            c.line(M, cy, M + UW, cy)
+            c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()
+
+
+def build_rule_assessment_teacher_pdf(pupils, sections, week_ref=""):
+    """
+    Teacher version of rule assessment.
+    Section header shows full rule title (not hidden).
+    sections: list of (rule_id, title, [(word, sentence), ...])
+    """
+    buf = io.BytesIO()
+    W, H = A4
+    M    = 12 * mm
+    UW   = W - 2 * M
+    ROW_H   = 9  * mm
+    SEC_H   = 7  * mm
+    FIRST_Y = H - 14 * mm - 5 * mm
+
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    for pupil in pupils:
+        name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
+
+        items   = []
+        counter = 1
+        for rule_id, title, pairs in sections:
+            items.append(('section', f'{rule_id}  —  {title}'))   # full title for teacher
+            for word, sentence in pairs:
+                items.append(('word', counter, word, sentence))
+                counter += 1
+
+        def paginate(items, first_y):
+            pages, current, cy = [], [], first_y
+            for item in items:
+                need = SEC_H if item[0] == 'section' else ROW_H
+                if current and cy - need < M:
+                    pages.append(current); current = []; cy = first_y
+                current.append(item); cy -= need
+            if current: pages.append(current)
+            return pages
+
+        pages   = paginate(items, FIRST_Y)
+        n_pages = len(pages)
+
+        for pg_idx, page_items in enumerate(pages):
+            pg_label = f'TEACHER COPY  ·  Page {pg_idx + 1} of {n_pages}'
+            top_y    = _draw_page_header(c, W, H, name, week_ref, pg_label)
+            cy       = top_y - 5 * mm
+
+            for item in page_items:
+                if item[0] == 'section':
+                    _, label = item
+                    c.setFillColorRGB(*LGREY)
+                    c.rect(M, cy - SEC_H, UW, SEC_H, fill=1, stroke=0)
+                    c.setFillColorRGB(*NAVY)
+                    c.setFont('Helvetica-Bold', 7.5)
+                    c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 7.5) / 2, label)
+                    cy -= SEC_H
+                else:
+                    _, num, word, sentence = item
+                    _draw_teacher_row(c, cy, num, word, sentence, W, M, UW, ROW_H)
                     cy -= ROW_H
 
             c.setStrokeColorRGB(0.82, 0.82, 0.82)

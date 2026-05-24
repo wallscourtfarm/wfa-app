@@ -113,17 +113,20 @@ def api_wa_generate():
             if api_key:
                 cloze.update(generate_missing_cloze(missing, api_key))
 
-        from assessment_builder import build_word_assessment_pdf, build_word_assessment_excel
-        pdf_bytes = build_word_assessment_pdf(pupils, sections, cloze, week_ref)
-        xl_bytes  = build_word_assessment_excel(pupils, sections)
+        from assessment_builder import build_word_assessment_pdf, build_word_assessment_excel, build_word_assessment_teacher_pdf
+        pdf_bytes     = build_word_assessment_pdf(pupils, sections, cloze, week_ref)
+        teacher_bytes = build_word_assessment_teacher_pdf(pupils, sections, cloze, week_ref)
+        xl_bytes      = build_word_assessment_excel(pupils, sections)
 
         flagged = [w for w in missing if w.lower() not in cloze]
         return jsonify({
-            'ok':        True,
-            'pdf':       base64.b64encode(pdf_bytes).decode(),
-            'excel':     base64.b64encode(xl_bytes).decode(),
-            'pdf_name':   f'Word_Assessment_{week_ref}_{cls}_Pupils.pdf',
-            'excel_name': f'Word_Assessment_{week_ref}_{cls}_Marking.xlsx',
+            'ok':           True,
+            'pdf':          base64.b64encode(pdf_bytes).decode(),
+            'teacher_pdf':  base64.b64encode(teacher_bytes).decode(),
+            'excel':        base64.b64encode(xl_bytes).decode(),
+            'pdf_name':          f'Word_Assessment_{week_ref}_{cls}_Pupils.pdf',
+            'teacher_pdf_name':  f'Word_Assessment_{week_ref}_{cls}_Teacher.pdf',
+            'excel_name':        f'Word_Assessment_{week_ref}_{cls}_Marking.xlsx',
             'n_pupils':  len(pupils),
             'n_words':   len(all_words),
             'flagged':   flagged,

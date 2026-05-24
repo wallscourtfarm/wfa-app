@@ -56,7 +56,8 @@
   <div class="print-card-footer" style="margin-top:14px; gap:10px; flex-wrap:wrap">
     <button class="btn btn-primary" id="generate-btn" onclick="generate()">✨ Generate sheets</button>
     <span class="print-spinner hidden" id="spin-generate"></span>
-    <a id="dl-pdf" class="btn btn-primary hidden" download>⬇ Download PDF</a>
+    <a id="dl-pdf"         class="btn btn-primary   hidden" download>⬇ Pupil sheets PDF</a>
+    <a id="dl-teacher-pdf" class="btn btn-secondary hidden" download>⬇ Teacher copy PDF</a>
   </div>
 </div>
 
@@ -167,9 +168,13 @@ async function generate() {
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
     const a = document.getElementById('dl-pdf');
-    a.href     = blob64(d.pdf, 'application/pdf');
+    a.href = blob64(d.pdf, 'application/pdf');
     a.download = d.pdf_name;
     a.classList.remove('hidden');
+    const t = document.getElementById('dl-teacher-pdf');
+    t.href = blob64(d.teacher_pdf, 'application/pdf');
+    t.download = d.teacher_pdf_name;
+    t.classList.remove('hidden');
     showStatus(`✅ Generated — ${d.n_rules} rules, ${d.n_words} words, ${d.n_pupils} pupils.`);
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
