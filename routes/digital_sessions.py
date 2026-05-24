@@ -230,68 +230,102 @@ def _build_bee_cards(sess, base_url):
             c.line(0, ly, W, ly)
         c.restoreState()
 
+    def rounded_rect(rx, ry, rw, rh, radius):
+        """Draw a filled rounded rectangle (pill shape)."""
+        from reportlab.lib.units import mm as _mm
+        r = min(radius, rw / 2, rh / 2)
+        c.beginPath()
+        c.moveTo(rx + r, ry)
+        c.lineTo(rx + rw - r, ry)
+        c.curveTo(rx + rw, ry, rx + rw, ry, rx + rw, ry + r)
+        c.lineTo(rx + rw, ry + rh - r)
+        c.curveTo(rx + rw, ry + rh, rx + rw, ry + rh, rx + rw - r, ry + rh)
+        c.lineTo(rx + r, ry + rh)
+        c.curveTo(rx, ry + rh, rx, ry + rh, rx, ry + rh - r)
+        c.lineTo(rx, ry + r)
+        c.curveTo(rx, ry, rx, ry, rx + r, ry)
+        c.closePath()
+        c.fill()
+
     def draw_card(cx, cy, p_rec):
         """Draw one card at column-left cx, row-top cy."""
-        PAD   = 5 * mm
-        words = [it['word'] for it in p_rec.get('items', [])]
-        n_wds = len(words)
-
-        # Colour bar at top
+        PAD      = 5 * mm
+        HDR_H    = 22 * mm   # tall colour header
+        words    = [it['word'] for it in p_rec.get('items', [])]
+        n_wds    = len(words)
         colour_rgb = hex_to_rgb(p_rec.get('pair_colour') or '#1798d3')
+        name       = f"{p_rec['first']} {p_rec.get('last', '')}".strip()
+        partner    = p_rec.get('partner_name', '')
+
+        # ── Colour header ────────────────────────────────────────────────────
         c.setFillColorRGB(*colour_rgb)
-        c.rect(cx, cy - 10 * mm, col_w, 10 * mm, fill=1, stroke=0)
+        c.rect(cx, cy - HDR_H, col_w, HDR_H, fill=1, stroke=0)
 
-        # Name
+        # Name pill (white rounded rect)
+        pill_w = min(col_w - 8 * mm, len(name) * 7.5 + 16)
+        pill_h = 10 * mm
+        pill_x = cx + (col_w - pill_w) / 2
+        pill_y = cy - HDR_H / 2 - pill_h / 2 + (3 * mm if partner else 0)
         c.setFillColorRGB(1, 1, 1)
-        c.setFont('Helvetica-Bold', 13)
-        name = f"{p_rec['first']} {p_rec.get('last', '')}".strip()
-        c.drawCentredString(cx + col_w / 2, cy - 7.5 * mm, name)
+        rounded_rect(pill_x, pill_y, pill_w, pill_h, 5)
+        c.setFillColorRGB(*colour_rgb)
+        c.setFont('Helvetica-Bold', 14)
+        c.drawCentredString(cx + col_w / 2, pill_y + 2.5 * mm, name)
 
-        # Partner line
-        partner = p_rec.get('partner_name', '')
+        # Partner pill (smaller, semi-transparent white)
         if partner:
+            p_pill_w = min(col_w - 16 * mm, len(f'Partner: {partner}') * 5.2 + 14)
+            p_pill_h = 6 * mm
+            p_pill_x = cx + (col_w - p_pill_w) / 2
+            p_pill_y = pill_y - p_pill_h - 2 * mm
+            c.setFillColorRGB(1, 1, 1, 0.25)  # translucent white
+            c.saveState()
+            c.setFillAlpha(0.3)
+            c.setFillColorRGB(1, 1, 1)
+            rounded_rect(p_pill_x, p_pill_y, p_pill_w, p_pill_h, 3)
+            c.restoreState()
+            c.setFillColorRGB(1, 1, 1)
             c.setFont('Helvetica', 8)
-            c.setFillColorRGB(0.9, 0.9, 0.9)
-            c.drawCentredString(cx + col_w / 2, cy - 9.5 * mm, f'Partner: {partner}')
+            c.drawCentredString(cx + col_w / 2, p_pill_y + 1.5 * mm, f'Partner: {partner}')
 
-        # QR code
-        url    = f'{base_url}/live/bee/{session_id}/{p_rec["id"]}'
-        qr     = qrcode.QRCode(box_size=5, border=2)
+        # ── QR code ───────────────────────────────────────────────────────────
+        url     = f'{base_url}/live/bee/{session_id}/{p_rec["id"]}'
+        qr      = qrcode.QRCode(box_size=5, border=2)
         qr.add_data(url)
         qr.make(fit=True)
-        img    = qr.make_image(fill_color='#1a3c6e', back_color='white')
-        qr_io  = __import__('io').BytesIO()
+        img     = qr.make_image(fill_color='#1a3c6e', back_color='white')
+        qr_io   = __import__('io').BytesIO()
         img.save(qr_io, format='PNG')
         qr_io.seek(0)
-        qr_size = 26 * mm
+        qr_size = 30 * mm
         qr_x    = cx + PAD
-        qr_y    = cy - 10 * mm - qr_size - 2 * mm
+        qr_y    = cy - HDR_H - qr_size - 3 * mm
         c.drawImage(ImageReader(qr_io), qr_x, qr_y, qr_size, qr_size)
 
-        # Week ref + session ID beside QR
-        c.setFont('Helvetica', 6.5)
-        c.setFillColorRGB(*NAVY)
+        # Session info beside QR
         info_x = qr_x + qr_size + 3 * mm
-        c.drawString(info_x, qr_y + qr_size - 8, f'Session: {session_id}')
+        c.setFont('Helvetica-Bold', 7)
+        c.setFillColorRGB(*NAVY)
+        c.drawString(info_x, qr_y + qr_size - 9, f'Session: {session_id}')
         if week_ref:
-            c.drawString(info_x, qr_y + qr_size - 15, week_ref)
-        c.setFont('Helvetica', 6)
+            c.setFont('Helvetica', 7)
+            c.drawString(info_x, qr_y + qr_size - 18, week_ref)
+        c.setFont('Helvetica', 6.5)
         c.setFillColorRGB(0.4, 0.4, 0.4)
-        c.drawString(info_x, qr_y + 2, 'Scan to start →')
+        c.drawString(info_x, qr_y + 4, 'Scan to start →')
 
-        # Word list
-        word_top = qr_y - 2 * mm
-        word_h   = min(4.2 * mm, (word_top - (cy - row_h + PAD)) / max(n_wds, 1))
+        # ── Word list ─────────────────────────────────────────────────────────
+        word_top = qr_y - 3 * mm
+        word_h   = min(4.5 * mm, (word_top - (cy - row_h + PAD)) / max(n_wds, 1))
         for i, word in enumerate(words):
             wy = word_top - i * word_h
             if i == 5:
-                # Dashed line between key spellings and rule words
-                c.setStrokeColorRGB(0.7, 0.7, 0.7)
+                c.setStrokeColorRGB(0.75, 0.75, 0.75)
                 c.setLineWidth(0.3)
                 c.setDash([2, 2])
                 c.line(cx + PAD, wy + word_h * 0.8, cx + col_w - PAD, wy + word_h * 0.8)
                 c.setDash()
-            fs = 9 if n_wds <= 8 else 7.5
+            fs = 9.5 if n_wds <= 8 else 8
             c.setFont('Helvetica', fs)
             c.setFillColorRGB(*(NAVY if i < 5 else (0.22, 0.22, 0.52)))
             c.drawString(cx + PAD, wy, f'{i + 1}.  {word}')
