@@ -45,18 +45,18 @@ html{height:-webkit-fill-available}body{min-height:100vh;min-height:-webkit-fill
 .opt-chip{background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:20px;
   padding:4px 14px;font-size:13px;color:#1a3c6e;font-weight:600}
 #typed-wrap{border-bottom:3px solid #1798d3;min-width:200px;padding-bottom:3px;
-  min-height:46px;display:flex;align-items:center;justify-content:center}
+  min-height:54px;display:flex;align-items:center;justify-content:center}
 #typed-text{font-size:clamp(26px,5vw,38px);font-weight:700;color:#1a3c6e;letter-spacing:2px;min-width:20px}
 #cursor{font-size:clamp(26px,5vw,38px);color:#1798d3;font-weight:200;animation:blink 1s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 
 /* ── Keyboard ────────────────────────────────────────────────────────── */
-#kbd{background:#c8d0d8;border-radius:14px;padding:6px 5px 8px}
-.krow{display:flex;justify-content:center;gap:4px;margin-bottom:4px}
+#kbd{background:#c8d0d8;border-radius:14px;padding:8px 6px 10px}
+.krow{display:flex;justify-content:center;gap:6px;margin-bottom:6px}
 .krow:last-child{margin-bottom:0}
 button.key{background:white;border:none;border-radius:7px;box-shadow:0 3px 0 #8a9199;
   color:#111;cursor:pointer;font-size:clamp(14px,2.2vw,19px);font-weight:700;
-  height:44px;flex:1;min-width:0;max-width:56px;touch-action:manipulation;
+  height:52px;flex:1;min-width:0;max-width:56px;touch-action:manipulation;
   user-select:none;-webkit-user-select:none;transition:transform .07s,box-shadow .07s}
 button.key:active{transform:translateY(2px);box-shadow:0 1px 0 #8a9199;background:#e8edf2}
 button.key.back{background:#a8b2bc;color:white;max-width:76px;font-size:clamp(13px,1.8vw,17px)}
@@ -64,7 +64,7 @@ button.key.back:active{background:#8a9199}
 button.key.punct{background:#1798d3;color:white;max-width:56px}
 button.key.punct:active{background:#1270b5}
 button.key.submit{background:#1798d3;color:white;flex:1;max-width:none;
-  height:46px;font-size:clamp(14px,1.8vw,17px);font-weight:800;border-radius:9px}
+  height:54px;font-size:clamp(14px,1.8vw,17px);font-weight:800;border-radius:9px}
 button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;transform:none}
 
 /* ── Done screen ─────────────────────────────────────────────────────── */
