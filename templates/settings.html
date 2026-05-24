@@ -36,9 +36,10 @@
   </div>
 
   <!-- Spelling rules — single set for all classes -->
-  {% set cls_cfg = wc.get('classes', {}).get('Y4_IM', {}) %}
+  {% set ref_cls = yr_classes[0] if yr_classes else '' %}
+  {% set cls_cfg = wc.get('classes', {}).get(ref_cls, {}) %}
   <div class="settings-section">
-    <h3 class="settings-heading">Spelling rules</h3>
+    <h3 class="settings-heading">Spelling rules &mdash; Y{{ active_year }}</h3>
     <div class="settings-row">
       <label class="settings-label">Main rule</label>
       <select id="main_rule" class="cls-select" style="max-width:420px">
@@ -79,7 +80,7 @@ async function saveSettings() {
 
   // Apply same rules to both classes
   const classes = {};
-  ['Y4_IM', 'Y4_WU'].forEach(cls => {
+  {{ yr_classes | tojson }}.forEach(cls => {
     classes[cls] = { main_rule_id: main_rule_id, revision_rule_id: rev_rule_id };
   });
 

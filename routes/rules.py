@@ -55,7 +55,8 @@ def rules():
     if r: return r
     stages  = _build_stages()
     customs = _build_custom()
-    return render_template('rules.html', stages=stages, customs=customs)
+    yr = session.get('year_group', '4')
+    return render_template('rules.html', stages=stages, customs=customs, active_year=yr)
 
 
 @rules_bp.route('/api/rules/confidence', methods=['POST'])

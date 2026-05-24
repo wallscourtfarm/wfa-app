@@ -22,11 +22,16 @@ def api_debug_learners():
 def settings():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
+    from data_manager import YEAR_GROUP_CLASSES, get_class_options_for_year
+    yr         = session.get('year_group', '4')
+    yr_classes = YEAR_GROUP_CLASSES.get(yr, [])
     wc         = load_weekly_config()
-    rules      = list_plannable_rules()   # [(id_str, label), ...]
-    term_dates = term_dates_by_term(load_term_dates())  # {'1': [{label,display,...}], ...}
+    rules      = list_plannable_rules()
+    term_dates = term_dates_by_term(load_term_dates())
     return render_template('settings.html',
-        wc=wc, rules=rules, class_options=get_class_options_for_year(session.get("year_group","4"), include_all=False), term_dates=term_dates)
+        wc=wc, rules=rules, yr_classes=yr_classes, active_year=yr,
+        class_options=get_class_options_for_year(yr, include_all=False),
+        term_dates=term_dates)
 
 
 @settings_bp.route('/api/settings/save', methods=['POST'])
