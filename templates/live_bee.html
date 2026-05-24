@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Spelling Bee — Digital{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>🐝 Spelling Bee — Digital Sessions</h2>
+  <div class="header-actions">
+    <select class="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+<div class="hl-meta">
+  <span>Week: <strong>{{ week_ref or '—' }}</strong></span>
+  <span>{{ n_pupils }} pupils · {{ n_paired }} paired · {{ n_words }} words each</span>
+  {% if rule_words %}
+  <span class="muted-label">Rule words: {{ rule_words|join(', ') }}</span>
+  {% endif %}
+</div>
+<div id="status-bar" class="status-bar hidden"></div>
+
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📲</span>
+    <div>
+      <h3 class="print-card-title">Create a session</h3>
+      <p class="print-card-desc">
+        Creates a unique session for today's bee. Each pupil gets a QR card — print and cut (6-up on A4).
+        Pupil A scans their QR, types their words; pupil B reads from the printed word list. Then swap.
+        Results save automatically and you can process them here when done.
+      </p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" id="create-btn" onclick="createSession()">🐝 Create session</button>
+    <span class="print-spinner hidden" id="spin-create"></span>
+  </div>
+</div>
+
+<div id="session-card" class="print-card hidden">
+  <div class="print-card-header">
+    <span class="print-card-icon">✅</span>
+    <div>
+      <h3 class="print-card-title" id="sess-title">Session created</h3>
+      <p class="print-card-desc" id="sess-desc"></p>
+    </div>
+  </div>
+  <div class="print-card-footer" style="gap:10px;flex-wrap:wrap">
+    <a id="cards-link" class="btn btn-primary" target="_blank">🖨 Download QR cards PDF</a>
+    <button class="btn btn-secondary" id="process-btn" onclick="processSession()" disabled>
+      📥 Process results
+    </button>
+    <span class="print-spinner hidden" id="spin-process"></span>
+  </div>
+  <p id="process-note" class="muted-label" style="margin-top:8px;font-size:12px">
+    Click "Process results" once all pairs have finished. Records will update automatically.
+  </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS = "{{ cls }}";
+let _sessionId = null;
+
+function showSpin(id, show) { document.getElementById('spin-'+id)?.classList.toggle('hidden',!show); }
+function showStatus(msg, type='ok') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg; bar.className = `status-bar status-${type}`;
+  bar.classList.remove('hidden');
+  if (type==='ok') setTimeout(()=>bar.classList.add('hidden'), 8000);
+}
+
+async function createSession() {
+  showSpin('create',true);
+  document.getElementById('create-btn').disabled = true;
+  try {
+    const resp = await fetch('/api/live/bee/create', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cls: CLS}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error,'error'); return; }
+    _sessionId = d.session_id;
+    document.getElementById('sess-title').textContent = `Session ${d.session_id}`;
+    document.getElementById('sess-desc').textContent  = `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
+    document.getElementById('cards-link').href = `/api/live/bee/cards-pdf/${d.session_id}`;
+    document.getElementById('session-card').classList.remove('hidden');
+    document.getElementById('process-btn').disabled = false;
+    showStatus(`✅ Session ${d.session_id} created — download and print the QR cards.`);
+  } catch(e) { showStatus('Request failed: '+e.message,'error'); }
+  finally { showSpin('create',false); document.getElementById('create-btn').disabled = false; }
+}
+
+async function processSession() {
+  if (!_sessionId) { showStatus('No session active.','error'); return; }
+  showSpin('process',true);
+  document.getElementById('process-btn').disabled = true;
+  try {
+    const resp = await fetch('/api/live/bee/process', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({session_id: _sessionId}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error,'error'); return; }
+    showStatus(`✅ Processed ${d.total_results} result(s) — ${d.saved} pupil record(s) updated.`);
+  } catch(e) { showStatus('Request failed: '+e.message,'error'); }
+  finally { showSpin('process',false); document.getElementById('process-btn').disabled = false; }
+}
+</script>
+{% endblock %}
