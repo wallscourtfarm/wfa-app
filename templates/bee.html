@@ -29,52 +29,36 @@
 
 <div id="status-bar" class="status-bar hidden"></div>
 
-
-<!-- ── Section 1: Prepare materials ─────────────────────────────────────── -->
+<!-- ── Card 1: Generate / Create ─────────────────────────────────────────── -->
 <div class="print-card">
   <div class="print-card-header">
-    <span class="print-card-icon">🃏</span>
+    <span class="print-card-icon">🐝</span>
     <div>
-      <h3 class="print-card-title">Paired word lists</h3>
+      <h3 class="print-card-title">Generate materials</h3>
       <p class="print-card-desc">
-        Cut-up cards, 4 columns per page. Each pupil gets a card showing their 5 key spellings
-        and their group's rule words. Pupil A reads from this card while Pupil B types on the iPad.
-      </p>
-    </div>
-  </div>
-  <div class="print-card-footer" style="flex-wrap:wrap;gap:12px">
-    <button class="btn btn-primary" onclick="generateWordListMaterials()">⬇ Download PDFs</button>
-    <span class="print-spinner hidden" id="spin-paired-lists"></span>
-    <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#475569;cursor:pointer;user-select:none">
-      <input type="checkbox" id="include-recording" checked style="width:16px;height:16px;accent-color:#1798d3">
-      Include recording sheet
-    </label>
-  </div>
-</div>
-
-<!-- ── Section 2: Create session ─────────────────────────────────────────── -->
-<div class="print-card">
-  <div class="print-card-header">
-    <span class="print-card-icon">📲</span>
-    <div>
-      <h3 class="print-card-title">Create a session</h3>
-      <p class="print-card-desc">
-        Generates a unique session for this week's bee. Each pupil pair gets a QR card (6-up PDF,
-        print and cut). Pupil A scans the QR code and types their words while Pupil B reads from
-        the printed card — then swap. Results save automatically.
+        Print per-pupil word list cards for a paper bee, or create a digital QR session for iPads.
+        Each card shows 5 key spellings and the group's rule words.
         {% if rules_info.main and rules_info.main != '—' %}
-        Rule words ({{ rules_info.main }}) are included alongside each pupil's 5 key spellings.
+        Rule words: <em>{{ rules_info.main }}</em>.
         {% endif %}
       </p>
     </div>
   </div>
-  <div class="print-card-footer">
-    <button class="btn btn-primary" id="create-btn" onclick="createSession()">🐝 Create session</button>
+
+  <div class="print-card-footer" style="gap:10px;flex-wrap:wrap;align-items:center">
+    <button class="btn btn-primary" onclick="generateWordListMaterials()">⬇ Download PDFs</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#64748b;cursor:pointer;user-select:none">
+      <input type="checkbox" id="include-recording" checked style="width:15px;height:15px;accent-color:#1798d3">
+      Include recording sheet
+    </label>
+    <div class="filter-sep" style="height:24px;width:1px;background:#e2e8f0;margin:0 2px"></div>
+    <button class="btn btn-secondary" id="create-btn" onclick="createSession()">🐝 Create session</button>
+    <span class="print-spinner hidden" id="spin-paired-lists"></span>
     <span class="print-spinner hidden" id="spin-create"></span>
   </div>
 </div>
 
-<!-- Session created result card -->
+<!-- Session created result (hidden until session created) -->
 <div class="print-card hidden" id="session-card">
   <div class="print-card-header">
     <span class="print-card-icon">✅</span>
@@ -96,15 +80,15 @@
   </p>
 </div>
 
-<!-- ── Section 3: Enter results manually ─────────────────────────────────── -->
-<div class="print-card" style="margin-top:8px">
+<!-- ── Card 2: Enter results manually ────────────────────────────────────── -->
+<div class="print-card">
   <div class="print-card-header">
     <span class="print-card-icon">✏️</span>
     <div>
       <h3 class="print-card-title">Enter results</h3>
       <p class="print-card-desc">
-        Mark each word correct by clicking it (turns green). Tick "Confident" if the pupil
-        answered quickly and accurately. Save when done — word lists update automatically.
+        Mark each word correct by clicking it (green = correct). Tick "Confident" if the pupil
+        answered quickly and without hesitation. Save when done — word lists update automatically.
       </p>
     </div>
   </div>
@@ -160,7 +144,53 @@ function showStatus(msg, type='ok') {
   if (type === 'ok') setTimeout(() => bar.classList.add('hidden'), 8000);
 }
 
-// ── Create session ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function triggerDownload(b64, mime, filename) {
+  const bytes = atob(b64);
+  const arr   = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const blob = new Blob([arr], {type: mime});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Download PDFs (paired lists ± recording sheet) ────────────────────────────
+async function generateWordListMaterials() {
+  showSpin('paired-lists', true);
+  try {
+    const includeRec = document.getElementById('include-recording').checked;
+    const fetches = [
+      fetch('/api/print/paired-lists', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cls: CLS}),
+      }),
+    ];
+    if (includeRec) {
+      fetches.push(fetch('/api/print/recording-sheet', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cls: CLS}),
+      }));
+    }
+    const responses = await Promise.all(fetches);
+    const results   = await Promise.all(responses.map(r => r.json()));
+
+    const lists = results[0];
+    if (!lists.ok) { showStatus(lists.error, 'error'); return; }
+    triggerDownload(lists.data, lists.mime, lists.filename);
+
+    if (results[1]?.ok) {
+      triggerDownload(results[1].data, results[1].mime, results[1].filename);
+    }
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin('paired-lists', false);
+  }
+}
+
+// ── Create digital session ────────────────────────────────────────────────────
 async function createSession() {
   showSpin('create', true);
   document.getElementById('create-btn').disabled = true;
@@ -173,12 +203,10 @@ async function createSession() {
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
     _sessionId = d.session_id;
-    document.getElementById('sess-title').textContent =
-      `Session ${d.session_id} — ready`;
+    document.getElementById('sess-title').textContent = `Session ${d.session_id} — ready`;
     document.getElementById('sess-desc').textContent  =
       `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
-    document.getElementById('cards-link').href =
-      `/api/live/bee/cards-pdf/${d.session_id}`;
+    document.getElementById('cards-link').href = `/api/live/bee/cards-pdf/${d.session_id}`;
     document.getElementById('session-card').classList.remove('hidden');
     document.getElementById('process-btn').disabled = false;
     showStatus(`Session ${d.session_id} created — download and print the QR cards.`);
@@ -190,7 +218,7 @@ async function createSession() {
   }
 }
 
-// ── Process results ───────────────────────────────────────────────────────────
+// ── Process digital results ───────────────────────────────────────────────────
 async function processSession() {
   if (!_sessionId) { showStatus('No session active.', 'error'); return; }
   showSpin('process', true);
@@ -261,67 +289,5 @@ async function saveAll() {
     btn.disabled = false; btn.textContent = '💾 Save & update lists';
   }
 }
-
-// ── Print helpers ─────────────────────────────────────────────────────────────
-function triggerDownload(b64, mime, filename) {
-  const bytes = atob(b64);
-  const arr   = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  const blob  = new Blob([arr], {type: mime});
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function generatePrint(endpoint) {
-  showSpin(endpoint, true);
-  try {
-    const resp = await fetch('/api/print/' + endpoint, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cls: CLS}),
-    });
-    const d = await resp.json();
-    if (!d.ok) { showStatus(d.error, 'error'); return; }
-    triggerDownload(d.data, d.mime, d.filename);
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  } finally {
-    showSpin(endpoint, false);
-  }
-}
-
-async function generateWordListMaterials() {
-  showSpin('paired-lists', true);
-  try {
-    const [listsResp, recResp] = await Promise.all([
-      fetch('/api/print/paired-lists', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS}),
-      }),
-      document.getElementById('include-recording').checked
-        ? fetch('/api/print/recording-sheet', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({cls: CLS}),
-          })
-        : Promise.resolve(null),
-    ]);
-
-    const lists = await listsResp.json();
-    if (!lists.ok) { showStatus(lists.error, 'error'); return; }
-    triggerDownload(lists.data, lists.mime, lists.filename);
-
-    if (recResp) {
-      const rec = await recResp.json();
-      if (rec.ok) triggerDownload(rec.data, rec.mime, rec.filename);
-    }
-  } catch(e) {
-    showStatus('Request failed: ' + e.message, 'error');
-  } finally {
-    showSpin('paired-lists', false);
-  }
-}
-
 </script>
 {% endblock %}
