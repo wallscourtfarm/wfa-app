@@ -162,7 +162,7 @@ button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;tra
 </div>
 
 <script>
-const items     = {{ items_json }};
+const items     = {{ items | tojson }};
 const pupils    = {{ pupils_json }};
 const SID       = {{ session_id|tojson }};
 const SESS_TYPE = {{ session_type|tojson }};

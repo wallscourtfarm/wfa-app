@@ -122,7 +122,7 @@ window.onerror = function(msg, src, line) {
   return true;
 };
 
-const items    = {{ items_json }};
+const items    = {{ items | tojson }};
 const total    = items.length;
 const SID      = {{ session_id|tojson }};
 const PID      = {{ pupil.id|tojson }};

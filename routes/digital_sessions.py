@@ -341,7 +341,7 @@ def bee_pupil(session_id, pupil_id):
     return render_template('live_bee_pupil.html',
         session_id=session_id,
         pupil=pupil,
-        items_json=json.dumps(pupil.get('items', [])),
+        items=pupil.get('items', []),
         week_ref=sess.get('week_ref', ''))
 
 
@@ -720,7 +720,7 @@ def assess_pupil(session_id):
     return render_template('live_assess.html',
         session_id=session_id,
         session_type=sess.get('type', 'word'),
-        items_json=json.dumps(sess.get('items', [])),
+        items=sess.get('items', []),
         pupils_json=json.dumps(sess.get('pupils', [])),
         week_ref=sess.get('week_ref', ''))
 
