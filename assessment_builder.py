@@ -633,3 +633,173 @@ def build_rule_assessment_teacher_pdf(pupils, sections, week_ref=""):
     c.save()
     buf.seek(0)
     return buf.read()
+
+
+# ── Homophone Assessment PDF ───────────────────────────────────────────────────
+
+def build_homophone_assessment_pdf(pupils, sections, week_ref=""):
+    """
+    sections: [(stage, stage_label, [(rule_id, word, sentence), ...])]
+    All words tested — rule ID shown beside marking box on each row.
+    Grey section headers per stage.
+    """
+    buf = io.BytesIO()
+    W, H  = A4
+    M     = 12 * mm
+    UW    = W - 2 * M
+    ROW_H = 9  * mm
+    SEC_H = 6  * mm
+    NUM_W = 8  * mm
+    MARK_W= 8  * mm
+    ID_W  = 9  * mm
+    BOX_SZ= 6  * mm
+    FIRST_Y = H - 14 * mm - 5 * mm
+
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    for pupil in pupils:
+        name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
+
+        items = []
+        counter = 1
+        for stage, stage_label, rows in sections:
+            items.append(('section', stage_label))
+            for rule_id, word, sentence in rows:
+                items.append(('word', counter, word, sentence, rule_id))
+                counter += 1
+
+        def paginate(items):
+            pages, current, cy = [], [], FIRST_Y
+            for item in items:
+                need = SEC_H if item[0] == 'section' else ROW_H
+                if current and cy - need < M:
+                    pages.append(current); current = []; cy = FIRST_Y
+                current.append(item); cy -= need
+            if current: pages.append(current)
+            return pages
+
+        pages   = paginate(items)
+        n_pages = len(pages)
+
+        for pg_idx, page_items in enumerate(pages):
+            top_y = _draw_page_header(c, W, H, name, week_ref,
+                                      f'Page {pg_idx + 1} of {n_pages}')
+            cy = top_y - 5 * mm
+
+            for item in page_items:
+                if item[0] == 'section':
+                    _, label = item
+                    c.setFillColorRGB(0.88, 0.88, 0.88)
+                    c.rect(M, cy - SEC_H, UW, SEC_H, fill=1, stroke=0)
+                    c.setFillColorRGB(0.20, 0.20, 0.20)
+                    c.setFont('Helvetica-Bold', 8.5)
+                    c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 8.5) / 2, label)
+                    cy -= SEC_H
+                else:
+                    _, num, word, sentence, rule_id = item
+                    row_top = cy
+                    row_bot = cy - ROW_H
+
+                    if num % 2 == 0:
+                        c.setFillColorRGB(0.97, 0.97, 0.97)
+                        c.rect(M, row_bot, UW, ROW_H, fill=1, stroke=0)
+
+                    c.setStrokeColorRGB(0.82, 0.82, 0.82)
+                    c.setLineWidth(0.3)
+                    c.line(M, row_top, M + UW, row_top)
+
+                    c.setFillColorRGB(*NAVY)
+                    c.setFont('Helvetica-Bold', 8)
+                    c.drawCentredString(M + NUM_W / 2, row_bot + ROW_H / 2 - 2.8, str(num))
+
+                    line_y = row_bot + 2.2 * mm
+                    c.setStrokeColorRGB(0.50, 0.50, 0.50)
+                    c.setLineWidth(0.5)
+                    c.line(M + NUM_W, line_y, M + UW - MARK_W - ID_W - 1 * mm, line_y)
+
+                    c.setFillColorRGB(*BLACK)
+                    c.setFont('Helvetica', 8)
+                    c.drawString(M + NUM_W + 2 * mm, line_y + 1.2 * mm, sentence)
+
+                    c.setFillColorRGB(0.35, 0.35, 0.35)
+                    c.setFont('Helvetica', 6.5)
+                    c.drawRightString(M + UW - MARK_W - 1 * mm,
+                                      row_bot + ROW_H / 2 - 2.3, rule_id)
+
+                    box_x = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
+                    box_y = row_bot + (ROW_H - BOX_SZ) / 2
+                    c.setStrokeColorRGB(0.35, 0.35, 0.35)
+                    c.setLineWidth(0.7)
+                    c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+
+                    cy -= ROW_H
+
+            c.setStrokeColorRGB(0.82, 0.82, 0.82)
+            c.setLineWidth(0.3)
+            c.line(M, cy, M + UW, cy)
+            c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()
+
+
+def build_homophone_assessment_teacher_pdf(sections, week_ref=""):
+    """Single teacher copy — word shown prominently, completed sentence."""
+    buf = io.BytesIO()
+    W, H  = A4
+    M     = 12 * mm
+    UW    = W - 2 * M
+    ROW_H = 9  * mm
+    SEC_H = 6  * mm
+    FIRST_Y = H - 14 * mm - 5 * mm
+
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    items = []
+    counter = 1
+    for stage, stage_label, rows in sections:
+        items.append(('section', stage_label))
+        for rule_id, word, sentence in rows:
+            items.append(('word', counter, word, sentence))
+            counter += 1
+
+    def paginate(items):
+        pages, current, cy = [], [], FIRST_Y
+        for item in items:
+            need = SEC_H if item[0] == 'section' else ROW_H
+            if current and cy - need < M:
+                pages.append(current); current = []; cy = FIRST_Y
+            current.append(item); cy -= need
+        if current: pages.append(current)
+        return pages
+
+    pages   = paginate(items)
+    n_pages = len(pages)
+
+    for pg_idx, page_items in enumerate(pages):
+        top_y = _teacher_header(c, W, H, week_ref, 'Homophone Assessment')
+        cy    = top_y - 5 * mm
+
+        for item in page_items:
+            if item[0] == 'section':
+                _, label = item
+                c.setFillColorRGB(0.88, 0.88, 0.88)
+                c.rect(M, cy - SEC_H, UW, SEC_H, fill=1, stroke=0)
+                c.setFillColorRGB(0.20, 0.20, 0.20)
+                c.setFont('Helvetica-Bold', 8.5)
+                c.drawString(M + 3 * mm, cy - SEC_H + (SEC_H - 8.5) / 2, label)
+                cy -= SEC_H
+            else:
+                _, num, word, sentence = item
+                _draw_teacher_row(c, cy, num, word, sentence, W, M, UW, ROW_H)
+                cy -= ROW_H
+
+        c.setStrokeColorRGB(0.82, 0.82, 0.82)
+        c.setLineWidth(0.3)
+        c.line(M, cy, M + UW, cy)
+        c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.read()

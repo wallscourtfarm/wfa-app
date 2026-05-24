@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}Homophone Assessment{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>🔤 Homophone Assessment</h2>
+  <div class="header-actions">
+    <select class="cls-select" id="cls-select" onchange="location='?cls='+this.value">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+<div class="hl-meta">
+  <span>Week: <strong>{{ week_ref or '—' }}</strong></span>
+  <span id="sel-count" class="muted-label">No stages selected</span>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<!-- ── Stage selector ───────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">🔤</span>
+    <div>
+      <h3 class="print-card-title">Select stages to assess</h3>
+      <p class="print-card-desc">All homophone words within selected stages are tested in context. Word-level results are saved to each child's record. Confidence threshold: 90%+ = confident, 60–89% = partial, below 60% = developing.</p>
+    </div>
+  </div>
+
+  <div class="ha-stages">
+    {% for stage, info in stage_info.items() %}
+    <label class="ha-stage-label">
+      <input type="checkbox" class="ha-stage-cb" value="{{ stage }}">
+      <div class="ha-stage-info">
+        <span class="ha-stage-name">{{ info.label }}</span>
+        <span class="ha-stage-meta">{{ info.n_words }} words across {{ info.n_rules }} rule{{ 's' if info.n_rules != 1 else '' }}</span>
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="print-card-footer" style="margin-top:14px; gap:10px; flex-wrap:wrap">
+    <button class="btn btn-primary" id="generate-btn" onclick="generate()">✨ Generate sheets</button>
+    <span class="print-spinner hidden" id="spin-generate"></span>
+    <a id="dl-pdf"         class="btn btn-primary   hidden" download>⬇ Pupil sheets PDF</a>
+    <a id="dl-teacher-pdf" class="btn btn-secondary hidden" download>⬇ Teacher copy PDF</a>
+  </div>
+</div>
+
+<!-- ── Import ───────────────────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📥</span>
+    <div>
+      <h3 class="print-card-title">Import scanned papers</h3>
+      <p class="print-card-desc">Upload scanned PDF of marked papers. Results stream in page by page. Word-level results update each child's homophone record. Diagonal line in box = correct.</p>
+    </div>
+  </div>
+
+  <div class="wa-upload-row">
+    <input type="file" id="pdf-upload" accept="application/pdf" class="wa-file-input">
+    <button class="btn btn-primary" onclick="startImport()">🔍 Process PDF</button>
+  </div>
+
+  <div id="import-progress" class="hidden">
+    <div class="wa-progress-bar-wrap">
+      <div class="wa-progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <p class="wa-progress-label" id="progress-label">Starting…</p>
+  </div>
+
+  <div id="import-results" class="hidden">
+    <h4 class="wa-results-title">Results — review before saving</h4>
+    <table class="wa-results-table">
+      <thead>
+        <tr><th>Name</th><th>Words seen</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+    <p id="errors-note" class="wa-flagged hidden"></p>
+    <div class="print-card-footer" style="margin-top:12px">
+      <button class="btn btn-primary"   id="confirm-btn" onclick="confirmImport()" disabled>✅ Save to records</button>
+      <button class="btn btn-secondary" onclick="cancelImport()">✕ Cancel</button>
+      <span class="print-spinner hidden" id="spin-confirm"></span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CLS      = "{{ cls }}";
+const WEEK_REF = "{{ week_ref }}";
+
+function selectedStages() {
+  return [...document.querySelectorAll('.ha-stage-cb:checked')].map(cb => cb.value);
+}
+function updateCount() {
+  const cbs = document.querySelectorAll('.ha-stage-cb:checked');
+  let words = 0;
+  cbs.forEach(cb => {
+    const meta = cb.closest('.ha-stage-label').querySelector('.ha-stage-meta').textContent;
+    const m = meta.match(/(\d+) words/);
+    if (m) words += parseInt(m[1]);
+  });
+  const n = cbs.length;
+  document.getElementById('sel-count').textContent =
+    n ? `${n} stage${n!==1?'s':''} selected — ${words} words total` : 'No stages selected';
+}
+document.querySelectorAll('.ha-stage-cb').forEach(cb => cb.addEventListener('change', updateCount));
+
+function showSpin(id, show) { document.getElementById('spin-'+id)?.classList.toggle('hidden',!show); }
+function showStatus(msg, type='ok') {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg; bar.className = `status-bar status-${type}`;
+  bar.classList.remove('hidden');
+  if (type==='ok') setTimeout(()=>bar.classList.add('hidden'), 7000);
+}
+function blob64(b64, mime) {
+  const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes],{type:mime}));
+}
+
+async function generate() {
+  const stages = selectedStages();
+  if (!stages.length) { showStatus('Select at least one stage.','error'); return; }
+  showSpin('generate',true);
+  document.getElementById('generate-btn').disabled = true;
+  document.getElementById('dl-pdf').classList.add('hidden');
+  document.getElementById('dl-teacher-pdf').classList.add('hidden');
+  try {
+    const resp = await fetch('/api/homophone-assessment/generate',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cls:CLS, stages}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error,'error'); return; }
+    const a = document.getElementById('dl-pdf');
+    a.href=blob64(d.pdf,'application/pdf'); a.download=d.pdf_name; a.classList.remove('hidden');
+    const t = document.getElementById('dl-teacher-pdf');
+    t.href=blob64(d.teacher_pdf,'application/pdf'); t.download=d.teacher_pdf_name; t.classList.remove('hidden');
+    showStatus(`✅ Generated — ${d.n_words} words, ${d.n_pupils} pupils.`);
+  } catch(e) { showStatus('Request failed: '+e.message,'error'); }
+  finally { showSpin('generate',false); document.getElementById('generate-btn').disabled=false; }
+}
+
+let _importResults={}, _errorPages=[], _activeSource=null;
+
+async function startImport() {
+  const stages = selectedStages();
+  const file   = document.getElementById('pdf-upload').files[0];
+  if (!file)   { showStatus('Choose a PDF file first.','error'); return; }
+  if (!stages.length) { showStatus('Select the same stages used when generating.','error'); return; }
+
+  _importResults={}; _errorPages=[];
+  document.getElementById('results-body').innerHTML='';
+  document.getElementById('import-results').classList.add('hidden');
+  document.getElementById('errors-note').classList.add('hidden');
+  document.getElementById('confirm-btn').disabled=true;
+  document.getElementById('import-progress').classList.remove('hidden');
+  setProgress(0,0,'Uploading…');
+
+  let jobId, nPages;
+  try {
+    const b64 = await new Promise((res,rej)=>{
+      const r=new FileReader(); r.onload=e=>res(e.target.result.split(',')[1]); r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const resp = await fetch('/api/homophone-assessment/import-upload',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cls:CLS, stages, pdf:b64}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error,'error'); resetImport(); return; }
+    jobId=d.job_id; nPages=d.n_pages;
+    setProgress(0,nPages,`Processing page 1 of ${nPages}…`);
+  } catch(e) { showStatus('Upload failed: '+e.message,'error'); resetImport(); return; }
+
+  document.getElementById('import-results').classList.remove('hidden');
+  if (_activeSource) _activeSource.close();
+  const source = new EventSource(`/api/homophone-assessment/import-stream/${jobId}`);
+  _activeSource = source;
+
+  source.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.type==='page') {
+      const key = ev.name.trim().toLowerCase();
+      if (key) {
+        if (!_importResults[key]) _importResults[key]={name:ev.name,results:{}};
+        Object.assign(_importResults[key].results, ev.results);
+        renderRow(ev.name, _importResults[key].results);
+      }
+      setProgress(ev.page_num, ev.total,
+        ev.page_num<ev.total?`Processing page ${ev.page_num+1} of ${ev.total}…`:'Finishing…');
+    }
+    if (ev.type==='error') {
+      _errorPages.push(`Page ${ev.page_num}: ${ev.message}`);
+      setProgress(ev.page_num,ev.total,`Processing page ${ev.page_num+1} of ${ev.total}…`);
+    }
+    if (ev.type==='done'||ev.type==='fatal') {
+      source.close(); _activeSource=null;
+      document.getElementById('import-progress').classList.add('hidden');
+      if (ev.type==='fatal') showStatus('Processing failed: '+ev.message,'error');
+      else {
+        const n=Object.keys(_importResults).length;
+        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n!==1?'s':''} found.`);
+        document.getElementById('confirm-btn').disabled=false;
+      }
+      if (_errorPages.length) {
+        const note=document.getElementById('errors-note');
+        note.textContent=`⚠️ Could not read ${_errorPages.length} page(s): ${_errorPages.join('; ')}`;
+        note.classList.remove('hidden');
+      }
+    }
+  };
+  source.onerror = () => {
+    source.close(); _activeSource=null;
+    document.getElementById('import-progress').classList.add('hidden');
+    showStatus('Connection lost. Results so far are shown below.','error');
+    if (Object.keys(_importResults).length) document.getElementById('confirm-btn').disabled=false;
+  };
+}
+
+function setProgress(done,total,label) {
+  document.getElementById('progress-bar').style.width = (total?Math.round(done/total*100):0)+'%';
+  document.getElementById('progress-label').textContent = label;
+}
+function renderRow(name, results) {
+  const correct = Object.values(results).filter(Boolean).length;
+  const total   = Object.values(results).length;
+  const pct     = total ? Math.round(correct/total*100) : '—';
+  const rowId   = 'row-'+name.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  let row = document.getElementById(rowId);
+  if (!row) { row=document.createElement('tr'); row.id=rowId; document.getElementById('results-body').appendChild(row); }
+  row.innerHTML=`<td>${name}</td><td>${total}</td><td>${correct}</td><td>${total-correct}</td><td>${pct}${typeof pct==='number'?'%':''}</td>`;
+}
+
+async function confirmImport() {
+  showSpin('confirm',true);
+  document.getElementById('confirm-btn').disabled=true;
+  try {
+    const resp = await fetch('/api/homophone-assessment/confirm',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cls:CLS, stages:selectedStages(), week_ref:WEEK_REF, results:_importResults}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error,'error'); return; }
+    let msg=`✅ Saved homophone records for ${d.saved} pupil${d.saved!==1?'s':''}.`;
+    if (d.unmatched?.length) msg+=` No match: ${d.unmatched.join(', ')}.`;
+    showStatus(msg);
+    document.getElementById('import-results').classList.add('hidden');
+    document.getElementById('pdf-upload').value='';
+    _importResults={};
+  } catch(e) { showStatus('Request failed: '+e.message,'error'); document.getElementById('confirm-btn').disabled=false; }
+  finally { showSpin('confirm',false); }
+}
+
+function cancelImport() {
+  if (_activeSource) { _activeSource.close(); _activeSource=null; }
+  resetImport();
+}
+function resetImport() {
+  document.getElementById('import-progress').classList.add('hidden');
+  document.getElementById('import-results').classList.add('hidden');
+  document.getElementById('pdf-upload').value='';
+  _importResults={}; _errorPages=[];
+}
+</script>
+{% endblock %}

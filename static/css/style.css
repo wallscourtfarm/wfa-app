@@ -863,3 +863,17 @@ body {
   color: var(--muted); font-weight: 400; font-size: 11px;
   width: auto; flex-shrink: 0; margin-left: 6px;
 }
+
+/* ── Homophone stage selector ────────────────────────────────────── */
+.ha-stages { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.ha-stage-label {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer;
+  transition: background .1s;
+}
+.ha-stage-label:hover { background: var(--surface); }
+.ha-stage-label input { width: 15px; height: 15px; accent-color: var(--brand); flex-shrink: 0; }
+.ha-stage-info { display: flex; flex-direction: column; gap: 2px; }
+.ha-stage-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.ha-stage-meta { font-size: 11px; color: var(--muted); }
