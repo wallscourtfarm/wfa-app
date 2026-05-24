@@ -106,19 +106,8 @@ def _load_results(session_id):
 
 @live_bp.route('/live/bee')
 def bee_sessions():
-    r = _auth()
-    if r: return r
-    cls = request.args.get('cls', 'Y4_IM')
-    if cls not in [c[0] for c in CLASS_OPTIONS]: cls = 'Y4_IM'
-    wc       = load_weekly_config()
-    week_ref = wc.get('week_ref', 'TxWy')
-    pupils   = _load_pupils(cls if cls != 'all' else 'Y4_IM')
-    paired   = [p for p in pupils if p.get('pair_id')]
-    rule_wds = _rule_words(wc, cls)
-    return render_template('live_bee.html',
-        cls=cls, class_options=CLASS_OPTIONS, week_ref=week_ref,
-        n_pupils=len(pupils), n_paired=len(paired),
-        n_words=5 + len(rule_wds), rule_words=rule_wds)
+    """Redirect to spelling bee page — session creation is now there."""
+    return redirect(url_for('bee.spelling_bee'))
 
 
 @live_bp.route('/api/live/bee/create', methods=['POST'])

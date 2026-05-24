@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24a</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24b</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -17,7 +17,7 @@
       </a>
 
       <!-- Assessment dropdown -->
-      <div class="nav-dropdown {% if request.endpoint in ['bee.spelling_bee','tt.tt_check','word_assessment.word_assessment','rule_assessment.rule_reassessment','homophone_assessment.homophone_assessment'] %}active{% endif %}">
+      <div class="nav-dropdown {% if request.endpoint in ['bee.spelling_bee','tt.tt_check','word_assessment.word_assessment','rule_assessment.rule_reassessment','homophone_assessment.homophone_assessment','live.session_management'] %}active{% endif %}">
         <span class="nav-item nav-dropdown-toggle">✅ Assessment ▾</span>
         <div class="dropdown-menu">
           <a href="{{ url_for('bee.spelling_bee') }}"
@@ -35,10 +35,6 @@
           <a href="{{ url_for('homophone_assessment.homophone_assessment') }}"
              class="{% if request.endpoint=='homophone_assessment.homophone_assessment' %}active{% endif %}">
             🔤 Homophones
-          </a>
-          <a href="{{ url_for('live.bee_sessions') }}"
-             class="{% if request.endpoint == 'live.bee_sessions' %}active{% endif %}">
-            📲 Digital / iPad
           </a>
           <a href="{{ url_for('live.session_management') }}"
              class="{% if request.endpoint == 'live.session_management' %}active{% endif %}">
@@ -64,11 +60,6 @@
       <a href="{{ url_for('insights.insights') }}"
          class="nav-item {% if request.endpoint=='insights.insights' %}active{% endif %}">
         📊 Insights
-      </a>
-
-      <a href="{{ url_for('live.bee_sessions') }}"
-         class="nav-item {% if 'live' in (request.endpoint or '') %}active{% endif %}">
-        📲 Digital
       </a>
 
       <a href="{{ url_for('hl.home_learning') }}"
