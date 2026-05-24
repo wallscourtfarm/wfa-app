@@ -186,7 +186,11 @@ def api_ra_import_upload():
             json.dump({'cls': body.get('cls', DEFAULT_CLASS),
                        'rules': selected_ids, 'n_pages': n_pages}, f)
 
-        return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages})
+        cloze_tmp   = _load_rule_cloze()
+        secs_tmp    = _rule_sections(body.get('rules', []), cloze_tmp)
+        total_words = len(secs_tmp) * WORDS_PER_RULE
+        return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
+                        'total_words': total_words})
     except Exception as e:
         return _err(e)
 
@@ -330,10 +334,12 @@ def api_ra_confirm():
 
                 # Score each rule: tally the 2 tested words
                 for rule_id, title, pairs in sections:
-                    tested = [(word, word_results.get(word.lower())) for word, _ in pairs
-                              if word.lower() in {k.lower() for k in word_results}]
-                    if not tested:
-                        continue
+                    # All words for this rule default to False; overlay Vision results
+                    all_rule = {word.lower(): False for word, _ in pairs}
+                    for k, v in word_results.items():
+                        if k.lower() in all_rule:
+                            all_rule[k.lower()] = v
+                    tested  = list(all_rule.items())
                     correct = sum(1 for _, v in tested if v)
                     total   = len(tested)
                     # Status

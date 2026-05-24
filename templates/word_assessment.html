@@ -79,7 +79,7 @@
     <h4 class="wa-results-title">Results — review before saving</h4>
     <table class="wa-results-table">
       <thead>
-        <tr><th>Name</th><th>Words seen</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
+        <tr><th>Name</th><th>Total words</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
@@ -167,6 +167,7 @@ async function startImport() {
   const sections = selectedSections();
   _importResults = {};
   _errorPages    = [];
+  _totalWords    = 0;
 
   // Reset UI
   document.getElementById('results-body').innerHTML    = '';
@@ -193,8 +194,9 @@ async function startImport() {
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); resetImport(); return; }
-    jobId  = d.job_id;
-    nPages = d.n_pages;
+    jobId       = d.job_id;
+    nPages      = d.n_pages;
+    _totalWords = d.total_words || 0;
     setProgress(0, nPages, `Processing page 1 of ${nPages}…`);
   } catch(e) {
     showStatus('Upload failed: ' + e.message, 'error');
@@ -327,6 +329,7 @@ function resetImport() {
   document.getElementById('pdf-upload').value = '';
   _importResults = {};
   _errorPages    = [];
+  _totalWords    = 0;
 }
 </script>
 {% endblock %}

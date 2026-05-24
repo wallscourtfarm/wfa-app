@@ -164,7 +164,11 @@ def api_wa_import_upload():
                 'n_pages':  n_pages,
             }, f)
 
-        return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages})
+        cloze_tmp    = _load_cloze_bank()
+        secs_tmp     = _sections_from_keys(body.get('sections', SECTION_KEYS))
+        total_words  = sum(len(ws) for _, ws in secs_tmp)
+        return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
+                        'total_words': total_words})
     except Exception as e:
         return _err(e)
 
@@ -320,9 +324,15 @@ def api_wa_confirm():
                     unmatched.append((p.get('first','') + ' ' + (p.get('last') or '')).strip())
                     continue
 
-                res      = results[name_key]['results']
+                # Initialise all assessment words as False, overlay Vision results
+                all_words = {word.lower(): False
+                             for _, words in sections for word in words}
+                for k, v in results[name_key]['results'].items():
+                    if k.lower() in all_words:
+                        all_words[k.lower()] = v
+
                 mastered = set(p.get('mastered', []))
-                for word, correct in res.items():
+                for word, correct in all_words.items():
                     if correct:
                         mastered.add(word)
                     else:

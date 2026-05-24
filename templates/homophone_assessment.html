@@ -75,7 +75,7 @@
     <h4 class="wa-results-title">Results — review before saving</h4>
     <table class="wa-results-table">
       <thead>
-        <tr><th>Name</th><th>Words seen</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
+        <tr><th>Name</th><th>Total words</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
@@ -146,7 +146,7 @@ async function generate() {
   finally { showSpin('generate',false); document.getElementById('generate-btn').disabled=false; }
 }
 
-let _importResults={}, _errorPages=[], _activeSource=null;
+let _importResults={}, _errorPages=[], _activeSource=null, _totalWords=0;
 
 async function startImport() {
   const stages = selectedStages();
@@ -154,7 +154,7 @@ async function startImport() {
   if (!file)   { showStatus('Choose a PDF file first.','error'); return; }
   if (!stages.length) { showStatus('Select the same stages used when generating.','error'); return; }
 
-  _importResults={}; _errorPages=[];
+  _importResults={}; _errorPages=[]; _totalWords=0;
   document.getElementById('results-body').innerHTML='';
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('errors-note').classList.add('hidden');
@@ -174,7 +174,7 @@ async function startImport() {
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error,'error'); resetImport(); return; }
-    jobId=d.job_id; nPages=d.n_pages;
+    jobId=d.job_id; nPages=d.n_pages; _totalWords=d.total_words||0;
     setProgress(0,nPages,`Processing page 1 of ${nPages}…`);
   } catch(e) { showStatus('Upload failed: '+e.message,'error'); resetImport(); return; }
 
@@ -229,7 +229,7 @@ function setProgress(done,total,label) {
 }
 function renderRow(name, results) {
   const correct = Object.values(results).filter(Boolean).length;
-  const total   = Object.values(results).length;
+  const total   = _totalWords || Object.values(results).length;
   const pct     = total ? Math.round(correct/total*100) : '—';
   const rowId   = 'row-'+name.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
   let row = document.getElementById(rowId);
@@ -265,7 +265,7 @@ function resetImport() {
   document.getElementById('import-progress').classList.add('hidden');
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('pdf-upload').value='';
-  _importResults={}; _errorPages=[];
+  _importResults={}; _errorPages=[]; _totalWords=0;
 }
 </script>
 {% endblock %}

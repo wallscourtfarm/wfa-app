@@ -220,7 +220,12 @@ def api_ha_import_upload():
                        'stages': body.get('stages', []),
                        'n_pages': n_pages}, f)
 
-        return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages})
+        # Compute total words for correct denominator on frontend
+        cloze    = _load_rule_cloze()
+        sections = _build_sections(selected, cloze)
+        total_words = sum(len(rows) for _, _, rows in sections)
+        return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
+                        'total_words': total_words})
     except Exception as e:
         return _err(e)
 
@@ -337,19 +342,21 @@ def api_ha_confirm():
                     unmatched.append((p.get('first','') + ' ' + (p.get('last') or '')).strip())
                     continue
 
-                word_results     = pupil_results[name_key]['results']
-                hm               = set(p.get('homophone_mastered', []))
+                # Initialise all assessment words as False (incorrect),
+                # then overlay what Vision returned. Ensures denominator = all words.
+                all_words = {word.lower(): False
+                             for _, _, rows in sections
+                             for _, word, _ in rows}
+                for k, v in pupil_results[name_key]['results'].items():
+                    if k.lower() in all_words:
+                        all_words[k.lower()] = v
 
-                for stage, stage_label, rows in sections:
-                    for rule_id, word, _ in rows:
-                        w = word.lower()
-                        if w in {k.lower() for k in word_results}:
-                            correct = next(
-                                (v for k, v in word_results.items() if k.lower() == w), False)
-                            if correct:
-                                hm.add(w)
-                            else:
-                                hm.discard(w)
+                hm = set(p.get('homophone_mastered', []))
+                for w, correct in all_words.items():
+                    if correct:
+                        hm.add(w)
+                    else:
+                        hm.discard(w)
 
                 p['homophone_mastered'] = sorted(hm)
 

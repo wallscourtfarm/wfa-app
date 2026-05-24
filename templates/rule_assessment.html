@@ -87,7 +87,7 @@
     <h4 class="wa-results-title">Results — review before saving</h4>
     <table class="wa-results-table">
       <thead>
-        <tr><th>Name</th><th>Rules seen</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
+        <tr><th>Name</th><th>Rules</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
@@ -188,6 +188,7 @@ async function generate() {
 let _importResults = {};
 let _errorPages    = [];
 let _activeSource  = null;
+let _totalWords    = 0;
 
 // Results: {name_lower: {name, results: {word: bool}}}
 // Displayed as per-pupil rule scores derived from accumulated word results
@@ -207,6 +208,7 @@ async function startImport() {
 
   _importResults = {};
   _errorPages    = [];
+  _totalWords    = 0;
 
   document.getElementById('results-body').innerHTML = '';
   document.getElementById('import-results').classList.add('hidden');
@@ -230,8 +232,9 @@ async function startImport() {
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); resetImport(); return; }
-    jobId  = d.job_id;
-    nPages = d.n_pages;
+    jobId       = d.job_id;
+    nPages      = d.n_pages;
+    _totalWords = d.total_words || 0;
     setProgress(0, nPages, `Processing page 1 of ${nPages}…`);
   } catch(e) {
     showStatus('Upload failed: ' + e.message, 'error');
@@ -359,6 +362,7 @@ function resetImport() {
   document.getElementById('pdf-upload').value = '';
   _importResults = {};
   _errorPages    = [];
+  _totalWords    = 0;
 }
 </script>
 {% endblock %}
