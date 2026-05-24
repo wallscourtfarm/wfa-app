@@ -52,7 +52,7 @@ def _all_sections():
 def _draw_page_header(c, W, H, pupil_name, week_ref, page_label):
     """Blue header bar with name and week ref. Returns y below header."""
     HDR = 14 * mm
-    c.setFillColorRGB(*BLUE)
+    c.setFillColorRGB(0.30, 0.30, 0.30)
     c.rect(0, H - HDR, W, HDR, fill=1, stroke=0)
     c.setFillColorRGB(*WHITE)
     c.setFont("Helvetica-Bold", 11)
@@ -366,7 +366,7 @@ def generate_missing_cloze(words, api_key):
 def build_rule_assessment_pdf(pupils, sections, week_ref=""):
     """
     sections: list of (rule_id, title, [(word, sentence), (word, sentence)])
-    Same layout as word assessment — one row per word, grouped under rule header.
+    No divider rows — rule ID printed in dark grey between writing line and box.
     Name pre-printed on every page. Returns PDF bytes.
     """
     buf = io.BytesIO()
@@ -374,36 +374,34 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
     M    = 12 * mm
     UW   = W - 2 * M
 
-    ROW_H    = 9  * mm
-    SEC_H    = 7  * mm
-    NUM_W    = 8  * mm
-    MARK_W   = 8  * mm
-    FIRST_Y  = H - 14 * mm - 5 * mm
-    BOX_SZ   = 6  * mm
+    ROW_H   = 9  * mm
+    NUM_W   = 8  * mm
+    MARK_W  = 8  * mm
+    ID_W    = 9  * mm   # space reserved for rule ID between line and box
+    FIRST_Y = H - 14 * mm - 5 * mm
+    BOX_SZ  = 6  * mm
 
     c = canvas.Canvas(buf, pagesize=A4)
 
     for pupil in pupils:
         name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
 
-        # Build flat item list
+        # Build flat item list — word items carry their rule_id, no section items
         items   = []
         counter = 1
         for rule_id, title, pairs in sections:
-            items.append(('section', f'{rule_id}  —  {title}'))
             for word, sentence in pairs:
                 sent = re.sub(r'_+', '_' * 35, sentence)
-                items.append(('word', counter, word, sent))
+                items.append(('word', counter, word, sent, rule_id))
                 counter += 1
 
-        # Paginate
+        # Paginate (all items are words now)
         def paginate(items):
             pages, current, cy = [], [], FIRST_Y
             for item in items:
-                need = SEC_H if item[0] == 'section' else ROW_H
-                if current and cy - need < M:
+                if current and cy - ROW_H < M:
                     pages.append(current); current = []; cy = FIRST_Y
-                current.append(item); cy -= need
+                current.append(item); cy -= ROW_H
             if current: pages.append(current)
             return pages
 
@@ -416,54 +414,48 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
             cy       = top_y - 5 * mm
 
             for item in page_items:
-                if item[0] == 'section':
-                    _, label = item
-                    rule_id = label.split('  —  ')[0].strip()
-                    DIV_H = 4 * mm
-                    c.setStrokeColorRGB(0.75, 0.75, 0.75)
-                    c.setLineWidth(0.5)
-                    c.line(M, cy - DIV_H / 2, M + UW, cy - DIV_H / 2)
-                    c.setFillColorRGB(0.55, 0.55, 0.55)
-                    c.setFont('Helvetica', 6.5)
-                    c.drawString(M + 1 * mm, cy - DIV_H / 2 + 1, rule_id)
-                    cy -= DIV_H
-                else:
-                    _, num, word, sentence = item
-                    row_top = cy
-                    row_bot = cy - ROW_H
+                _, num, word, sentence, rule_id = item
+                row_top = cy
+                row_bot = cy - ROW_H
 
-                    if num % 2 == 0:
-                        c.setFillColorRGB(0.97, 0.97, 0.97)
-                        c.rect(M, row_bot, UW, ROW_H, fill=1, stroke=0)
+                if num % 2 == 0:
+                    c.setFillColorRGB(0.97, 0.97, 0.97)
+                    c.rect(M, row_bot, UW, ROW_H, fill=1, stroke=0)
 
-                    c.setStrokeColorRGB(0.82, 0.82, 0.82)
-                    c.setLineWidth(0.3)
-                    c.line(M, row_top, M + UW, row_top)
+                c.setStrokeColorRGB(0.82, 0.82, 0.82)
+                c.setLineWidth(0.3)
+                c.line(M, row_top, M + UW, row_top)
 
-                    # Number
-                    c.setFillColorRGB(*NAVY)
-                    c.setFont('Helvetica-Bold', 8)
-                    c.drawCentredString(M + NUM_W / 2, row_bot + ROW_H / 2 - 2.8, str(num))
+                # Number
+                c.setFillColorRGB(*NAVY)
+                c.setFont('Helvetica-Bold', 8)
+                c.drawCentredString(M + NUM_W / 2, row_bot + ROW_H / 2 - 2.8, str(num))
 
-                    # Writing line
-                    line_y = row_bot + 2.2 * mm
-                    c.setStrokeColorRGB(0.50, 0.50, 0.50)
-                    c.setLineWidth(0.5)
-                    c.line(M + NUM_W, line_y, M + UW - MARK_W - 2 * mm, line_y)
+                # Writing line — stops before ID + box zone
+                line_y = row_bot + 2.2 * mm
+                c.setStrokeColorRGB(0.50, 0.50, 0.50)
+                c.setLineWidth(0.5)
+                c.line(M + NUM_W, line_y, M + UW - MARK_W - ID_W - 1 * mm, line_y)
 
-                    # Sentence
-                    c.setFillColorRGB(*BLACK)
-                    c.setFont('Helvetica', 8)
-                    c.drawString(M + NUM_W + 2 * mm, line_y + 1.2 * mm, sentence)
+                # Sentence
+                c.setFillColorRGB(*BLACK)
+                c.setFont('Helvetica', 8)
+                c.drawString(M + NUM_W + 2 * mm, line_y + 1.2 * mm, sentence)
 
-                    # Marking box
-                    box_x = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
-                    box_y = row_bot + (ROW_H - BOX_SZ) / 2
-                    c.setStrokeColorRGB(0.35, 0.35, 0.35)
-                    c.setLineWidth(0.7)
-                    c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+                # Rule ID — right-aligned before box, dark grey
+                id_x = M + UW - MARK_W - 1 * mm
+                c.setFillColorRGB(0.35, 0.35, 0.35)
+                c.setFont('Helvetica', 6.5)
+                c.drawRightString(id_x, row_bot + ROW_H / 2 - 2.3, rule_id)
 
-                    cy -= ROW_H
+                # Marking box
+                box_x = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
+                box_y = row_bot + (ROW_H - BOX_SZ) / 2
+                c.setStrokeColorRGB(0.35, 0.35, 0.35)
+                c.setLineWidth(0.7)
+                c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+
+                cy -= ROW_H
 
             c.setStrokeColorRGB(0.82, 0.82, 0.82)
             c.setLineWidth(0.3)
@@ -503,7 +495,7 @@ def _draw_teacher_row(c, cy, num, word, sentence, W, M, UW, ROW_H):
 def _teacher_header(c, W, H, week_ref, title):
     """Draw header bar for teacher copy. Returns y below bar."""
     HDR = 14 * mm
-    c.setFillColorRGB(*BLUE)
+    c.setFillColorRGB(0.30, 0.30, 0.30)
     c.rect(0, H - HDR, W, HDR, fill=1, stroke=0)
     c.setFillColorRGB(*WHITE)
     c.setFont("Helvetica-Bold", 11)
