@@ -26,7 +26,7 @@
   </div>
 
   <!-- Custom rules section -->
-  <div class="stage-section" id="customSection">
+  <div class="stage-section collapsed" id="customSection">
     <div class="stage-header" onclick="toggleSection('customSection')">
       <span class="stage-title">✏️ Custom Rules</span>
       <span class="stage-count" id="customCount">{{ customs|length }} rule{{ 's' if customs|length != 1 else '' }}</span>
@@ -78,7 +78,7 @@
   <!-- Stage 1–6 sections -->
   {% for stage_num in range(1, 7) %}
     {% set stage_rules = stages.get(stage_num, []) %}
-    <div class="stage-section {% if stage_num > 1 %}collapsed{% endif %}"
+    <div class="stage-section {% if stage_num != 4 %}collapsed{% endif %}"
          id="stage{{ stage_num }}Section">
       <div class="stage-header" onclick="toggleSection('stage{{ stage_num }}Section')">
         <span class="stage-title">Stage {{ stage_num }}</span>
@@ -170,16 +170,14 @@ const CONF_CLASSES = ['conf-0','conf-1','conf-2','conf-3'];
 const CONF_TITLES  = ['Not set','Low','Medium','High'];
 
 function collapseAllStages() {
-  // Close all stage sections
+  // Collapse every open stage section properly (hides body, updates chevron)
   document.querySelectorAll('.stage-section:not(.collapsed)').forEach(sec => {
-    sec.classList.add('collapsed');
+    toggleSection(sec.id);
   });
   // Close all rule detail cards too
   document.querySelectorAll('.rule-detail:not(.hidden)').forEach(d => {
     d.classList.add('hidden');
   });
-  // Save to localStorage
-  try { localStorage.setItem('wfa_rules_expanded_stages', '[]'); } catch(e) {}
 }
 
 // Section toggle (saves state to localStorage)
@@ -211,7 +209,7 @@ function toggleSection(id) {
     } else {
       sec.classList.add('collapsed');
       body.style.display = 'none';
-      chev.textContent   = sec.id === 'customSection' ? '▼' : '▶';
+      chev.textContent   = '▶';
     }
   });
 })();
