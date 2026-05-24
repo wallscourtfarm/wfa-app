@@ -115,6 +115,13 @@ button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;tra
 </div>
 
 <script>
+// Catch any JS errors and display them visibly
+window.onerror = function(msg, src, line) {
+  var el = document.getElementById('prompt');
+  if (el) el.textContent = 'JS error (line ' + line + '): ' + msg;
+  return true;
+};
+
 const items    = {{ items_json }};
 const total    = items.length;
 const SID      = {{ session_id|tojson }};
@@ -217,6 +224,13 @@ addKeyListener(document.getElementById('submit-btn'), function() {
 });
 
 upd();
+
+// Signal that JS ran and listeners are attached
+(function() {
+  var kbd = document.getElementById('kbd');
+  if (kbd) kbd.style.outline = '3px solid #16a34a';
+  setTimeout(function() { if (kbd) kbd.style.outline = ''; }, 1500);
+})();
 </script>
 </body>
 </html>
