@@ -56,6 +56,23 @@
   <p class="hint">Check that <code>GITHUB_TOKEN</code> is set in Render environment variables.</p>
 </div>
 {% endif %}
+<div class="print-card" style="margin-top:16px">
+  <div class="print-card-header">
+    <span class="print-card-icon">✖️</span>
+    <div>
+      <h3 class="print-card-title">TT check sheet</h3>
+      <p class="print-card-desc">
+        A4 landscape, two half-sheets — one per child, 40 questions at their current times table
+        level. Mixed ×÷ per child based on their current setting.
+      </p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" onclick="generateTTSheet()">⬇ Download TT check sheet PDF</button>
+    <span class="print-spinner hidden" id="spin-tt-sheet"></span>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -150,5 +167,36 @@ advanceBtn.addEventListener('click', async () => {
 
 // ── Refresh ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-refresh').addEventListener('click', () => location.reload());
+// ── TT sheet download ─────────────────────────────────────────────────────────
+function triggerDownload(b64, mime, filename) {
+  const bytes = atob(b64);
+  const arr   = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const blob  = new Blob([arr], {type: mime});
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function generateTTSheet() {
+  const spinEl = document.getElementById('spin-tt-sheet');
+  if (spinEl) spinEl.classList.remove('hidden');
+  try {
+    const resp = await fetch('/api/print/tt-check', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cls: CLS}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus('Error: ' + d.error, 'error'); return; }
+    triggerDownload(d.data, d.mime, d.filename);
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    if (spinEl) spinEl.classList.add('hidden');
+  }
+}
+
 </script>
 {% endblock %}

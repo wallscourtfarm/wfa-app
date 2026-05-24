@@ -29,7 +29,42 @@
 
 <div id="status-bar" class="status-bar hidden"></div>
 
-<!-- ── Section 1: Create session ─────────────────────────────────────────── -->
+
+<!-- ── Section 1: Prepare materials ─────────────────────────────────────── -->
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">🃏</span>
+    <div>
+      <h3 class="print-card-title">Paired word lists</h3>
+      <p class="print-card-desc">
+        Cut-up cards, 4 columns per page. Each pupil gets a card showing their 5 key spellings
+        and their group's rule words. Pupil A reads from this card while Pupil B types on the iPad.
+      </p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" onclick="generatePrint('paired-lists')">⬇ Paired lists PDF</button>
+    <span class="print-spinner hidden" id="spin-paired-lists"></span>
+  </div>
+</div>
+
+<div class="print-card">
+  <div class="print-card-header">
+    <span class="print-card-icon">📋</span>
+    <div>
+      <h3 class="print-card-title">Recording sheet</h3>
+      <p class="print-card-desc">
+        Teacher marking cards — 6 per A4 page. Name header, 10 word rows, check column. Print and cut.
+      </p>
+    </div>
+  </div>
+  <div class="print-card-footer">
+    <button class="btn btn-primary" onclick="generatePrint('recording-sheet')">⬇ Recording sheet PDF</button>
+    <span class="print-spinner hidden" id="spin-recording-sheet"></span>
+  </div>
+</div>
+
+<!-- ── Section 2: Create session ─────────────────────────────────────────── -->
 <div class="print-card">
   <div class="print-card-header">
     <span class="print-card-icon">📲</span>
@@ -73,7 +108,7 @@
   </p>
 </div>
 
-<!-- ── Section 2: Enter results manually ─────────────────────────────────── -->
+<!-- ── Section 3: Enter results manually ─────────────────────────────────── -->
 <div class="print-card" style="margin-top:8px">
   <div class="print-card-header">
     <span class="print-card-icon">✏️</span>
@@ -238,5 +273,36 @@ async function saveAll() {
     btn.disabled = false; btn.textContent = '💾 Save & update lists';
   }
 }
+
+// ── Print helpers ─────────────────────────────────────────────────────────────
+function triggerDownload(b64, mime, filename) {
+  const bytes = atob(b64);
+  const arr   = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const blob  = new Blob([arr], {type: mime});
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function generatePrint(endpoint) {
+  showSpin(endpoint, true);
+  try {
+    const resp = await fetch('/api/print/' + endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cls: CLS}),
+    });
+    const d = await resp.json();
+    if (!d.ok) { showStatus(d.error, 'error'); return; }
+    triggerDownload(d.data, d.mime, d.filename);
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin(endpoint, false);
+  }
+}
+
 </script>
 {% endblock %}
