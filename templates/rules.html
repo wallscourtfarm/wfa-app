@@ -340,7 +340,8 @@ function suggestWords() {
 
 // DOM helpers for custom cards
 // ── localStorage helpers ──────────────────────────────────────────────────
-const LS_STAGES = 'wfa_rules_expanded_stages';
+const ACTIVE_YEAR = '{{ active_year }}';
+const LS_STAGES = 'wfa_rules_expanded_stages_y' + ACTIVE_YEAR;
 
 function migrateSavedStages() {
   // One-time migration: if stored value only contains customSection, reset to stage4
@@ -349,7 +350,7 @@ function migrateSavedStages() {
     if (stored) {
       var parsed = JSON.parse(stored);
       if (parsed.length === 1 && parsed[0] === 'customSection') {
-        localStorage.setItem(LS_STAGES, '["stage4Section"]');
+        localStorage.setItem(LS_STAGES, '["stage' + ACTIVE_YEAR + 'Section"]');
       }
     }
   } catch(e) {}
@@ -357,8 +358,8 @@ function migrateSavedStages() {
 migrateSavedStages();
 
 function getSavedStages() {
-  try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["stage4Section"]'); }
-  catch { return ['stage4Section']; }
+  try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["stage' + ACTIVE_YEAR + 'Section"]'); }
+  catch { return ['stage' + ACTIVE_YEAR + 'Section']; }
 }
 function saveStageState(id, open) {
   const saved = getSavedStages();

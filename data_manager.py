@@ -139,9 +139,17 @@ def _pupil_row(p):
         'cls':       p.get('cls',''),
         'tt':        tt_label(ts, tm),
         'tt_set':    ts,
+        # Full stats — template picks the right ones for the active year
+        'y1_pct':    s.get('Y1',0),
+        'y2_pct':    s.get('Y2',0),
+        'y3_pct':    s.get('Y3',0),
         'y4_pct':    s.get('Y4',0),
-        'phase_pct': s.get('LKS2',0),
-        'ks_pct':    s.get('KS2',0),
+        'y5_pct':    s.get('Y5',0),
+        'y6_pct':    s.get('Y6',0),
+        'ks1_pct':   s.get('KS1',0),
+        'lks2_pct':  s.get('LKS2',0),
+        'uks2_pct':  s.get('UKS2',0),
+        'ks2_pct':   s.get('KS2',0),
         'all_pct':   s.get('total',0),
     }
 

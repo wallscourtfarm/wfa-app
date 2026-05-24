@@ -282,10 +282,12 @@ def mastery_stats(mastered_set):
         'Y4':   pct('4'),
         'Y5':   pct('5'),
         'Y6':   pct('6'),
-        'LKS2':     pct_group(['3','4']),          # Phase: Y3+Y4
-        'KS2':      pct_group(['3','4','5','6']), # Key Stage: Y3–Y6
-        'Academic': pct('Post'),                  # Post-Y6 academic
-        'total':    pct_group(['R','1','2','3','4','5','6']),  # R–Y6 only, excludes Post/Academic
+        'KS1':      pct_group(['1','2']),           # Y1+Y2
+        'LKS2':     pct_group(['3','4']),           # Y3+Y4
+        'UKS2':     pct_group(['5','6']),           # Y5+Y6
+        'KS2':      pct_group(['3','4','5','6']),   # Y3–Y6
+        'Academic': pct('Post'),
+        'total':    pct_group(['R','1','2','3','4','5','6']),  # R–Y6, excludes extras
     }
 
 

@@ -43,10 +43,10 @@
           {% if cls=='all' %}<th data-col="2">Class</th>{% endif %}
           <th data-col="{{ 3 if cls=='all' else 2 }}">Group</th>
           {% if active_year not in ("1", "2") %}<th data-col="{{ 4 if cls=='all' else 3 }}">TT</th>{% endif %}
-          <th data-col="{{ 5 if cls=='all' else 4 }}" class="num-col">Y{{ active_year }} %</th>
-          <th data-col="{{ 6 if cls=='all' else 5 }}" class="num-col">Phase %</th>
-          <th data-col="{{ 7 if cls=='all' else 6 }}" class="num-col">KS %</th>
-          <th data-col="{{ 8 if cls=='all' else 7 }}" class="num-col">All %</th>
+          <th class="num-col">Y{{ active_year }} %</th>
+          {% if active_year in ("3","4","5","6") %}<th class="num-col">{{ "LKS2" if active_year in ("3","4") else "UKS2" }} %</th>{% endif %}
+          {% if active_year in ("1","2") %}<th class="num-col">KS1 %</th>{% else %}<th class="num-col">KS2 %</th>{% endif %}
+          <th class="num-col">All %</th>
         </tr>
       </thead>
       <tbody>
@@ -57,14 +57,13 @@
           {% if cls=='all' %}<td>{{ r.cls }}</td>{% endif %}
           <td><span class="group-pill group-{{ r.group }}">{{ r.group|title }}</span></td>
           {% if active_year not in ("1", "2") %}<td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>{% endif %}
-          {% for pct, cls_fill in [(r.y4_pct,''),(r.phase_pct,'--phase'),(r.ks_pct,'--ks'),(r.all_pct,'--all')] %}
-          <td class="num-col">
-            <div class="prog-cell">
-              <div class="prog-fill{{ cls_fill }}" style="width:{{ pct }}%"></div>
-              <span>{{ pct }}%</span>
-            </div>
-          </td>
-          {% endfor %}
+          {% set yr_pct = {'1':r.y1_pct,'2':r.y2_pct,'3':r.y3_pct,'4':r.y4_pct,'5':r.y5_pct,'6':r.y6_pct}.get(active_year, r.y4_pct) %}
+          <td class="num-col"><div class="prog-cell"><div class="prog-fill" style="width:{{ yr_pct }}%"></div><span>{{ yr_pct }}%</span></div></td>
+          {% if active_year in ("3","4") %}<td class="num-col"><div class="prog-cell"><div class="prog-fill--phase" style="width:{{ r.lks2_pct }}%"></div><span>{{ r.lks2_pct }}%</span></div></td>
+          {% elif active_year in ("5","6") %}<td class="num-col"><div class="prog-cell"><div class="prog-fill--phase" style="width:{{ r.uks2_pct }}%"></div><span>{{ r.uks2_pct }}%</span></div></td>{% endif %}
+          {% if active_year in ("1","2") %}<td class="num-col"><div class="prog-cell"><div class="prog-fill--ks" style="width:{{ r.ks1_pct }}%"></div><span>{{ r.ks1_pct }}%</span></div></td>
+          {% else %}<td class="num-col"><div class="prog-cell"><div class="prog-fill--ks" style="width:{{ r.ks2_pct }}%"></div><span>{{ r.ks2_pct }}%</span></div></td>{% endif %}
+          <td class="num-col"><div class="prog-cell"><div class="prog-fill--all" style="width:{{ r.all_pct }}%"></div><span>{{ r.all_pct }}%</span></div></td>
         </tr>
         {% endfor %}
       </tbody>
