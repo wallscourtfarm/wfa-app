@@ -3,16 +3,16 @@ from flask import Blueprint, render_template, session, redirect, url_for, reques
 from data_manager import load_dashboard, TT_ORDER, ALL_CLASSES
 
 dash_bp = Blueprint('dash', __name__)
-CLASS_OPTIONS = [('Y4_IM','Y4 IM'),('Y4_WU','Y4 WU'),('all','Y4 ALL')]
+CLASS_OPTIONS = [('all','Y4 ALL'),('Y4_IM','Y4 IM'),('Y4_WU','Y4 WU')]
 
 @dash_bp.route('/')
 @dash_bp.route('/dashboard')
 def dashboard():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls = request.args.get('cls', 'Y4_IM')
+    cls = request.args.get('cls', 'all')
     valid = [c[0] for c in CLASS_OPTIONS]
-    if cls not in valid: cls = 'Y4_IM'
+    if cls not in valid: cls = 'all'
     data = load_dashboard(cls)
     if not data:
         return render_template('dashboard.html', error=True, cls=cls, class_options=CLASS_OPTIONS)

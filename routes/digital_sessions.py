@@ -116,7 +116,7 @@ def api_bee_create():
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body     = request.get_json(force=True)
-        cls      = body.get('cls', 'Y4_IM')
+        cls      = body.get('cls', 'all')
         wc       = load_weekly_config()
         week_ref = wc.get('week_ref', '')
         rule_wds = _rule_words(wc, cls)

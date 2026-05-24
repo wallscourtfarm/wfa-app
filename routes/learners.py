@@ -4,7 +4,7 @@ from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
 learners_bp = Blueprint('learners', __name__)
-CLASS_OPTIONS = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU'), ('all', 'Y4 ALL')]
+CLASS_OPTIONS = [('all', 'Y4 ALL'), ('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
 
 STAGE_YEARS = {2: 'Y2', 3: 'Y3', 4: 'Y4', 5: 'Y5'}
 
@@ -78,9 +78,9 @@ def _enrich(pupils, homophone_words_by_stage):
 def learners():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
-    cls = request.args.get('cls', 'Y4_IM')
+    cls = request.args.get('cls', 'all')
     if cls not in [c[0] for c in CLASS_OPTIONS]:
-        cls = 'Y4_IM'
+        cls = 'all'
     pupils = load_learners(cls)
     hw_by_stage = _homophone_words_by_stage()
     pupils = _enrich(pupils, hw_by_stage)

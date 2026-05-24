@@ -42,25 +42,13 @@
       </p>
     </div>
   </div>
-  <div class="print-card-footer">
-    <button class="btn btn-primary" onclick="generatePrint('paired-lists')">⬇ Paired lists PDF</button>
+  <div class="print-card-footer" style="flex-wrap:wrap;gap:12px">
+    <button class="btn btn-primary" onclick="generateWordListMaterials()">⬇ Download PDFs</button>
     <span class="print-spinner hidden" id="spin-paired-lists"></span>
-  </div>
-</div>
-
-<div class="print-card">
-  <div class="print-card-header">
-    <span class="print-card-icon">📋</span>
-    <div>
-      <h3 class="print-card-title">Recording sheet</h3>
-      <p class="print-card-desc">
-        Teacher marking cards — 6 per A4 page. Name header, 10 word rows, check column. Print and cut.
-      </p>
-    </div>
-  </div>
-  <div class="print-card-footer">
-    <button class="btn btn-primary" onclick="generatePrint('recording-sheet')">⬇ Recording sheet PDF</button>
-    <span class="print-spinner hidden" id="spin-recording-sheet"></span>
+    <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:#475569;cursor:pointer;user-select:none">
+      <input type="checkbox" id="include-recording" checked style="width:16px;height:16px;accent-color:#1798d3">
+      Include recording sheet
+    </label>
   </div>
 </div>
 
@@ -301,6 +289,37 @@ async function generatePrint(endpoint) {
     showStatus('Request failed: ' + e.message, 'error');
   } finally {
     showSpin(endpoint, false);
+  }
+}
+
+async function generateWordListMaterials() {
+  showSpin('paired-lists', true);
+  try {
+    const [listsResp, recResp] = await Promise.all([
+      fetch('/api/print/paired-lists', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({cls: CLS}),
+      }),
+      document.getElementById('include-recording').checked
+        ? fetch('/api/print/recording-sheet', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({cls: CLS}),
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const lists = await listsResp.json();
+    if (!lists.ok) { showStatus(lists.error, 'error'); return; }
+    triggerDownload(lists.data, lists.mime, lists.filename);
+
+    if (recResp) {
+      const rec = await recResp.json();
+      if (rec.ok) triggerDownload(rec.data, rec.mime, rec.filename);
+    }
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    showSpin('paired-lists', false);
   }
 }
 

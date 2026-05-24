@@ -9,7 +9,7 @@ def spelling_bee():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
     cls          = request.args.get('cls', 'Y4_IM')
-    if cls not in VALID_CLASSES: cls = 'Y4_IM'
+    if cls not in VALID_CLASSES: cls = 'all'
     group_filter = request.args.get('group', 'all')
 
     if cls == 'all':
