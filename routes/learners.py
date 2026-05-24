@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_learners
+from data_manager import load_learners, get_class_options, get_ref_class
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
