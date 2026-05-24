@@ -1,134 +1,7 @@
-{% extends "base.html" %}
-{% block title %}Year-End Rollover{% endblock %}
-{% block content %}
-
-<div class="page-header">
-  <h2>🔄 Year-End Rollover</h2>
-</div>
-
-<div id="status-bar" class="status-bar hidden"></div>
-
-<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:10px;
-  padding:14px 18px;margin-bottom:20px;font-size:14px;color:#78350f;line-height:1.6">
-  <strong>How this works</strong><br>
-  Rolling a year group moves every pupil up one year. Their spelling data travels with them.
-  They land in the first class of the next year marked as <em>Pending</em> — teachers then
-  use Class Manager to assign each pupil to the right class.<br>
-  Y6 pupils are archived and removed from active classes.
-  <strong>This cannot be undone.</strong>
-</div>
-
-<div id="loading" style="text-align:center;padding:48px;color:#64748b">
-  <span class="print-spinner" style="display:inline-block"></span> Loading year groups…
-</div>
-
-<div id="year-grid" style="display:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
-
-<!-- Confirm modal -->
-<div id="confirm-modal" class="cm-modal-wrap" style="display:none">
-  <div class="cm-modal" style="max-width:440px">
-    <div class="cm-modal-hdr">
-      <h3 id="confirm-title">Confirm rollover</h3>
-      <button onclick="closeConfirm()" class="cm-close">&times;</button>
-    </div>
-    <div class="cm-modal-body">
-      <p id="confirm-body" style="font-size:15px;color:#374151;line-height:1.6;margin:0"></p>
-      <p style="font-size:13px;color:#dc2626;font-weight:600;margin:8px 0 0">
-        This cannot be undone.
-      </p>
-    </div>
-    <div class="cm-modal-footer">
-      <button class="btn btn-primary" id="confirm-btn" onclick="executeRollover()"
-        style="background:#dc2626;border-color:#dc2626">Roll year group</button>
-      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
-      <span class="print-spinner hidden" id="spin-confirm"></span>
-    </div>
-  </div>
-</div>
-
-<style>
-.year-card {
-  background: white;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  overflow: hidden;
-}
-.year-card-hdr {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px 10px;
-  border-bottom: 1px solid #f1f5f9;
-}
-.year-label {
-  font-size: 20px;
-  font-weight: 800;
-  color: #1a3c6e;
-}
-.year-total {
-  font-size: 13px;
-  color: #64748b;
-  font-weight: 600;
-}
-.year-card-body {
-  padding: 12px 18px;
-}
-.cls-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  padding: 4px 0;
-  color: #374151;
-}
-.cls-row .cls-name { font-weight: 600; }
-.cls-row .cls-count { color: #64748b; }
-.cls-row .pending-pill {
-  font-size: 11px;
-  background: #fef3c7;
-  color: #92400e;
-  padding: 1px 7px;
-  border-radius: 99px;
-  font-weight: 600;
-}
-.year-card-footer {
-  padding: 12px 18px 14px;
-  border-top: 1px solid #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.destination-label {
-  font-size: 12px;
-  color: #64748b;
-}
-.rolled-badge {
-  font-size: 12px;
-  background: #dcfce7;
-  color: #166534;
-  padding: 3px 10px;
-  border-radius: 99px;
-  font-weight: 600;
-}
-/* reuse class_manager modal styles */
-.cm-modal-wrap { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;
-  display:flex;align-items:center;justify-content:center;padding:16px; }
-.cm-modal { background:white;border-radius:14px;max-width:520px;width:100%;
-  box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;max-height:90vh; }
-.cm-modal-hdr { display:flex;justify-content:space-between;align-items:center;
-  padding:18px 24px 12px;border-bottom:1px solid #f1f5f9; }
-.cm-modal-hdr h3 { font-size:17px;color:#1a3c6e;margin:0; }
-.cm-close { background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1; }
-.cm-modal-body { padding:18px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:14px; }
-.cm-modal-footer { display:flex;gap:8px;align-items:center;padding:14px 24px;
-  border-top:1px solid #f1f5f9; }
-</style>
-
-<script>
 let _counts     = {};
 let _yearOrder  = [];
-let _rollTarget = null;
+let _rollTarget    = null;
+let _confirmPhrase = '';
 
 function showStatus(msg, type='ok') {
   const bar = document.getElementById('status-bar');
@@ -156,72 +29,72 @@ async function loadCounts() {
 function render() {
   const grid = document.getElementById('year-grid');
   grid.innerHTML = '';
-
   _yearOrder.forEach(yr => {
     const info   = _counts[yr];
     if (!info) return;
     const isY6   = yr === '6';
     const nextYr = isY6 ? null : String(parseInt(yr) + 1);
-    const dest   = isY6 ? 'Archive' : `Y${nextYr}`;
     const empty  = info.total === 0;
-
     const clsRows = info.classes.map(c => {
-      const pendingPill = c.pending
-        ? `<span class="pending-pill">${c.pending} pending</span>` : '';
-      return `<div class="cls-row">
-        <span class="cls-name">${c.id}</span>
-        ${pendingPill}
-        <span class="cls-count">${c.count} pupil${c.count !== 1 ? 's' : ''}</span>
-      </div>`;
+      const pendingPill = c.pending ? `<span class="pending-pill">${c.pending} pending</span>` : '';
+      return `<div class="cls-row"><span class="cls-name">${c.id}</span>${pendingPill}<span class="cls-count">${c.count} pupil${c.count !== 1 ? 's' : ''}</span></div>`;
     }).join('');
-
     const footerContent = empty
-      ? `<span style="font-size:13px;color:#94a3b8;font-style:italic">No pupils — nothing to roll</span>`
-      : `<span class="destination-label">→ ${isY6 ? '🗄 Archive' : `Y${nextYr}`}</span>
+      ? `<span style="font-size:13px;color:#94a3b8;font-style:italic">No pupils &mdash; nothing to roll</span>`
+      : `<span class="destination-label">&rarr; ${isY6 ? '&#128452; Archive' : 'Y'+nextYr}</span>
          <button class="btn ${isY6 ? 'btn-secondary' : 'btn-primary'} btn-sm"
            style="${isY6 ? 'color:#dc2626;border-color:#dc2626;background:white' : ''}"
            onclick="openConfirm('${yr}')">
-           ${isY6 ? '🗄 Archive Y6' : `Roll Y${yr} → Y${nextYr}`}
+           ${isY6 ? '&#128452; Archive Y6' : 'Roll Y'+yr+' &rarr; Y'+nextYr}
          </button>`;
-
     const card = document.createElement('div');
-    card.className  = 'year-card';
-    card.id         = `card-y${yr}`;
-    card.innerHTML  = `
-      <div class="year-card-hdr">
-        <span class="year-label">Year ${yr}</span>
-        <span class="year-total">${info.total} pupil${info.total !== 1 ? 's' : ''} total</span>
-      </div>
-      <div class="year-card-body">${clsRows}</div>
-      <div class="year-card-footer">${footerContent}</div>
-    `;
+    card.className = 'year-card';
+    card.id = `card-y${yr}`;
+    card.innerHTML = `<div class="year-card-hdr"><span class="year-label">Year ${yr}</span><span class="year-total">${info.total} pupil${info.total !== 1 ? 's' : ''} total</span></div><div class="year-card-body">${clsRows}</div><div class="year-card-footer">${footerContent}</div>`;
     grid.appendChild(card);
   });
 }
 
 function openConfirm(yr) {
-  _rollTarget = yr;
-  const info  = _counts[yr];
-  const isY6  = yr === '6';
-  const nextYr = isY6 ? null : String(parseInt(yr) + 1);
+  _rollTarget    = yr;
+  const info     = _counts[yr];
+  const isY6     = yr === '6';
+  const nextYr   = isY6 ? null : String(parseInt(yr) + 1);
+  _confirmPhrase = isY6 ? 'ARCHIVE Y6' : ('ROLL Y' + yr);
 
   document.getElementById('confirm-title').textContent =
-    isY6 ? 'Archive Year 6' : `Roll Year ${yr} → Year ${nextYr}`;
+    isY6 ? 'Archive Year 6' : ('Roll Year ' + yr + ' to Year ' + nextYr);
+  document.getElementById('confirm-body').textContent =
+    isY6
+      ? (info.total + ' Y6 pupils will be archived and removed from active classes.')
+      : (info.total + ' Y' + yr + ' pupils will be moved to Year ' + nextYr + ' and marked as Pending. Use Class Manager afterwards to assign each pupil to their new class.');
+  document.getElementById('confirm-phrase-label').textContent = _confirmPhrase;
+  document.getElementById('confirm-phrase-input').value       = '';
+  document.getElementById('confirm-phrase-input').placeholder = _confirmPhrase;
 
-  const body = isY6
-    ? `${info.total} Y6 pupils will be archived and removed from active classes. Their data is saved to the archive.`
-    : `${info.total} Y${yr} pupils will be moved to Year ${nextYr} and marked as Pending. ` +
-      `Go to Class Manager afterwards to assign each pupil to their new class.`;
+  const btn = document.getElementById('confirm-btn');
+  btn.textContent   = isY6 ? 'Archive Y6' : ('Roll Y' + yr + ' to Y' + nextYr);
+  btn.disabled      = true;
+  btn.style.opacity = '.4';
+  btn.style.cursor  = 'not-allowed';
 
-  document.getElementById('confirm-body').textContent = body;
-  document.getElementById('confirm-btn').textContent  =
-    isY6 ? 'Archive Y6' : `Roll Y${yr} → Y${nextYr}`;
   document.getElementById('confirm-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('confirm-phrase-input').focus(), 80);
+}
+
+function checkConfirmPhrase() {
+  const typed = document.getElementById('confirm-phrase-input').value.trim().toUpperCase();
+  const btn   = document.getElementById('confirm-btn');
+  const match = typed === _confirmPhrase;
+  btn.disabled      = !match;
+  btn.style.opacity = match ? '1' : '.4';
+  btn.style.cursor  = match ? 'pointer' : 'not-allowed';
 }
 
 function closeConfirm() {
   document.getElementById('confirm-modal').style.display = 'none';
-  _rollTarget = null;
+  _rollTarget    = null;
+  _confirmPhrase = '';
 }
 
 async function executeRollover() {
@@ -239,10 +112,10 @@ async function executeRollover() {
     closeConfirm();
     if (d.ok) {
       const msg = d.archived
-        ? `Y6 archived — ${d.archived} pupils removed from active classes.`
-        : `Y${yr} rolled — ${d.moved} pupils moved to Y${parseInt(yr)+1} (Pending).`;
+        ? ('Y6 archived — ' + d.archived + ' pupils removed from active classes.')
+        : ('Y' + yr + ' rolled — ' + d.moved + ' pupils moved to Y' + (parseInt(yr)+1) + ' (Pending).');
       showStatus(msg);
-      await loadCounts();   // refresh counts
+      await loadCounts();
     } else {
       showStatus('Rollover failed: ' + d.error, 'error');
     }
@@ -254,4 +127,3 @@ async function executeRollover() {
 
 loadCounts();
 </script>
-{% endblock %}
