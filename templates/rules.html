@@ -25,14 +25,62 @@
     <span class="legend-hint">Click the dots on any rule to update</span>
   </div>
 
-  <!-- Custom rules section -->
+  <!-- Stage 1–6 sections -->
+  {% for stage_num in range(1, 7) %}
+    {% set stage_rules = stages.get(stage_num, []) %}
+    <div class="stage-section {% if stage_num != 4 %}collapsed{% endif %}"
+         id="stage{{ stage_num }}Section">
+      <div class="stage-header" onclick="toggleSection('stage{{ stage_num }}Section')">
+        <span class="stage-title">Stage {{ stage_num }}</span>
+        <span class="stage-count">{{ stage_rules|length }} rules</span>
+        <span class="stage-chevron">{% if stage_num != 4 %}▶{% else %}▼{% endif %}</span>
+      </div>
+      <div class="stage-body"
+           {% if stage_num != 4 %}style="display:none"{% endif %}
+           id="stage{{ stage_num }}Section-body">
+        <div class="rules-grid">
+          {% for rule in stage_rules %}
+            {% set conf_dots = ['○○○','●○○','●●○','●●●'][rule.confidence] %}
+            {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][rule.confidence] %}
+            <div class="rule-card" data-id="{{ rule.id }}"
+                 data-search="{{ (rule.title ~ ' ' ~ rule.words|join(' '))|lower }}">
+              <div class="rule-card-header" onclick="toggleDetail(this)">
+                <span class="rule-ref">S{{ stage_num }}·{{ rule.step }}</span>
+                <span class="rule-title-text">{{ rule.title }}</span>
+                <span class="rule-card-right">
+                  <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rule.id }}"
+                        data-level="{{ rule.confidence }}"
+                        onclick="event.stopPropagation(); cycleConfidence(this)"
+                        title="Click to update confidence">{{ conf_dots }}</span>
+                  <span class="rule-chevron">▸</span>
+                </span>
+              </div>
+              <div class="rule-detail hidden">
+                {% if rule.rtype == 2 %}
+                  <span class="rule-type-badge">Revision</span>
+                {% endif %}
+                {% if rule.explanation %}
+                  <p class="rule-explanation">{{ rule.explanation }}</p>
+                {% endif %}
+                <div class="rule-words">
+                  {% for w in rule.words %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+
+  <!-- Custom rules section — moved to bottom, collapsed by default -->
   <div class="stage-section collapsed" id="customSection">
     <div class="stage-header" onclick="toggleSection('customSection')">
       <span class="stage-title">✏️ Custom Rules</span>
       <span class="stage-count" id="customCount">{{ customs|length }} rule{{ 's' if customs|length != 1 else '' }}</span>
-      <span class="stage-chevron">▼</span>
+      <span class="stage-chevron">▶</span>
     </div>
-    <div class="stage-body" id="customSection-body">
+    <div class="stage-body" id="customSection-body" style="display:none">
       {% if customs %}
         <div class="rules-grid" id="customGrid">
           {% for cr in customs %}
@@ -75,53 +123,6 @@
     </div>
   </div>
 
-  <!-- Stage 1–6 sections -->
-  {% for stage_num in range(1, 7) %}
-    {% set stage_rules = stages.get(stage_num, []) %}
-    <div class="stage-section {% if stage_num != 4 %}collapsed{% endif %}"
-         id="stage{{ stage_num }}Section">
-      <div class="stage-header" onclick="toggleSection('stage{{ stage_num }}Section')">
-        <span class="stage-title">Stage {{ stage_num }}</span>
-        <span class="stage-count">{{ stage_rules|length }} rules</span>
-        <span class="stage-chevron">{% if stage_num > 1 %}▶{% else %}▼{% endif %}</span>
-      </div>
-      <div class="stage-body"
-           {% if stage_num > 1 %}style="display:none"{% endif %}
-           id="stage{{ stage_num }}Section-body">
-        <div class="rules-grid">
-          {% for rule in stage_rules %}
-            {% set conf_dots = ['○○○','●○○','●●○','●●●'][rule.confidence] %}
-            {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][rule.confidence] %}
-            <div class="rule-card" data-id="{{ rule.id }}"
-                 data-search="{{ (rule.title ~ ' ' ~ rule.words|join(' '))|lower }}">
-              <div class="rule-card-header" onclick="toggleDetail(this)">
-                <span class="rule-ref">S{{ stage_num }}·{{ rule.step }}</span>
-                <span class="rule-title-text">{{ rule.title }}</span>
-                <span class="rule-card-right">
-                  <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rule.id }}"
-                        data-level="{{ rule.confidence }}"
-                        onclick="event.stopPropagation(); cycleConfidence(this)"
-                        title="Click to update confidence">{{ conf_dots }}</span>
-                  <span class="rule-chevron">▸</span>
-                </span>
-              </div>
-              <div class="rule-detail hidden">
-                {% if rule.rtype == 2 %}
-                  <span class="rule-type-badge">Revision</span>
-                {% endif %}
-                {% if rule.explanation %}
-                  <p class="rule-explanation">{{ rule.explanation }}</p>
-                {% endif %}
-                <div class="rule-words">
-                  {% for w in rule.words %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
-                </div>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  {% endfor %}
 
 </div>
 
@@ -341,9 +342,23 @@ function suggestWords() {
 // ── localStorage helpers ──────────────────────────────────────────────────
 const LS_STAGES = 'wfa_rules_expanded_stages';
 
+function migrateSavedStages() {
+  // One-time migration: if stored value only contains customSection, reset to stage4
+  try {
+    var stored = localStorage.getItem(LS_STAGES);
+    if (stored) {
+      var parsed = JSON.parse(stored);
+      if (parsed.length === 1 && parsed[0] === 'customSection') {
+        localStorage.setItem(LS_STAGES, '["stage4Section"]');
+      }
+    }
+  } catch(e) {}
+}
+migrateSavedStages();
+
 function getSavedStages() {
-  try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["customSection"]'); }
-  catch { return ['customSection']; }
+  try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["stage4Section"]'); }
+  catch { return ['stage4Section']; }
 }
 function saveStageState(id, open) {
   const saved = getSavedStages();
