@@ -4,7 +4,7 @@ from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
 learners_bp = Blueprint('learners', __name__)
-CLASS_OPTIONS = [('all', 'Y4 ALL'), ('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS = get_class_options()
 
 STAGE_YEARS = {2: 'Y2', 3: 'Y3', 4: 'Y4', 5: 'Y5'}
 

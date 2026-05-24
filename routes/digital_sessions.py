@@ -3,7 +3,7 @@ from datetime import datetime, date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, send_file, make_response)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_ref_class
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
@@ -15,7 +15,7 @@ _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.
 
 WB = [w[0] for w in WORD_BANK]
 
-CLASS_OPTIONS = [('all', 'Y4 ALL'), ('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS = get_class_options()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

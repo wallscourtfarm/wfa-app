@@ -5,7 +5,9 @@ Pupil and class management: add, edit, remove, move, pair.
 import os, json, base64, traceback
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import ALL_CLASSES, load_class
+from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
+                          get_class_options, get_year_group, YEAR_WORD_ZONE,
+                          update_teacher_label, bulk_import_pupils, year_end_rollover)
 
 cm_bp = Blueprint('class_manager', __name__)
 
@@ -13,7 +15,7 @@ PAT       = os.environ.get('GITHUB_TOKEN', '')
 DATA_REPO = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
 _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.v3+json'}
 
-CLASS_OPTIONS  = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS  = get_class_options(include_all_per_year=False)
 TT_SETS        = ['2', '5', '4', '8', '3', '6', '9', '7', '11', '12', 'All']
 PAIR_COLOURS   = [
     '#0070C0', '#00B050', '#FF0000', '#FF6600', '#7030A0',
@@ -78,8 +80,8 @@ def _next_pupil_id():
     return f'p{max_n + 1:02d}'
 
 def _cls_short(cls_id):
-    """Y4_IM → IM, Y4_WU → WU"""
-    return cls_id.replace('Y4_', '')
+    """Y4_IM -> IM, Y2_JH -> JH (works for any year group)"""
+    return cls_id.split('_', 1)[1] if '_' in cls_id else cls_id
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -89,7 +91,8 @@ def class_manager():
     r = _auth()
     if r: return r
     cls = request.args.get('cls', 'Y4_IM')
-    if cls not in [c[0] for c in CLASS_OPTIONS]:
+    valid = [c[0] for c in CLASS_OPTIONS]
+    if cls not in valid:
         cls = 'Y4_IM'
     return render_template('class_manager.html',
         cls=cls, class_options=CLASS_OPTIONS,
@@ -205,7 +208,9 @@ def api_pupil_add():
         if not obj:
             return jsonify({'ok': False, 'error': f'Could not load {cls}'})
 
-        new_id = _next_pupil_id()
+        yr        = get_year_group(cls) or '4'
+        start_pos = YEAR_WORD_ZONE.get(yr, 185)
+        new_id    = _next_pupil_id()
         new_pupil = {
             'id':              new_id,
             'first':           first,
@@ -218,7 +223,7 @@ def api_pupil_add():
             'adapted_hl':      bool(body.get('adapted_hl', False)),
             'pair_id':         '',
             'pair_colour':     '',
-            'word_pos':        0,
+            'word_pos':        start_pos,
             'mastered':        [],
             'rule_confidence': {},
             'homophone_mastered': [],
@@ -403,3 +408,57 @@ def _clear_pair_field(pupil_id, former_pair_id):
             p['pair_id']    = ''
             p['pair_colour'] = ''
     _save_class_file(cid, obj, sha, f'Clear stale pair ref on {pupil_id}')
+
+
+# ── API: Update teacher label ─────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/teacher/update', methods=['POST'])
+def api_teacher_update():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body         = request.get_json(force=True)
+        class_id     = body.get('class_id', '')
+        teacher_code = body.get('teacher_code', '').strip().upper()
+        teacher_name = body.get('teacher_name', '').strip()
+        if not class_id or not teacher_code:
+            return jsonify({'ok': False, 'error': 'class_id and teacher_code are required'})
+        result = update_teacher_label(class_id, teacher_code, teacher_name)
+        return jsonify(result)
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: CSV bulk import ──────────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/import', methods=['POST'])
+def api_bulk_import():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body     = request.get_json(force=True)
+        class_id = body.get('class_id', '')
+        csv_text = body.get('csv', '')
+        if not class_id or not csv_text.strip():
+            return jsonify({'ok': False, 'error': 'class_id and csv are required'})
+        result = bulk_import_pupils(class_id, csv_text)
+        return jsonify(result)
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Year-end rollover ────────────────────────────────────────────────────
+
+@cm_bp.route('/api/rollover', methods=['POST'])
+def api_rollover():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body       = request.get_json(force=True)
+        year_group = body.get('year_group', '')
+        if not year_group:
+            return jsonify({'ok': False, 'error': 'year_group is required'})
+        result = year_end_rollover(str(year_group))
+        return jsonify(result)
+    except Exception as e:
+        return _err(e)

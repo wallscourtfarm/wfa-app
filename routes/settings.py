@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_weekly_config, save_weekly_config, list_plannable_rules, ALL_CLASSES, load_term_dates, term_dates_by_term
+from data_manager import load_weekly_config, save_weekly_config, list_plannable_rules, ALL_CLASSES, get_class_options, load_term_dates, term_dates_by_term
 
 settings_bp = Blueprint('settings', __name__)
-CLASS_OPTIONS = [('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS = get_class_options(include_all_per_year=False)
 
 
 
@@ -11,7 +11,7 @@ def api_debug_learners():
     if not session.get('authenticated'):
         return jsonify({'ok': False}), 401
     from data_manager import load_learners
-    pupils = load_learners('Y4_IM')
+    pupils = load_learners('Y4_all')
     # Return first 3 pupils with key fields
     sample = [{'id': p.get('id'), 'first': p.get('first'),
                'pair_id': p.get('pair_id'), 'partner_name': p.get('partner_name')}

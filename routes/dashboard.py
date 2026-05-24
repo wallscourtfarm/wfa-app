@@ -1,9 +1,9 @@
 import json
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_dashboard, TT_ORDER, ALL_CLASSES
+from data_manager import load_dashboard, TT_ORDER, ALL_CLASSES, get_class_options, get_ref_class
 
 dash_bp = Blueprint('dash', __name__)
-CLASS_OPTIONS = [('all','Y4 ALL'),('Y4_IM','Y4 IM'),('Y4_WU','Y4 WU')]
+CLASS_OPTIONS = get_class_options()
 
 @dash_bp.route('/')
 @dash_bp.route('/dashboard')

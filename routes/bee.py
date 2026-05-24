@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from data_manager import load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee
 
 bee_bp = Blueprint('bee', __name__)
-VALID_CLASSES = ['Y4_IM', 'Y4_WU', 'all']
+VALID_CLASSES = ['Y4_IM', 'Y4_WU', 'Y4_all'] + __import__('data_manager').ALL_CLASSES
 
 @bee_bp.route('/spelling-bee')
 def spelling_bee():

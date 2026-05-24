@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from data_manager import load_tt_pupils, advance_tt_pupils
 
 tt_bp = Blueprint('tt', __name__)
-DEFAULT_CLASS = 'Y4_IM'
+DEFAULT_CLASS = 'Y4_IM'  # sensible default; UI always lets user pick
 
 
 def require_auth():

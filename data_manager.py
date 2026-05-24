@@ -12,7 +12,67 @@ HEADERS      = {'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application
 BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
 
 TT_ORDER   = ['2','5','4','8','3','6','9','7','11','12','All']
-ALL_CLASSES = ['Y4_IM','Y4_WU']
+
+# ── Class registry ─────────────────────────────────────────────────────────────
+# Single source of truth. Class IDs are permanent stable identifiers — teacher
+# labels are stored in the JSON and can be changed without renaming anything.
+
+YEAR_GROUP_CLASSES = {
+    '1': ['Y1_ET', 'Y1_ER'],
+    '2': ['Y2_JH', 'Y2_MY'],
+    '3': ['Y3_RB', 'Y3_JW'],
+    '4': ['Y4_IM', 'Y4_WU'],
+    '5': ['Y5_CK', 'Y5_LE'],
+    '6': ['Y6_JM', 'Y6_SD'],
+}
+
+ALL_CLASSES = [c for classes in YEAR_GROUP_CLASSES.values() for c in classes]
+
+YEAR_WORD_ZONE = {
+    '1': 21, '2': 78, '3': 131, '4': 185, '5': 239, '6': 290,
+}
+
+def get_year_group(class_id):
+    """Return year group string ('1'–'6') for a class_id, or None."""
+    for yr, classes in YEAR_GROUP_CLASSES.items():
+        if class_id in classes:
+            return yr
+    if class_id and '_all' in class_id:
+        return class_id[1]
+    return None
+
+def _resolve_classes(class_id):
+    """
+    Return list of real class IDs to load.
+      'Y4_all' -> ['Y4_IM', 'Y4_WU']
+      'Y4_IM'  -> ['Y4_IM']
+      'all'    -> ['Y4_IM', 'Y4_WU']  (legacy Y4 fallback)
+    """
+    if class_id == 'all':
+        return list(YEAR_GROUP_CLASSES.get('4', []))
+    if class_id and class_id.endswith('_all'):
+        yr = class_id[1]
+        return list(YEAR_GROUP_CLASSES.get(yr, []))
+    return [class_id] if class_id else []
+
+def get_ref_class(class_id):
+    """Single real class ID for config lookups when an _all selector is used."""
+    classes = _resolve_classes(class_id)
+    return classes[0] if classes else 'Y4_IM'
+
+def get_class_options(include_all_per_year=True):
+    """
+    Flat list of (value, label) tuples for all year groups.
+    All routes import this — no local CLASS_OPTIONS definitions.
+    """
+    options = []
+    for yr, classes in YEAR_GROUP_CLASSES.items():
+        if include_all_per_year:
+            options.append((f'Y{yr}_all', f'Y{yr} \u2014 All'))
+        for cid in classes:
+            suffix = cid.split('_')[1]
+            options.append((cid, f'Y{yr} \u2014 {suffix}'))
+    return options
 
 # ── GitHub I/O ────────────────────────────────────────────────────────────────
 
@@ -85,16 +145,14 @@ def _pupil_row(p):
         'all_pct':   s.get('total',0),
     }
 
-def load_dashboard(class_id='Y4_IM'):
-    if class_id == 'all':
-        all_pupils = []
-        for cid in ALL_CLASSES:
-            d = load_class(cid)
-            if d: all_pupils.extend(d.get('pupils',[]))
-    else:
-        d = load_class(class_id)
-        if not d: return None
-        all_pupils = d.get('pupils',[])
+def load_dashboard(class_id='Y4_all'):
+    class_ids = _resolve_classes(class_id)
+    all_pupils = []
+    for cid in class_ids:
+        d = load_class(cid)
+        if d: all_pupils.extend(d.get('pupils', []))
+    if not all_pupils and class_id not in ('all',) and not class_id.endswith('_all'):
+        return None
 
     rows     = [_pupil_row(p) for p in all_pupils]
     tt_dist  = {t: sum(1 for p in all_pupils if p.get('tt_set')==t) for t in TT_ORDER}
@@ -188,7 +246,7 @@ def save_bee_assessment(class_id, assessments):
 
 # ── Learners ──────────────────────────────────────────────────────────────────
 
-def load_learners(class_id='Y4_IM'):
+def load_learners(class_id='Y4_all'):
     # Build cross-class id->name map for partner resolution
     all_data = {}
     for cid in ALL_CLASSES:
@@ -197,17 +255,11 @@ def load_learners(class_id='Y4_IM'):
             for p in d.get('pupils', []):
                 all_data[p['id']] = p.get('first') or '?'
 
-    if class_id == 'all':
-        pupils = []
-        for cid in ALL_CLASSES:
-            d = load_class(cid)
-            if d:
-                pupils.extend(d.get('pupils', []))
-    else:
-        d = load_class(class_id)
-        if not d:
-            return []
-        pupils = d.get('pupils', [])
+    pupils = []
+    for cid in _resolve_classes(class_id):
+        d = load_class(cid)
+        if d:
+            pupils.extend(d.get('pupils', []))
 
     result = []
     for p in pupils:
@@ -356,3 +408,195 @@ def term_dates_by_term(term_dates):
             grouped[t] = []
         grouped[t].append(w)
     return grouped
+
+
+# ── Class file write helpers ───────────────────────────────────────────────────
+
+def save_class(class_id, data, message='Update class'):
+    """Write a class JSON back to GitHub. Creates file if it does not exist."""
+    path = f'data/classes/{class_id}.json'
+    _, sha = _get_file(path)
+    if sha is None:
+        return _put_file_create(path, data, message)
+    return _put_file(path, data, sha, message)
+
+
+# ── Teacher label update ───────────────────────────────────────────────────────
+
+def update_teacher_label(class_id, teacher_code, teacher_name=''):
+    """
+    Update the teacher label fields in a class JSON.
+    The class_id (filename) never changes — only the display fields do.
+    teacher_code: short initials shown in UI (e.g. 'IM')
+    teacher_name: optional full name (e.g. 'Mr McLean')
+    """
+    path = f'data/classes/{class_id}.json'
+    data, sha = _get_file(path)
+    if not data:
+        return {'ok': False, 'error': f'Class {class_id} not found'}
+    data['teacher']       = teacher_code
+    data['class_display'] = teacher_code
+    if teacher_name:
+        data['teacher_name'] = teacher_name
+    elif 'teacher_name' not in data:
+        data['teacher_name'] = teacher_code
+    ok = _put_file(path, data, sha, f'Update teacher label: {class_id} -> {teacher_code}')
+    return {'ok': ok}
+
+
+# ── CSV bulk import ────────────────────────────────────────────────────────────
+
+def bulk_import_pupils(class_id, csv_text):
+    """
+    Import pupils from CSV text into a class.
+    CSV format (header optional): first, last
+    Pupils start at the correct word_pos for their year group.
+    Returns {'ok': True, 'imported': n, 'errors': [...]}
+    """
+    import csv, io
+    path = f'data/classes/{class_id}.json'
+    data, sha = _get_file(path)
+    if not data:
+        return {'ok': False, 'error': f'Class {class_id} not found'}
+
+    yr        = get_year_group(class_id) or '4'
+    start_pos = YEAR_WORD_ZONE.get(yr, 185)
+    suffix    = class_id.split('_')[1]
+
+    existing_ids = {p['id'] for p in data.get('pupils', [])}
+    max_n = 0
+    for pid in existing_ids:
+        try: max_n = max(max_n, int(pid[1:]))
+        except: pass
+    next_n = max_n + 1
+
+    reader   = csv.reader(io.StringIO(csv_text.strip()))
+    imported, errors = 0, []
+
+    for i, row in enumerate(reader):
+        if not row: continue
+        if i == 0 and row[0].strip().lower() in ('first', 'firstname', 'name', 'forename'):
+            continue
+        first = row[0].strip().title() if len(row) > 0 else ''
+        last  = row[1].strip().title() if len(row) > 1 else ''
+        if not first:
+            errors.append(f'Row {i+1}: no first name — skipped')
+            continue
+
+        pid = f'p{next_n:02d}'
+        while pid in existing_ids:
+            next_n += 1
+            pid = f'p{next_n:02d}'
+
+        data['pupils'].append({
+            'id':               pid,
+            'first':            first,
+            'last':             last,
+            'cls':              suffix,
+            'group':            'main',
+            'tt_set':           '2',
+            'tt_mode':          'x',
+            'table':            '',
+            'adapted_hl':       False,
+            'pair_id':          '',
+            'pair_colour':      '',
+            'word_pos':         start_pos,
+            'mastered':         [],
+            'rule_confidence':  {},
+            'homophone_mastered': [],
+            'homophone_history':  {},
+            'ss_user':          '',
+            'ss_pass':          '',
+        })
+        existing_ids.add(pid)
+        next_n += 1
+        imported += 1
+
+    if imported:
+        ok = _put_file(path, data, sha, f'Bulk import: {imported} pupils into {class_id}')
+        if not ok:
+            return {'ok': False, 'error': 'GitHub write failed'}
+
+    return {'ok': True, 'imported': imported, 'errors': errors}
+
+
+# ── Year-end rollover ──────────────────────────────────────────────────────────
+
+def year_end_rollover(year_group):
+    """
+    Move all pupils in year_group up by one year.
+    Y6 pupils are archived (data/archive/Y6_rollover.json) and removed.
+    Y1–Y5 pupils land in the first class of the next year with cls='' (pending
+    teacher reassignment via class manager).
+
+    Returns {'ok': True, 'moved': n, 'archived': n} or {'ok': False, 'error': ...}
+    """
+    import datetime
+    yr   = str(year_group)
+    classes = YEAR_GROUP_CLASSES.get(yr)
+    if not classes:
+        return {'ok': False, 'error': f'No classes registered for year {yr}'}
+
+    # Collect all pupils from every class in this year group
+    all_pupils, source_snapshots = [], []
+    for cid in classes:
+        path = f'data/classes/{cid}.json'
+        data, sha = _get_file(path)
+        if not data:
+            continue
+        all_pupils.extend(data.get('pupils', []))
+        source_snapshots.append((path, data, sha))
+
+    moved = archived = 0
+
+    if yr == '6':
+        # Archive Y6 — write to archive file, then clear source classes
+        stamp       = datetime.date.today().isoformat()
+        archive_path = f'data/archive/Y6_rollover_{stamp}.json'
+        archive_data = {
+            'archived_date': stamp,
+            'year': '6',
+            'count': len(all_pupils),
+            'pupils': all_pupils,
+        }
+        _put_file_create(archive_path, archive_data,
+                         f'Archive Y6 ({len(all_pupils)} pupils, {stamp})')
+        archived = len(all_pupils)
+        for path, data, sha in source_snapshots:
+            data['pupils'] = []
+            _put_file(path, data, sha, f'Year-end rollover: clear {path}')
+        return {'ok': True, 'moved': 0, 'archived': archived}
+
+    # Y1–Y5: move pupils to first class of next year group
+    next_yr      = str(int(yr) + 1)
+    next_classes = YEAR_GROUP_CLASSES.get(next_yr)
+    if not next_classes:
+        return {'ok': False, 'error': f'No classes registered for year {next_yr}'}
+
+    target_id   = next_classes[0]
+    target_path = f'data/classes/{target_id}.json'
+    target_data, target_sha = _get_file(target_path)
+    if not target_data:
+        return {'ok': False, 'error': f'Could not load target class {target_id}'}
+
+    # Update each pupil: clear cls (unassigned) and update word_pos floor
+    next_zone = YEAR_WORD_ZONE.get(next_yr, 0)
+    for p in all_pupils:
+        p['cls']     = ''    # pending — teacher reassigns via class manager
+        p['pending'] = True  # flag for class manager to surface in Pending view
+        if p.get('word_pos', 0) < next_zone:
+            p['word_pos'] = next_zone
+
+    target_data.setdefault('pupils', []).extend(all_pupils)
+    moved = len(all_pupils)
+    ok = _put_file(target_path, target_data, target_sha,
+                   f'Year-end rollover: Y{yr}->Y{next_yr} ({moved} pupils)')
+    if not ok:
+        return {'ok': False, 'error': 'Failed to write to target class'}
+
+    # Clear source classes
+    for path, data, sha in source_snapshots:
+        data['pupils'] = []
+        _put_file(path, data, sha, f'Year-end rollover: clear {path}')
+
+    return {'ok': True, 'moved': moved, 'archived': 0}

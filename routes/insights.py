@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_class, ALL_CLASSES
+from data_manager import load_class, ALL_CLASSES, get_class_options, get_ref_class
 from spelling_rules import SPELLING_RULES
 from word_bank import WORD_BANK
 
 insights_bp = Blueprint('insights', __name__)
-CLASS_OPTIONS = [('all', 'Y4 ALL'), ('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS = get_class_options()
 
 WB_ZONES = [
     {'yr': 'R',    'label': 'Reception', 'start': 0,   'end': 20},

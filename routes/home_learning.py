@@ -1,10 +1,10 @@
 import base64
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES
+from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_ref_class
 from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
-CLASS_OPTIONS = [('all', 'Y4 ALL'), ('Y4_IM', 'Y4 IM'), ('Y4_WU', 'Y4 WU')]
+CLASS_OPTIONS = get_class_options()
 COLUMN_KEYWORDS = {'column', 'addition', 'subtraction', 'written method'}
 
 
@@ -65,7 +65,7 @@ def home_learning():
     wc = load_weekly_config()
     week_ref = wc.get('week_ref', '')
     # For rule display, use Y4_IM config as reference
-    ref_cls = 'Y4_IM' if cls == 'all' else cls
+    ref_cls = get_ref_class(cls)
     cls_cfg  = wc.get('classes', {}).get(ref_cls, {})
     main_rule = get_rule(cls_cfg.get('main_rule_id', ''))
     return render_template('home_learning.html',
@@ -107,7 +107,7 @@ def api_hl_generate():
 
     wc         = load_weekly_config()
     week_ref   = wc.get('week_ref', 'TxWy')
-    ref_cls    = 'Y4_IM' if cls == 'all' else cls
+    ref_cls    = get_ref_class(cls)
     cls_cfg    = wc.get('classes', {}).get(ref_cls, {})
     main_rule  = get_rule(cls_cfg.get('main_rule_id', ''))
     rule_title = main_rule[2] if main_rule else ''
