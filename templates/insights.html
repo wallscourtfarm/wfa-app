@@ -6,9 +6,10 @@
     <h3 class="ins-heading" style="margin:0">⚡ Actions for Impact
       <span class="ins-sub">AI-generated from your class data</span>
     </h3>
-    <button class="btn btn-primary" id="actions-btn" onclick="generateActions()">
-      ✨ Generate recommendations
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="actions-btn" onclick="generateActions()">✨ Generate recommendations</button>
+      <button class="btn btn-secondary hidden" id="actions-pdf-btn" onclick="downloadPDF()">⬇ Download PDF</button>
+    </div>
   </div>
 
   <div id="actions-spinner" class="hidden" style="font-size:13px;color:var(--muted);padding:8px 0">
@@ -149,9 +150,10 @@
     <h3 class="ins-heading" style="margin:0">⚡ Actions for Impact
       <span class="ins-sub">AI-generated from your class data</span>
     </h3>
-    <button class="btn btn-primary" id="actions-btn" onclick="generateActions()">
-      ✨ Generate recommendations
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="actions-btn" onclick="generateActions()">✨ Generate recommendations</button>
+      <button class="btn btn-secondary hidden" id="actions-pdf-btn" onclick="downloadPDF()">⬇ Download PDF</button>
+    </div>
   </div>
 
   <div id="actions-spinner" class="hidden" style="font-size:13px;color:var(--muted);padding:8px 0">
@@ -204,12 +206,45 @@ async function generateActions() {
       list.appendChild(li);
     });
     list.classList.remove('hidden');
+    document.getElementById('actions-pdf-btn').classList.remove('hidden');
+    window._lastActions = d.actions;
+    window._lastCls     = d.cls;
   } catch(e) {
     errEl.textContent = '⚠️ Request failed: ' + e.message;
     errEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
     spinner.classList.add('hidden');
+  }
+}
+
+async function downloadPDF() {
+  const btn = document.getElementById('actions-pdf-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Building PDF…';
+  try {
+    const resp = await fetch('/api/insights/actions-pdf', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        actions: window._lastActions || [],
+        cls:     window._lastCls    || CLS,
+      }),
+    });
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = resp.headers.get('Content-Disposition')
+                   ?.match(/filename="?([^"]+)"?/)?.[1]
+                 || 'Actions_for_Impact.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('PDF generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ Download PDF';
   }
 }
 </script>

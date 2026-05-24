@@ -229,3 +229,112 @@ INSTRUCTIONS:
         return jsonify({'ok': True, 'actions': actions, 'cls': cls_label})
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Parse error: {e}', 'raw': text})
+
+
+# ── API: Actions PDF ──────────────────────────────────────────────────────────
+
+from reportlab.pdfgen import canvas as _rl_canvas
+from reportlab.lib.pagesizes import A4 as _A4
+from reportlab.lib.units import mm as _mm
+from reportlab.lib.utils import simpleSplit as _simpleSplit
+import io as _io
+from datetime import date as _date
+
+@insights_bp.route('/api/insights/actions-pdf', methods=['POST'])
+def api_insights_actions_pdf():
+    from flask import request, send_file
+    if not session.get('authenticated'):
+        return {'error': 'Not authenticated'}, 401
+
+    body     = request.get_json(force=True)
+    actions  = body.get('actions', [])
+    cls_lbl  = body.get('cls', 'Y4')
+    today    = _date.today().strftime('%d %B %Y')
+
+    buf = _io.BytesIO()
+    W, H = _A4
+    M    = 18 * _mm
+
+    c = _rl_canvas.Canvas(buf, pagesize=_A4)
+
+    # ── Header bar ────────────────────────────────────────────────────────────
+    HDR = 16 * _mm
+    c.setFillColorRGB(0.30, 0.30, 0.30)
+    c.rect(0, H - HDR, W, HDR, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(M, H - HDR + (HDR - 12) / 2, 'Actions for Impact')
+    c.setFont('Helvetica', 8)
+    c.drawRightString(W - M, H - HDR + (HDR - 8) / 2,
+                      f'{cls_lbl}  ·  Generated {today}')
+
+    # ── Intro line ────────────────────────────────────────────────────────────
+    y = H - HDR - 10 * _mm
+    c.setFont('Helvetica-Oblique', 8.5)
+    c.setFillColorRGB(0.40, 0.40, 0.40)
+    c.drawString(M, y,
+        'Five prioritised actions based on current class assessment data — highest impact first.')
+    y -= 8 * _mm
+
+    UW      = W - 2 * M
+    PADDING = 4 * _mm
+
+    for i, action in enumerate(actions[:5]):
+        title    = action.get('title', '')
+        act_text = action.get('action', '')
+        rat_text = action.get('rationale', '')
+
+        # Measure height needed for this action
+        act_lines = _simpleSplit(act_text,  'Helvetica', 10, UW - 14 * _mm)
+        rat_lines = _simpleSplit(rat_text,  'Helvetica', 8.5, UW - 14 * _mm)
+        num_h     = 11 * _mm   # circle + title row
+        body_h    = (len(act_lines) * 5 * _mm) + (len(rat_lines) * 4.5 * _mm) + 3 * _mm
+        box_h     = num_h + body_h + 2 * PADDING
+
+        if y - box_h < M:
+            c.showPage()
+            y = H - M
+
+        # Card background
+        c.setFillColorRGB(0.97, 0.97, 0.97)
+        c.roundRect(M, y - box_h, UW, box_h, 3 * _mm, fill=1, stroke=0)
+
+        # Number circle
+        cx = M + PADDING + 4.5 * _mm
+        cy = y - PADDING - 4.5 * _mm
+        c.setFillColorRGB(0.20, 0.20, 0.20)
+        c.circle(cx, cy, 4.5 * _mm, fill=1, stroke=0)
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawCentredString(cx, cy - 3.5, str(i + 1))
+
+        # Title
+        c.setFillColorRGB(0.10, 0.10, 0.10)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(M + PADDING + 12 * _mm, cy - 3.5, title)
+
+        # Action text
+        text_x = M + PADDING + 3 * _mm
+        text_y = y - PADDING - num_h
+        c.setFillColorRGB(0.10, 0.10, 0.10)
+        c.setFont('Helvetica', 10)
+        for line in act_lines:
+            c.drawString(text_x, text_y, line)
+            text_y -= 5 * _mm
+
+        # Rationale
+        text_y -= 1 * _mm
+        c.setFillColorRGB(0.45, 0.45, 0.45)
+        c.setFont('Helvetica-Oblique', 8.5)
+        for line in rat_lines:
+            c.drawString(text_x, text_y, line)
+            text_y -= 4.5 * _mm
+
+        y -= box_h + 5 * _mm   # gap between cards
+
+    c.save()
+    buf.seek(0)
+
+    filename = f'Actions_for_Impact_{cls_lbl.replace(" ", "_")}_{today.replace(" ", "_")}.pdf'
+    return send_file(buf, mimetype='application/pdf',
+                     as_attachment=True, download_name=filename)
