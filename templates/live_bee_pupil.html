@@ -148,10 +148,19 @@ function setShift(on) {
   });
 }
 
+function isCorrect(typed, word) {
+  var t = typed.trim();
+  if (t.toLowerCase() !== word.toLowerCase()) return false;
+  if (word.charAt(0) !== word.charAt(0).toLowerCase()) {
+    return t.charAt(0) !== t.charAt(0).toLowerCase();
+  }
+  return true;
+}
+
 function submitWord() {
   if (!typed.trim()) return;
   const word    = items[q].word;
-  const correct = typed.trim().toLowerCase() === word.toLowerCase();
+  const correct = isCorrect(typed, word);
   answers.push({ word, typed: typed.trim(), correct });
   typed = ''; q++;
   if (q >= total) {

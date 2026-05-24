@@ -262,10 +262,19 @@ function upd() {
 }
 
 // ── Submit word ───────────────────────────────────────────────────────────────
+function isCorrect(typed, word) {
+  var t = typed.trim();
+  if (t.toLowerCase() !== word.toLowerCase()) return false;
+  if (word.charAt(0) !== word.charAt(0).toLowerCase()) {
+    return t.charAt(0) !== t.charAt(0).toLowerCase();
+  }
+  return true;
+}
+
 function submitWord() {
   if (!typed.trim()) return;
   const item    = items[q];
-  const correct = typed.trim().toLowerCase() === item.word.toLowerCase();
+  const correct = isCorrect(typed, item.word);
   answers.push({
     word:    item.word,
     typed:   typed.trim(),
