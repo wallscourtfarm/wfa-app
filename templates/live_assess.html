@@ -120,12 +120,12 @@ button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;tra
   <div id="kbd">
     <div class="krow">
       {% for ch in ['Q','W','E','R','T','Y','U','I','O','P'] %}
-      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch }}</button>
+      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch.lower() }}</button>
       {% endfor %}
     </div>
     <div class="krow" style="padding:0 3%">
       {% for ch in ['A','S','D','F','G','H','J','K','L'] %}
-      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch }}</button>
+      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch.lower() }}</button>
       {% endfor %}
     </div>
     <div class="krow">
@@ -133,7 +133,7 @@ button.key.submit:disabled{background:#94c8e8;cursor:default;box-shadow:none;tra
       <button type="button" class="key punct" onclick="press(&quot;&apos;&quot;)">&apos;</button>
       <button type="button" class="key punct" onclick="press('-')">-</button>
       {% for ch in ['Z','X','C','V','B','N','M'] %}
-      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch }}</button>
+      <button type="button" class="key" data-char="{{ ch.lower() }}" onclick="pressKey(this)">{{ ch.lower() }}</button>
       {% endfor %}
       <button type="button" class="key back" onclick="del()">&#9003;</button>
     </div>
@@ -246,6 +246,9 @@ function toggleShift() {
   shifted = !shifted;
   btn.style.background = shifted ? '#1798d3' : '';
   btn.style.color      = shifted ? 'white' : '';
+  document.querySelectorAll('.key[data-char]').forEach(function(k) {
+    k.textContent = shifted ? k.dataset.char.toUpperCase() : k.dataset.char;
+  });
 }
 function pressKey(btn) {
   press(shifted ? btn.dataset.char.toUpperCase() : btn.dataset.char);

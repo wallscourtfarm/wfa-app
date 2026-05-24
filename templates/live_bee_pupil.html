@@ -143,6 +143,9 @@ function setShift(on) {
   const btn = document.getElementById('shift-btn');
   btn.style.background = on ? '#1798d3' : '';
   btn.style.color      = on ? 'white' : '';
+  document.querySelectorAll('.key[data-char]').forEach(function(k) {
+    k.textContent = on ? k.dataset.char.toUpperCase() : k.dataset.char;
+  });
 }
 
 function submitWord() {

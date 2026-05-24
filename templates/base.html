@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav class="topnav">
-    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24r</span></a>
+    <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">🏫 WFA <span class="nav-version">v26.05.24s</span></a>
     <div class="nav-links">
 
       <a href="{{ url_for('dash.dashboard') }}"
@@ -47,15 +47,19 @@
         </div>
       </div>
 
-      <a href="{{ url_for('learners.learners') }}"
-         class="nav-item {% if request.endpoint=='learners.learners' %}active{% endif %}">
-        👤 Learners
-      </a>
-
-      <a href="{{ url_for('class_manager.class_manager') }}"
-         class="nav-item {% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
-        🏫 Classes
-      </a>
+      <div class="nav-dropdown {% if request.endpoint in ['learners.learners','class_manager.class_manager'] %}active{% endif %}">
+        <span class="nav-item nav-dropdown-toggle">👤 Pupils ▾</span>
+        <div class="dropdown-menu">
+          <a href="{{ url_for('learners.learners') }}"
+             class="{% if request.endpoint=='learners.learners' %}active{% endif %}">
+            📊 Overview
+          </a>
+          <a href="{{ url_for('class_manager.class_manager') }}"
+             class="{% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
+            ✏️ Manage
+          </a>
+        </div>
+      </div>
 
       <a href="{{ url_for('insights.insights') }}"
          class="nav-item {% if request.endpoint=='insights.insights' %}active{% endif %}">
@@ -75,11 +79,6 @@
       <a href="{{ url_for('print_tools.print_page') }}"
          class="nav-item {% if request.endpoint=='print_tools.print_page' %}active{% endif %}">
         🖨️ Print
-      </a>
-
-      <a href="{{ url_for('stubs.classes') }}"
-         class="nav-item {% if request.endpoint=='stubs.classes' %}active{% endif %}">
-        👥 Classes
       </a>
 
       <a href="{{ url_for('settings.settings') }}"
