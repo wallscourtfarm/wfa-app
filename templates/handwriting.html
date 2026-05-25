@@ -4,27 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Handwriting Sheets — WFA</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wallscourtfarm/wfa-shared@main/web/wfa.css">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-  :root { --max-w: 700px; }
-  
-  .st-header { background: linear-gradient(135deg, #1798d3 0%, #0d7ab8 100%); color: white; padding: 0 24px; display: flex; align-items: center; gap: 14px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-  .st-logo { height: 34px; background: white; border-radius: 6px; padding: 2px 6px; }
-  .st-title { font-weight: 900; font-size: 1.05rem; flex: 1; }
-  .st-back { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.85rem; font-weight: 700; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.35); transition: all 0.15s; }
+
+  body { margin: 0; font-family: 'Nunito', sans-serif; background: #f4f6f8; min-height: 100vh; }
+  .st-header { background: linear-gradient(135deg, #1798d3 0%, #0d7ab8 100%); color: white;
+    padding: 0 24px; display: flex; align-items: center; gap: 14px; height: 58px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .st-logo { height: 40px; background: white; border-radius: 8px; padding: 3px 8px; display: block; }
+  .st-title { font-weight: 900; font-size: 1.1rem; flex: 1; }
+  .st-back { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem;
+    font-weight: 700; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.4); transition: all 0.15s; white-space: nowrap; }
   .st-back:hover { background: rgba(255,255,255,0.15); color: white; }
-  .st-wrap { max-width: var(--max-w); margin: 0 auto; padding: 28px 24px; }
-  .hw-card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 1px 8px rgba(0,0,0,0.07); }
-  .hw-field { margin-bottom: 18px; }
-  .hw-field label { display: block; font-size: 0.88rem; font-weight: 800; margin-bottom: 6px; color: #111; }
-  .hw-input, .hw-textarea, .hw-select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 0.9rem; font-family: inherit; box-sizing: border-box; }
-  .hw-input:focus, .hw-textarea:focus, .hw-select:focus { outline: none; border-color: #1798d3; }
-  .hw-textarea { height: 180px; resize: vertical; }
-  .hw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .hw-btn { padding: 10px 22px; background: #1798d3; color: white; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 800; cursor: pointer; transition: opacity 0.15s; }
-  .hw-btn:hover { opacity: 0.85; }
-  .hw-note { font-size: 0.84rem; color: #888; margin-top: 10px; line-height: 1.5; }
-  .hw-error { background: #fde8e8; color: #9b1c1c; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; font-weight: 600; }
+  .st-wrap { max-width: 860px; margin: 0 auto; padding: 28px 24px; }
+  .sub { color: #666; font-size: 0.9rem; margin: 0 0 24px; }
+
+  .st-wrap { max-width: 700px; margin: 0 auto; padding: 28px 24px; }
+  .card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 1px 8px rgba(0,0,0,0.07); }
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 0.88rem; font-weight: 800; margin-bottom: 6px; }
+  .inp, .ta, .sel { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #ddd;
+    font-size: 0.9rem; font-family: inherit; box-sizing: border-box; }
+  .inp:focus, .ta:focus, .sel:focus { outline: none; border-color: #1798d3; }
+  .ta { height: 180px; resize: vertical; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .btn { padding: 10px 22px; background: #1798d3; color: white; border: none; border-radius: 8px;
+    font-size: 0.9rem; font-weight: 800; cursor: pointer; transition: opacity 0.15s; font-family: inherit; }
+  .btn:hover { opacity: 0.85; }
+  .note { font-size: 0.84rem; color: #888; margin-top: 10px; line-height: 1.5; }
+  .err { background: #fde8e8; color: #9b1c1c; padding: 10px 14px; border-radius: 8px;
+    margin-bottom: 16px; font-size: 0.88rem; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -34,30 +44,31 @@
   <a class="st-back" href="https://staff.wallscourt-farm-academy.co.uk">← Staff Tools</a>
 </div>
 <div class="st-wrap">
-  <p style="color:#666;font-size:0.9rem;margin:0 0 20px">Type words or sentences, choose a font style, and download a print-ready PDF.</p>
-  {% if error %}<div class="hw-error">{{ error }}</div>{% endif %}
+  <p class="sub">Type words or sentences, choose a font style, and download a print-ready PDF.</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
   <form method="post" action="{{ url_for('handwriting.handwriting_generate') }}">
-    <div class="hw-card">
-      <div class="hw-field">
+    <div class="card">
+      <div class="field">
         <label for="title">Sheet title</label>
-        <input class="hw-input" type="text" id="title" name="title" value="Handwriting Practice" maxlength="80">
+        <input class="inp" type="text" id="title" name="title" value="Handwriting Practice" maxlength="80">
       </div>
-      <div class="hw-field">
+      <div class="field">
         <label for="content">Words or sentences — one per line</label>
-        <textarea class="hw-textarea" id="content" name="content" placeholder="The cat sat on the mat.&#10;She ran quickly down the hill.&#10;big brave brilliant"></textarea>
+        <textarea class="ta" id="content" name="content"
+          placeholder="The cat sat on the mat.&#10;She ran quickly down the hill.&#10;big brave brilliant"></textarea>
       </div>
-      <div class="hw-row">
-        <div class="hw-field">
+      <div class="row2">
+        <div class="field">
           <label for="font">Font style</label>
-          <select class="hw-select" id="font" name="font">
+          <select class="sel" id="font" name="font">
             <option value="sassoon">Print — Sassoon Dotted</option>
             <option value="linkpen">Pre-cursive — Linkpen Dotted</option>
             <option value="xccw">Cursive — XCCW Dotted</option>
           </select>
         </div>
-        <div class="hw-field">
+        <div class="field">
           <label for="practice_lines">Practice lines after each item</label>
-          <select class="hw-select" id="practice_lines" name="practice_lines">
+          <select class="sel" id="practice_lines" name="practice_lines">
             <option value="0">0 lines</option>
             <option value="1">1 line</option>
             <option value="2">2 lines</option>
@@ -65,8 +76,8 @@
           </select>
         </div>
       </div>
-      <button class="hw-btn" type="submit">⬇ Generate &amp; Download PDF</button>
-      <p class="hw-note">The PDF downloads instantly. Fonts are embedded — ready to print.</p>
+      <button class="btn" type="submit">⬇ Generate &amp; Download PDF</button>
+      <p class="note">The PDF downloads instantly. Fonts are embedded — print-ready.</p>
     </div>
   </form>
 </div>
