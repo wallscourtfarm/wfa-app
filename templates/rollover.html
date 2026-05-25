@@ -1,3 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Year-End Rollover{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>🔄 Year-End Rollover</h2>
+</div>
+
+<div id="status-bar" class="status-bar hidden"></div>
+
+<p style="color:#64748b;font-size:14px;margin-bottom:20px">
+  Roll each year group up by one year. Y6 pupils are archived and removed.
+  Y1–Y5 pupils land in the first class of the next year group as <strong>Pending</strong>
+  — use Class Manager afterwards to assign them to their new class.
+</p>
+
+<div id="loading" style="color:#94a3b8;padding:20px;text-align:center">Loading…</div>
+
+<div id="year-grid" style="display:none;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px"></div>
+
+<!-- Confirm modal -->
+<div id="confirm-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:440px">
+    <div class="cm-modal-hdr">
+      <h3 id="confirm-title">Confirm rollover</h3>
+      <button onclick="closeConfirm()" class="cm-close">&times;</button>
+    </div>
+    <p id="confirm-body" style="font-size:14px;color:#374151;margin:0 0 16px"></p>
+    <p style="font-size:13px;color:#64748b;margin:0 0 6px">
+      Type <strong><span id="confirm-phrase-label"></span></strong> to confirm:
+    </p>
+    <input id="confirm-phrase-input" type="text" class="cm-input"
+           oninput="checkConfirmPhrase()"
+           style="font-size:15px;font-weight:700;letter-spacing:.05em;margin-bottom:16px">
+    <div style="display:flex;gap:10px;align-items:center">
+      <button id="confirm-btn" class="btn btn-primary" onclick="executeRollover()">Confirm</button>
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-confirm"></span>
+    </div>
+  </div>
+</div>
+
+<style>
+.year-card {
+  background:white;border:1.5px solid #e2e8f0;border-radius:12px;
+  overflow:hidden;display:flex;flex-direction:column;
+}
+.year-card-hdr {
+  background:#f8fafc;padding:12px 16px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid #e2e8f0;
+}
+.year-label   { font-weight:700;font-size:15px;color:#1e293b; }
+.year-total   { font-size:12px;color:#64748b; }
+.year-card-body { padding:10px 16px;flex:1; }
+.cls-row {
+  display:flex;align-items:center;gap:8px;
+  padding:4px 0;font-size:13px;
+}
+.cls-name     { font-weight:600;color:#334155;min-width:80px; }
+.cls-count    { color:#64748b;margin-left:auto; }
+.pending-pill {
+  background:#fef3c7;color:#92400e;border:1px solid #fbbf24;
+  border-radius:999px;font-size:11px;padding:1px 8px;font-weight:600;
+}
+.year-card-footer {
+  padding:10px 16px;border-top:1px solid #f1f5f9;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:#fafafa;
+}
+.destination-label { font-size:13px;color:#64748b; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
 let _counts     = {};
 let _yearOrder  = [];
 let _rollTarget    = null;
@@ -50,7 +126,13 @@ function render() {
     const card = document.createElement('div');
     card.className = 'year-card';
     card.id = `card-y${yr}`;
-    card.innerHTML = `<div class="year-card-hdr"><span class="year-label">Year ${yr}</span><span class="year-total">${info.total} pupil${info.total !== 1 ? 's' : ''} total</span></div><div class="year-card-body">${clsRows}</div><div class="year-card-footer">${footerContent}</div>`;
+    card.innerHTML = `
+      <div class="year-card-hdr">
+        <span class="year-label">Year ${yr}</span>
+        <span class="year-total">${info.total} pupil${info.total !== 1 ? 's' : ''} total</span>
+      </div>
+      <div class="year-card-body">${clsRows}</div>
+      <div class="year-card-footer">${footerContent}</div>`;
     grid.appendChild(card);
   });
 }
@@ -67,7 +149,8 @@ function openConfirm(yr) {
   document.getElementById('confirm-body').textContent =
     isY6
       ? (info.total + ' Y6 pupils will be archived and removed from active classes.')
-      : (info.total + ' Y' + yr + ' pupils will be moved to Year ' + nextYr + ' and marked as Pending. Use Class Manager afterwards to assign each pupil to their new class.');
+      : (info.total + ' Y' + yr + ' pupils will be moved to Year ' + nextYr +
+         ' and marked as Pending. Use Class Manager afterwards to assign each pupil to their new class.');
   document.getElementById('confirm-phrase-label').textContent = _confirmPhrase;
   document.getElementById('confirm-phrase-input').value       = '';
   document.getElementById('confirm-phrase-input').placeholder = _confirmPhrase;
@@ -127,3 +210,4 @@ async function executeRollover() {
 
 loadCounts();
 </script>
+{% endblock %}
