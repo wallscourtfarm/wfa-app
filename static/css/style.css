@@ -33,7 +33,7 @@ body {
   background: var(--brand);
   color: #fff;
   padding: 0 16px;
-  height: 58px;
+  height: 72px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -80,7 +80,7 @@ body {
   color: rgba(255,255,255,.85);
   text-decoration: none;
   padding: 0 14px;
-  height: 58px;
+  height: 72px;
   display: flex;
   align-items: center;
   font-size: 13px;
@@ -520,12 +520,12 @@ body {
 .settings-save-row{ padding:4px 0; }
 
 .nav-logo {
-  height: 36px;
+  height: 48px;
   width: auto;
   display: block;
   background: white;
-  border-radius: 6px;
-  padding: 3px 6px;
+  border-radius: 8px;
+  padding: 4px 8px;
   box-sizing: content-box;
 }
 
