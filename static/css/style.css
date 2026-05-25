@@ -523,7 +523,10 @@ body {
   height: 32px;
   width: auto;
   display: block;
-  filter: brightness(0) invert(1);
+  background: white;
+  border-radius: 6px;
+  padding: 2px 6px;
+  box-sizing: content-box;
 }
 
 .nav-version { font-size:10px; font-weight:400; opacity:.6; margin-left:4px; }
