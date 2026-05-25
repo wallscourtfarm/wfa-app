@@ -117,10 +117,19 @@ def load_weekly_config():
     return data or {}
 
 def get_rule(rule_id_str):
+    """Return a rule tuple [stage, step, title, words, ...] by ID string like '4-2' or '0-3'."""
     if not rule_id_str: return None
     try:
-        from spelling_rules import SPELLING_RULES
         stage, step = int(rule_id_str.split('-')[0]), int(rule_id_str.split('-')[1])
+        if stage == 0:
+            # Custom rule — look up in custom_rules.json
+            data, _ = _get_file('data/custom_rules.json')
+            if data:
+                rules_list = data if isinstance(data, list) else data.get('rules', [])
+                for cr in rules_list:
+                    if cr.get('id') == step or cr.get('id') == rule_id_str:
+                        return [0, cr.get('id', step), cr.get('title', ''), cr.get('words', [])]
+        from spelling_rules import SPELLING_RULES
         for r in SPELLING_RULES:
             if r[0]==stage and r[1]==step: return r
     except Exception: pass
