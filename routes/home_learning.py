@@ -94,9 +94,9 @@ def api_hl_ping():
 def api_hl_generate():
     if not session.get('authenticated'):
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-
-    body             = request.get_json(force=True)
-    cls              = body.get('cls', 'all')
+    try:
+        body = request.get_json(force=True) or {}
+        cls  = body.get('cls', 'all')
     maths_topic      = body.get('maths_topic', '').strip()
     maths_notes      = body.get('maths_notes', '').strip()
     reading_topic    = body.get('reading_topic', '').strip()
@@ -177,3 +177,5 @@ def api_hl_generate():
         'adp_pdf': base64.b64encode(adp_bytes).decode() if adp_bytes else None,
         'n_std': len(std_pupils), 'n_adp': len(adp_pupils),
     })
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Server error: {e}'})
