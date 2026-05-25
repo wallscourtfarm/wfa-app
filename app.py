@@ -29,6 +29,17 @@ for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rul
 from flask import session, request as _req, redirect as _redirect
 from data_manager import YEAR_GROUP_CLASSES as _YGC
 
+
+# ── Public landing page ────────────────────────────────────────────────────────
+from flask import session as _session, redirect as _redir, url_for as _url_for
+from flask import render_template as _render
+
+@app.route('/')
+def landing():
+    if _session.get('authenticated'):
+        return _redir(_url_for('dash.dashboard'))
+    return _render('landing.html')
+
 @app.route('/set-year/<yr>')
 def set_year(yr):
     """Persist the active year group in session and redirect back."""
