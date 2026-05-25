@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Handwriting Sheets — WFA{% endblock %}
+{% block content %}
+<style>
+  .hw { max-width: 700px; margin: 0 auto; padding: 24px; }
+  .hw h1 { font-size: 1.4rem; font-weight: 900; margin-bottom: 4px; }
+  .hw .sub { color: #666; font-size: 0.9rem; margin-bottom: 28px; }
+  .hw-card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 1px 8px rgba(0,0,0,0.07); }
+  .hw-field { margin-bottom: 18px; }
+  .hw-field label { display: block; font-size: 0.88rem; font-weight: 800; margin-bottom: 6px; }
+  .hw-input, .hw-textarea, .hw-select {
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 0.9rem; font-family: inherit;
+    box-sizing: border-box;
+  }
+  .hw-input:focus, .hw-textarea:focus, .hw-select:focus {
+    outline: none; border-color: var(--brand);
+  }
+  .hw-textarea { height: 180px; resize: vertical; }
+  .hw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .hw-btn {
+    padding: 10px 22px; background: var(--brand); color: white;
+    border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 800;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .hw-btn:hover { opacity: 0.85; }
+  .hw-note { font-size: 0.84rem; color: #777; margin-top: 10px; line-height: 1.5; }
+  .hw-error { background: #fde8e8; color: #9b1c1c; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; font-weight: 600; }
+</style>
+<div class="hw">
+  <div class="hw h1">✏️ Handwriting Sheet Generator</div>
+  <p class="sub">Type words or sentences, choose a font style, and download a print-ready PDF.</p>
+  {% if error %}<div class="hw-error">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ url_for('handwriting.handwriting_generate') }}">
+    <div class="hw-card">
+      <div class="hw-field">
+        <label for="title">Sheet title</label>
+        <input class="hw-input" type="text" id="title" name="title"
+               value="Handwriting Practice" maxlength="80">
+      </div>
+      <div class="hw-field">
+        <label for="content">Words or sentences — one per line</label>
+        <textarea class="hw-textarea" id="content" name="content"
+                  placeholder="The cat sat on the mat.&#10;She ran quickly down the hill.&#10;big brave brilliant"></textarea>
+      </div>
+      <div class="hw-row">
+        <div class="hw-field">
+          <label for="font">Font style</label>
+          <select class="hw-select" id="font" name="font">
+            <option value="sassoon">Print — Sassoon Dotted</option>
+            <option value="linkpen">Pre-cursive — Linkpen Dotted</option>
+            <option value="xccw">Cursive — XCCW Dotted</option>
+          </select>
+        </div>
+        <div class="hw-field">
+          <label for="practice_lines">Practice lines after each item</label>
+          <select class="hw-select" id="practice_lines" name="practice_lines">
+            <option value="0">0 lines</option>
+            <option value="1">1 line</option>
+            <option value="2">2 lines</option>
+            <option value="3">3 lines</option>
+          </select>
+        </div>
+      </div>
+      <button class="hw-btn" type="submit">⬇ Generate &amp; Download PDF</button>
+      <p class="hw-note">The PDF downloads instantly. Fonts are embedded — ready to print.</p>
+    </div>
+  </form>
+</div>
+{% endblock %}
