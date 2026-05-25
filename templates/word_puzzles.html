@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Word Puzzle Generator — WFA{% endblock %}
+{% block content %}
+<style>
+  .wp { max-width: 780px; margin: 0 auto; padding: 24px; }
+  .wp h1 { font-size: 1.4rem; font-weight: 900; margin-bottom: 4px; }
+  .wp .sub { color: #666; font-size: 0.9rem; margin-bottom: 24px; }
+
+  /* Tabs */
+  .wp-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .wp-tab {
+    padding: 8px 16px; border-radius: 8px; border: 2px solid #ddd;
+    font-size: 0.88rem; font-weight: 800; cursor: pointer;
+    background: white; color: #555; transition: all 0.15s;
+  }
+  .wp-tab.active { background: var(--brand); color: white; border-color: var(--brand); }
+  .wp-tab:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
+
+  /* Panels */
+  .wp-panel { display: none; }
+  .wp-panel.active { display: block; }
+
+  /* Cards */
+  .wp-card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 1px 8px rgba(0,0,0,0.07); }
+  .wp-field { margin-bottom: 16px; }
+  .wp-field label { display: block; font-size: 0.88rem; font-weight: 800; margin-bottom: 6px; }
+  .wp-input, .wp-textarea, .wp-select {
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 0.9rem; font-family: inherit;
+    box-sizing: border-box;
+  }
+  .wp-input:focus, .wp-textarea:focus, .wp-select:focus {
+    outline: none; border-color: var(--brand);
+  }
+  .wp-textarea { height: 110px; resize: vertical; }
+  .wp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .wp-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .wp-hint { font-size: 0.82rem; color: #888; margin-top: 5px; }
+
+  .wp-btn {
+    padding: 10px 20px; background: var(--brand); color: white;
+    border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 800;
+    cursor: pointer; transition: opacity 0.15s; display: inline-flex;
+    align-items: center; gap: 6px;
+  }
+  .wp-btn:hover { opacity: 0.85; }
+  .wp-btn:disabled { opacity: 0.45; cursor: default; }
+  .wp-spinner {
+    width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white; border-radius: 50%; display: none;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .wp-note { font-size: 0.82rem; color: #888; margin-top: 10px; }
+  .wp-divider { border: none; border-top: 1.5px dashed #eee; margin: 18px 0; }
+</style>
+
+<div class="wp">
+  <div class="wp h1">🧩 Word Puzzle Generator</div>
+  <p class="sub">Generate print-ready puzzle PDFs for any topic or word list.</p>
+
+  <div class="wp-tabs">
+    <button class="wp-tab active" onclick="showTab(this,'ws')">🔍 Word Search</button>
+    <button class="wp-tab" onclick="showTab(this,'nl')">9️⃣ Nine Letters</button>
+    <button class="wp-tab" onclick="showTab(this,'wl')">🪜 Word Ladder</button>
+    <button class="wp-tab" onclick="showTab(this,'sc')">🔀 Word Scramble</button>
+    <button class="wp-tab" onclick="showTab(this,'cz')">📝 Cloze Passage</button>
+  </div>
+
+  <!-- Word Search -->
+  <div class="wp-panel active" id="tab-ws">
+    <form class="wp-card" method="post" action="{{ url_for('wordpuzzles.word_search') }}" target="_blank">
+      <div class="wp-row3">
+        <div class="wp-field" style="grid-column:1/3">
+          <label>Topic <span style="font-weight:400;color:#888">(Claude generates word list)</span></label>
+          <input class="wp-input" type="text" name="topic" placeholder="e.g. Ancient Egypt, Sound, Fractions">
+        </div>
+        <div class="wp-field">
+          <label>Year group</label>
+          <select class="wp-select" name="year_group">
+            {% for yg in year_groups %}<option value="{{ yg }}" {{ 'selected' if yg=='Y4' }}>{{ yg }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <hr class="wp-divider">
+      <div class="wp-field">
+        <label>Or paste your own words <span style="font-weight:400;color:#888">(one per line or comma-separated)</span></label>
+        <textarea class="wp-textarea" name="word_list" placeholder="VOLCANO&#10;EARTHQUAKE&#10;TECTONIC&#10;MAGMA"></textarea>
+      </div>
+      <div class="wp-field">
+        <label>Difficulty (grid size)</label>
+        <select class="wp-select" name="difficulty" style="max-width:200px">
+          {% for d in difficulties %}<option {{ 'selected' if d=='Medium' }}>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="wp-btn" type="submit">⬇ Generate Word Search PDF</button>
+      <p class="wp-note">PDF opens in a new tab. Topic-based generation uses Claude (~10 sec).</p>
+    </form>
+  </div>
+
+  <!-- Nine Letters -->
+  <div class="wp-panel" id="tab-nl">
+    <form class="wp-card" method="post" action="{{ url_for('wordpuzzles.nine_letters') }}" target="_blank">
+      <div class="wp-row">
+        <div class="wp-field">
+          <label>Topic</label>
+          <input class="wp-input" type="text" name="topic" placeholder="e.g. Rainforest, Vikings">
+        </div>
+        <div class="wp-field">
+          <label>Year group</label>
+          <select class="wp-select" name="year_group">
+            {% for yg in year_groups %}<option value="{{ yg }}" {{ 'selected' if yg=='Y4' }}>{{ yg }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <p class="wp-hint">Claude picks a 9-letter topic word. Every answer must include the centre letter.</p>
+      <button class="wp-btn" type="submit">⬇ Generate Nine Letters PDF</button>
+    </form>
+  </div>
+
+  <!-- Word Ladder -->
+  <div class="wp-panel" id="tab-wl">
+    <form class="wp-card" method="post" action="{{ url_for('wordpuzzles.word_ladder') }}" target="_blank">
+      <div class="wp-row3">
+        <div class="wp-field" style="grid-column:1/3">
+          <label>Topic</label>
+          <input class="wp-input" type="text" name="topic" placeholder="e.g. Animals, Weather, Space">
+        </div>
+        <div class="wp-field">
+          <label>Year group</label>
+          <select class="wp-select" name="year_group">
+            {% for yg in year_groups %}<option value="{{ yg }}" {{ 'selected' if yg=='Y4' }}>{{ yg }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="wp-field">
+        <label>Difficulty</label>
+        <select class="wp-select" name="difficulty" style="max-width:200px">
+          {% for d in difficulties %}<option {{ 'selected' if d=='Medium' }}>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="wp-btn" type="submit">⬇ Generate Word Ladder PDF</button>
+    </form>
+  </div>
+
+  <!-- Word Scramble -->
+  <div class="wp-panel" id="tab-sc">
+    <form class="wp-card" method="post" action="{{ url_for('wordpuzzles.word_scramble') }}" target="_blank">
+      <div class="wp-row3">
+        <div class="wp-field" style="grid-column:1/3">
+          <label>Topic <span style="font-weight:400;color:#888">(Claude generates word list)</span></label>
+          <input class="wp-input" type="text" name="topic" placeholder="e.g. Habitats, Fractions">
+        </div>
+        <div class="wp-field">
+          <label>Year group</label>
+          <select class="wp-select" name="year_group">
+            {% for yg in year_groups %}<option value="{{ yg }}" {{ 'selected' if yg=='Y4' }}>{{ yg }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <hr class="wp-divider">
+      <div class="wp-field">
+        <label>Or paste your own words</label>
+        <textarea class="wp-textarea" name="word_list" placeholder="PYRAMID&#10;PHARAOH&#10;HIEROGLYPH"></textarea>
+      </div>
+      <div class="wp-field">
+        <label>Difficulty</label>
+        <select class="wp-select" name="difficulty" style="max-width:200px">
+          {% for d in difficulties %}<option {{ 'selected' if d=='Medium' }}>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="wp-btn" type="submit">⬇ Generate Word Scramble PDF</button>
+    </form>
+  </div>
+
+  <!-- Cloze Passage -->
+  <div class="wp-panel" id="tab-cz">
+    <form class="wp-card" method="post" action="{{ url_for('wordpuzzles.cloze_passage') }}" target="_blank">
+      <div class="wp-row3">
+        <div class="wp-field" style="grid-column:1/3">
+          <label>Topic</label>
+          <input class="wp-input" type="text" name="topic" placeholder="e.g. The Water Cycle, Romans, Electricity">
+        </div>
+        <div class="wp-field">
+          <label>Year group</label>
+          <select class="wp-select" name="year_group">
+            {% for yg in year_groups %}<option value="{{ yg }}" {{ 'selected' if yg=='Y4' }}>{{ yg }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="wp-field">
+        <label>Difficulty</label>
+        <select class="wp-select" name="difficulty" style="max-width:200px">
+          {% for d in difficulties %}<option {{ 'selected' if d=='Medium' }}>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="wp-btn" type="submit">⬇ Generate Cloze Passage PDF</button>
+      <p class="wp-note">Claude writes a curriculum-appropriate passage and removes key words. ~15 sec.</p>
+    </form>
+  </div>
+</div>
+
+<script>
+function showTab(btn, id) {
+  document.querySelectorAll(".wp-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".wp-panel").forEach(p => p.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("tab-" + id).classList.add("active");
+}
+</script>
+{% endblock %}
