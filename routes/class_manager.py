@@ -165,7 +165,7 @@ def api_pupil_update():
         changes   = body.get('changes', {})
 
         ALLOWED = {'first', 'last', 'group', 'tt_set', 'tt_mode',
-                   'table', 'adapted_hl'}
+                   'table', 'adapted_hl', 'ss_user', 'ss_pass'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
         obj, sha = _load_class_file(cls)
@@ -229,6 +229,8 @@ def api_pupil_add():
             'word_pos':        start_pos,
             'mastered':        [],
             'rule_confidence': {},
+            'ss_user':           '',
+            'ss_pass':           '',
             'homophone_mastered': [],
             'homophone_history':  {},
         }
