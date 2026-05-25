@@ -107,7 +107,7 @@ def api_hl_generate():
     if not maths_topic or not reading_topic:
         return jsonify({'ok': False, 'error': 'Maths topic and reading text are required'})
 
-    wc         = load_weekly_config()
+    wc         = load_weekly_config() or {}
     week_ref   = wc.get('week_ref', 'TxWy')
     ref_cls    = get_ref_class(cls)
     cls_cfg    = wc.get('classes', {}).get(ref_cls, {})
