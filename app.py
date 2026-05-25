@@ -38,7 +38,7 @@ from flask import session as _session, redirect as _redir, url_for as _url_for
 from flask import render_template as _render
 
 @app.route('/')
-def landing():
+def index():
     if _session.get('authenticated'):
         return _redir(_url_for('dash.dashboard'))
     return _render('landing.html')
