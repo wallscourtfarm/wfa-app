@@ -1,6 +1,14 @@
 import os
 from flask import Flask
 
+
+# Pre-import heavy modules at startup so first HL generation isn't slower
+try:
+    import hl_generator as _hl_warmup  # noqa — registers Anthropic client
+    import pdf_builder  as _pb_warmup  # noqa — loads fonts
+except Exception:
+    pass  # Non-fatal — modules load lazily on first request if this fails
+
 app = Flask(__name__)
 
 @app.errorhandler(Exception)
@@ -42,6 +50,12 @@ from data_manager import YEAR_GROUP_CLASSES as _YGC
 # ── Public landing page ────────────────────────────────────────────────────────
 from flask import session as _session, redirect as _redir, url_for as _url_for
 from flask import render_template as _render
+
+@app.route('/ping')
+def ping():
+    from flask import jsonify
+    return jsonify({'ok': True, 'status': 'alive'})
+
 
 @app.route('/')
 def index():
