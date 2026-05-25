@@ -4,217 +4,226 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Menu Publisher — WFA</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wallscourtfarm/wfa-shared@main/web/wfa.css">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-  :root { --max-w: 860px; }
-  .st-header { background: linear-gradient(135deg, #1798d3 0%, #0d7ab8 100%); color: white; padding: 0 24px; display: flex; align-items: center; gap: 14px; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-  .st-logo { height: 34px; background: white; border-radius: 6px; padding: 2px 6px; }
-  .st-title { font-weight: 900; font-size: 1.05rem; flex: 1; }
-  .st-back { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.85rem; font-weight: 700; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.35); transition: all 0.15s; }
+
+  body { margin: 0; font-family: 'Nunito', sans-serif; background: #f4f6f8; min-height: 100vh; }
+  .st-header { background: linear-gradient(135deg, #1798d3 0%, #0d7ab8 100%); color: white;
+    padding: 0 24px; display: flex; align-items: center; gap: 14px; height: 58px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .st-logo { height: 40px; background: white; border-radius: 8px; padding: 3px 8px; display: block; }
+  .st-title { font-weight: 900; font-size: 1.1rem; flex: 1; }
+  .st-back { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem;
+    font-weight: 700; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.4); transition: all 0.15s; white-space: nowrap; }
   .st-back:hover { background: rgba(255,255,255,0.15); color: white; }
   .st-wrap { max-width: 860px; margin: 0 auto; padding: 28px 24px; }
-  
-  .mp-section {{ background: white; border-radius: 14px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 8px rgba(0,0,0,0.07); }}
-  .mp-section h2 {{ font-size: 1rem; font-weight: 800; margin: 0 0 16px; padding-bottom: 10px; border-bottom: 2px solid #eee; }}
-  .mp-meta {{ font-size: 0.88rem; color: #555; line-height: 1.9; }}
-  .mp-meta strong {{ color: #111; }}
-  .mp-upload-area {{ border: 2px dashed #ccc; border-radius: 10px; padding: 28px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; color: #888; font-size: 0.9rem; display: block; }}
-  .mp-upload-area:hover, .mp-upload-area.drag-over {{ border-color: #1798d3; background: #f0f8ff; }}
-  .mp-upload-area .filename {{ margin-top: 8px; color: #333; font-weight: 700; }}
-  .mp-btn {{ display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; border: none; font-size: 0.88rem; font-weight: 800; cursor: pointer; transition: opacity 0.15s; }}
-  .mp-btn:hover:not(:disabled) {{ opacity: 0.85; }}
-  .mp-btn:disabled {{ opacity: 0.45; cursor: default; }}
-  .mp-btn-primary {{ background: #1798d3; color: white; }}
-  .mp-btn-success {{ background: #2bae62; color: white; }}
-  .mp-spinner {{ display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }}
-  @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-  .mp-msg {{ padding: 10px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; margin-top: 14px; display: none; }}
-  .mp-msg.ok    {{ background: #d4f0e2; color: #1a6e3d; }}
-  .mp-msg.error {{ background: #fde8e8; color: #9b1c1c; }}
-  .mp-term-input {{ width: 100%; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 0.9rem; font-family: inherit; margin-bottom: 16px; box-sizing: border-box; }}
-  .mp-term-input:focus {{ outline: none; border-color: #1798d3; }}
-  .mp-table-wrap {{ overflow-x: auto; }}
-  .mp-table {{ width: 100%; border-collapse: collapse; font-size: 0.84rem; }}
-  .mp-table th {{ background: #f5f5f5; padding: 8px 10px; text-align: left; font-weight: 800; border-bottom: 2px solid #ddd; white-space: nowrap; }}
-  .mp-table td {{ padding: 6px 10px; border-bottom: 1px solid #eee; vertical-align: top; }}
-  .mp-table td[contenteditable=true] {{ cursor: text; border-radius: 4px; }}
-  .mp-table td[contenteditable=true]:focus {{ outline: 2px solid #1798d3; background: #f0f8ff; }}
-  .mp-table .red-opt {{ color: #c0392b; }}
-  .mp-table .grn-opt {{ color: #1a6e3d; }}
-  .mp-table .monday-cell {{ font-weight: 700; color: #555; }}
-  .mp-commit-wrap {{ display: flex; gap: 10px; margin-top: 16px; align-items: center; }}
-  .mp-commit-input {{ flex: 1; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #ddd; font-size: 0.88rem; font-family: inherit; }}
-  .mp-commit-input:focus {{ outline: none; border-color: #1798d3; }}
-  .mp-links {{ margin-top: 12px; font-size: 0.84rem; }}
-  .mp-links a {{ margin-right: 12px; color: #1798d3; font-weight: 700; }}
+  .sub { color: #666; font-size: 0.9rem; margin: 0 0 24px; }
 
+  .section { background: white; border-radius: 14px; padding: 24px; margin-bottom: 20px;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.07); }
+  .section h2 { font-size: 1rem; font-weight: 800; margin: 0 0 16px;
+    padding-bottom: 10px; border-bottom: 2px solid #eee; }
+  .meta { font-size: 0.88rem; color: #555; line-height: 1.9; }
+  .meta strong { color: #111; }
+  .upload-area { border: 2px dashed #ccc; border-radius: 10px; padding: 32px;
+    text-align: center; cursor: pointer; display: block; color: #888; font-size: 0.9rem;
+    transition: border-color 0.2s, background 0.2s; }
+  .upload-area:hover, .upload-area.drag-over { border-color: #1798d3; background: #f0f8ff; }
+  .filename { margin-top: 8px; color: #333; font-weight: 700; }
+  .mp-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px;
+    border-radius: 8px; border: none; font-size: 0.9rem; font-weight: 800;
+    cursor: pointer; transition: opacity 0.15s; font-family: inherit; }
+  .mp-btn:disabled { opacity: 0.4; cursor: default; }
+  .mp-btn:not(:disabled):hover { opacity: 0.85; }
+  .btn-blue { background: #1798d3; color: white; }
+  .btn-green { background: #2bae62; color: white; }
+  .spinner { display: none; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+    margin-top: 14px; display: none; }
+  .msg.ok { background: #d4f0e2; color: #1a6e3d; }
+  .msg.error { background: #fde8e8; color: #9b1c1c; }
+  .term-input, .commit-input { padding: 8px 12px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 0.9rem; font-family: inherit; }
+  .term-input { width: 100%; box-sizing: border-box; margin-bottom: 16px; }
+  .term-input:focus, .commit-input:focus { outline: none; border-color: #1798d3; }
+  .commit-wrap { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+  .commit-input { flex: 1; }
+  .mp-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; overflow-x: auto; display: block; }
+  .mp-table th { background: #f5f5f5; padding: 8px 10px; text-align: left; font-weight: 800;
+    border-bottom: 2px solid #ddd; white-space: nowrap; }
+  .mp-table td { padding: 6px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .mp-table td[contenteditable] { cursor: text; border-radius: 4px; }
+  .mp-table td[contenteditable]:focus { outline: 2px solid #1798d3; background: #f0f8ff; }
+  .red { color: #c0392b; } .grn { color: #1a6e3d; } .muted { color: #888; } .bold { font-weight: 700; color: #555; }
+  .display-links { margin-top: 12px; font-size: 0.84rem; display: none; }
+  .display-links a { margin-right: 12px; color: #1798d3; font-weight: 700; text-decoration: none; }
 </style>
 </head>
 <body>
+
 <div class="st-header">
   <img class="st-logo" src="https://cdn.jsdelivr.net/gh/wallscourtfarm/wfa-shared@main/web/wfa_logo.webp" alt="WFA">
   <span class="st-title">🍽️ Menu Publisher</span>
   <a class="st-back" href="https://staff.wallscourt-farm-academy.co.uk">← Staff Tools</a>
 </div>
-<div class="st-wrap">
-<p style="color:#666;font-size:0.9rem;margin:-8px 0 24px">Upload a new menu PDF, review, then publish to all morning displays.</p>
 
-  <div class="mp-section">
-    <h2>Currently published</h2>
-    {% if current %}
-      <div class="mp-meta">
-        <strong>Term:</strong> {{ current._termLabel or '(none)' }}<br>
-        <strong>Last updated:</strong> {{ current._lastUpdated or '(unknown)' }}<br>
-        <strong>Weeks covered:</strong> {{ current.weeks | length }}<br>
-        {% set mondays = current.weeks.keys() | sort %}
-        {% if mondays %}
-          <strong>First Monday:</strong> {{ mondays | first }} &nbsp;&middot;&nbsp;
-          <strong>Last Monday:</strong> {{ mondays | last }}
-        {% endif %}
-      </div>
-    {% else %}
-      <p class="mp-meta">No menu currently published, or unreachable.</p>
+<div class="st-wrap">
+<p class="sub">Upload a new menu PDF, review, then publish to all morning displays.</p>
+
+<div class="section">
+  <h2>Currently published</h2>
+  {% if current %}
+  <div class="meta">
+    <strong>Term:</strong> {{ current._termLabel or '(none)' }}<br>
+    <strong>Last updated:</strong> {{ current._lastUpdated or '(unknown)' }}<br>
+    <strong>Weeks covered:</strong> {{ current.weeks | length }}<br>
+    {% set mondays = current.weeks.keys() | sort %}
+    {% if mondays %}
+    <strong>First Monday:</strong> {{ mondays | first }} &nbsp;&middot;&nbsp;
+    <strong>Last Monday:</strong> {{ mondays | last }}
     {% endif %}
   </div>
-
-  <div class="mp-section">
-    <h2>1 &mdash; Upload menu PDF</h2>
-    <label class="mp-upload-area" id="dropZone" for="pdfInput">
-      <div>📄 Drop the Aspens menu PDF here, or click to browse</div>
-      <div class="filename" id="fileName">No file chosen</div>
-    </label>
-    <input type="file" id="pdfInput" accept=".pdf"
-           style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1"
-           onchange="onFileChosen(this)">
-    <div style="margin-top:14px">
-      <button class="mp-btn mp-btn-primary" id="extractBtn" disabled onclick="extractMenu()">
-        <span class="mp-spinner" id="extractSpinner"></span>
-        🤖 Extract with Claude
-      </button>
-    </div>
-    <div class="mp-msg" id="extractMsg"></div>
-  </div>
-
-  <div class="mp-section" id="reviewSection" style="display:none">
-    <h2>2 &mdash; Review and edit</h2>
-    <label style="font-size:0.88rem;font-weight:700;display:block;margin-bottom:6px">Term label</label>
-    <input class="mp-term-input" id="termLabel" placeholder="e.g. Summer 2026">
-    <div class="mp-table-wrap">
-      <table class="mp-table" id="menuTable">
-        <thead><tr>
-          <th>Monday</th><th>Day</th>
-          <th class="red-opt">🔴 Red option</th>
-          <th class="grn-opt">🟢 Green option</th>
-        </tr></thead>
-        <tbody id="menuBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="mp-section" id="publishSection" style="display:none">
-    <h2>3 &mdash; Publish</h2>
-    <div class="mp-commit-wrap">
-      <input class="mp-commit-input" id="commitMsg" value="Update menu (via WFA app)">
-      <button class="mp-btn mp-btn-success" id="publishBtn" onclick="publishMenu()">
-        <span class="mp-spinner" id="publishSpinner"></span>
-        🚀 Publish to GitHub
-      </button>
-    </div>
-    <div class="mp-msg" id="publishMsg"></div>
-    <div class="mp-links" id="publishLinks" style="display:none">
-      <strong>Morning displays:</strong>
-      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year1-beech/" target="_blank">Y1</a>
-      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year2-willow/" target="_blank">Y2</a>
-      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year3-acer/" target="_blank">Y3</a>
-      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year4-maple/" target="_blank">Y4</a>
-      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year5-hazel/" target="_blank">Y5</a>
-      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year6-elm/" target="_blank">Y6</a>
-    </div>
-  </div>
-
-  <script>
-  const DAYS = ["Mon","Tue","Wed","Thu","Fri"];
-
-  const dropZone = document.getElementById("dropZone");
-  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
-  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
-  dropZone.addEventListener("drop", e => {
-    e.preventDefault(); dropZone.classList.remove("drag-over");
-    const f = e.dataTransfer.files[0];
-    if (f) setFile(f);
-  });
-
-  function onFileChosen(input) { if (input.files[0]) setFile(input.files[0]); }
-
-  function setFile(f) {
-    document.getElementById("fileName").textContent = f.name;
-    document.getElementById("pdfInput")._file = f;
-    document.getElementById("extractBtn").disabled = false;
-  }
-
-  async function extractMenu() {
-    const f = document.getElementById("pdfInput")._file;
-    if (!f) return;
-    const btn = document.getElementById("extractBtn");
-    const spinner = document.getElementById("extractSpinner");
-    const msg = document.getElementById("extractMsg");
-    btn.disabled = true; spinner.style.display = "inline-block"; showMsg(msg,"","");
-    try {
-      const fd = new FormData(); fd.append("pdf", f);
-      const res = await fetch("/menu/extract", {method:"POST", body:fd});
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || "Unknown error");
-      document.getElementById("termLabel").value = data.menu._termLabel || "";
-      renderTable(data.menu);
-      document.getElementById("reviewSection").style.display = "";
-      document.getElementById("publishSection").style.display = "";
-      showMsg(msg, `Extracted ${Object.keys(data.menu.weeks).length} weeks.`, "ok");
-    } catch(e) { showMsg(msg, "Extract failed: " + e.message, "error"); }
-    finally { btn.disabled = false; spinner.style.display = "none"; }
-  }
-
-  function renderTable(menu) {
-    const tbody = document.getElementById("menuBody"); tbody.innerHTML = "";
-    for (const [monday, days] of Object.entries(menu.weeks).sort()) {
-      DAYS.forEach((day, i) => {
-        const opts = days[day] || ["",""];
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td class="monday-cell">${i===0 ? monday : ""}</td><td style="color:#888">${day}</td><td class="red-opt" contenteditable="true" data-monday="${monday}" data-day="${day}" data-col="0">${opts[0]||""}</td><td class="grn-opt" contenteditable="true" data-monday="${monday}" data-day="${day}" data-col="1">${opts[1]||""}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-  }
-
-  function getMenuFromTable() {
-    const weeks = {};
-    document.querySelectorAll("[data-monday][data-day]").forEach(td => {
-      const m=td.dataset.monday, d=td.dataset.day, col=parseInt(td.dataset.col);
-      if (!weeks[m]) weeks[m]={};
-      if (!weeks[m][d]) weeks[m][d]=["",""];
-      weeks[m][d][col]=td.textContent.trim();
-    });
-    return weeks;
-  }
-
-  async function publishMenu() {
-    const btn=document.getElementById("publishBtn"), spinner=document.getElementById("publishSpinner"), msg=document.getElementById("publishMsg");
-    const commitMsg=document.getElementById("commitMsg").value.trim()||"Update menu (via WFA app)";
-    const termLabel=document.getElementById("termLabel").value.trim();
-    const weeks=getMenuFromTable();
-    const menu={_comment:"WFA shared lunch menu.",_lastUpdated:new Date().toISOString().slice(0,10),_termLabel:termLabel,weeks:Object.fromEntries(Object.entries(weeks).sort())};
-    btn.disabled=true; spinner.style.display="inline-block"; showMsg(msg,"","");
-    try {
-      const res=await fetch("/menu/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu,message:commitMsg})});
-      const data=await res.json();
-      if (!res.ok||data.error) throw new Error(data.error||"Unknown error");
-      showMsg(msg,"✅ Published! Morning displays will update within a minute.","ok");
-      document.getElementById("publishLinks").style.display="";
-    } catch(e) { showMsg(msg,"Publish failed: "+e.message,"error"); }
-    finally { btn.disabled=false; spinner.style.display="none"; }
-  }
-
-  function showMsg(el,text,type){ el.textContent=text; el.className="mp-msg"+(type?" "+type:""); el.style.display=text?"":"none"; }
-  </script>
+  {% else %}
+  <p class="meta">No menu currently published, or unreachable.</p>
+  {% endif %}
 </div>
+
+<div class="section">
+  <h2>1 &mdash; Upload menu PDF</h2>
+  <label class="upload-area" id="dropZone" for="pdfInput">
+    <div>📄 Drop the Aspens menu PDF here, or click to browse</div>
+    <div class="filename" id="fileName">No file chosen</div>
+  </label>
+  <input type="file" id="pdfInput" accept=".pdf"
+         style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1"
+         onchange="onFileChosen(this)">
+  <div style="margin-top:14px">
+    <button class="mp-btn btn-blue" id="extractBtn" disabled onclick="extractMenu()">
+      <span class="spinner" id="extractSpinner"></span>
+      🤖 Extract with Claude
+    </button>
+  </div>
+  <div class="msg" id="extractMsg"></div>
+</div>
+
+<div class="section" id="reviewSection" style="display:none">
+  <h2>2 &mdash; Review and edit</h2>
+  <label style="font-size:0.88rem;font-weight:800;display:block;margin-bottom:6px">Term label</label>
+  <input class="term-input" id="termLabel" placeholder="e.g. Summer 2026">
+  <table class="mp-table" id="menuTable">
+    <thead><tr>
+      <th>Monday</th><th>Day</th>
+      <th class="red">🔴 Red option</th>
+      <th class="grn">🟢 Green option</th>
+    </tr></thead>
+    <tbody id="menuBody"></tbody>
+  </table>
+</div>
+
+<div class="section" id="publishSection" style="display:none">
+  <h2>3 &mdash; Publish</h2>
+  <div class="commit-wrap">
+    <input class="commit-input" id="commitMsg" value="Update menu (via WFA app)">
+    <button class="mp-btn btn-green" id="publishBtn" onclick="publishMenu()">
+      <span class="spinner" id="publishSpinner"></span>
+      🚀 Publish to GitHub
+    </button>
+  </div>
+  <div class="msg" id="publishMsg"></div>
+  <div class="display-links" id="displayLinks">
+    <strong>Morning displays:</strong>
+    <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year1-beech/" target="_blank">Y1</a>
+    <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year2-willow/" target="_blank">Y2</a>
+    <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year3-acer/" target="_blank">Y3</a>
+    <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year4-maple/" target="_blank">Y4</a>
+    <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year5-hazel/" target="_blank">Y5</a>
+    <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year6-elm/" target="_blank">Y6</a>
+  </div>
+</div>
+
+</div><!-- st-wrap -->
+
+<script>
+const DAYS = ["Mon","Tue","Wed","Thu","Fri"];
+
+const dz = document.getElementById("dropZone");
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+dz.addEventListener("drop", e => {
+  e.preventDefault(); dz.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0]; if (f) setFile(f);
+});
+
+function onFileChosen(i) { if (i.files[0]) setFile(i.files[0]); }
+function setFile(f) {
+  document.getElementById("fileName").textContent = f.name;
+  document.getElementById("pdfInput")._file = f;
+  document.getElementById("extractBtn").disabled = false;
+}
+
+async function extractMenu() {
+  const f = document.getElementById("pdfInput")._file; if (!f) return;
+  const btn = document.getElementById("extractBtn"), sp = document.getElementById("extractSpinner"), msg = document.getElementById("extractMsg");
+  btn.disabled = true; sp.style.display = "inline-block"; showMsg(msg,"","");
+  try {
+    const fd = new FormData(); fd.append("pdf", f);
+    const res = await fetch("/menu/extract", {method:"POST",body:fd});
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error||"Unknown error");
+    document.getElementById("termLabel").value = data.menu._termLabel || "";
+    renderTable(data.menu);
+    document.getElementById("reviewSection").style.display = "";
+    document.getElementById("publishSection").style.display = "";
+    showMsg(msg, `Extracted ${Object.keys(data.menu.weeks).length} weeks.`, "ok");
+  } catch(e) { showMsg(msg, "Extract failed: " + e.message, "error"); }
+  finally { btn.disabled = false; sp.style.display = "none"; }
+}
+
+function renderTable(menu) {
+  const tb = document.getElementById("menuBody"); tb.innerHTML = "";
+  for (const [mon, days] of Object.entries(menu.weeks).sort()) {
+    DAYS.forEach((day, i) => {
+      const opts = days[day] || ["",""];
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td class="bold">${i===0?mon:""}</td><td class="muted">${day}</td>` +
+        `<td class="red" contenteditable data-m="${mon}" data-d="${day}" data-c="0">${opts[0]||""}</td>` +
+        `<td class="grn" contenteditable data-m="${mon}" data-d="${day}" data-c="1">${opts[1]||""}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+}
+
+function getTable() {
+  const w = {};
+  document.querySelectorAll("[data-m][data-d]").forEach(td => {
+    const m=td.dataset.m, d=td.dataset.d, c=parseInt(td.dataset.c);
+    if (!w[m]) w[m]={};
+    if (!w[m][d]) w[m][d]=["",""];
+    w[m][d][c]=td.textContent.trim();
+  });
+  return w;
+}
+
+async function publishMenu() {
+  const btn=document.getElementById("publishBtn"), sp=document.getElementById("publishSpinner"), msg=document.getElementById("publishMsg");
+  const cm=document.getElementById("commitMsg").value.trim()||"Update menu (via WFA app)";
+  const tl=document.getElementById("termLabel").value.trim();
+  const menu={_comment:"WFA shared lunch menu.",_lastUpdated:new Date().toISOString().slice(0,10),_termLabel:tl,weeks:Object.fromEntries(Object.entries(getTable()).sort())};
+  btn.disabled=true; sp.style.display="inline-block"; showMsg(msg,"","");
+  try {
+    const res=await fetch("/menu/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu,message:cm})});
+    const data=await res.json();
+    if (!res.ok||data.error) throw new Error(data.error||"Unknown error");
+    showMsg(msg,"✅ Published! Morning displays will update within a minute.","ok");
+    document.getElementById("displayLinks").style.display="";
+  } catch(e) { showMsg(msg,"Publish failed: "+e.message,"error"); }
+  finally { btn.disabled=false; sp.style.display="none"; }
+}
+
+function showMsg(el,t,tp) { el.textContent=t; el.className="msg"+(tp?" "+tp:""); el.style.display=t?"":"none"; }
+</script>
 </body>
 </html>
