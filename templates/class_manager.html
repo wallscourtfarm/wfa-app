@@ -1,5 +1,94 @@
 {% extends "base.html" %}
-{% block title %}Class Manager{% endblock %}
+{% block title %}Class Manager
+<!-- ── Spelling Shed CSV import modal ──────────────────────────────────────── -->
+<div id="ss-import-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:560px">
+    <div class="cm-modal-hdr">
+      <h3>🐝 Import Spelling Shed Logins</h3>
+      <button onclick="closeSSImportModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8">✕</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0 0 12px">
+        Upload the CSV downloaded from Spelling Shed (whole-school export).
+        Pupils are matched by full name and year group. Review the preview before applying.
+      </p>
+      <div class="cm-field">
+        <label>Spelling Shed export CSV</label>
+        <input type="file" id="ss-csv-input" accept=".csv" class="cm-input"
+               onchange="ssPreview()" style="padding:6px">
+      </div>
+      <div id="ss-preview" style="display:none;background:#f8fafc;border-radius:8px;padding:12px;font-size:13px">
+        <div id="ss-preview-content"></div>
+      </div>
+      <div id="ss-status" style="display:none;margin-top:8px;font-size:13px;font-weight:600"></div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" id="ss-apply-btn" onclick="ssApply()" disabled>Apply credentials</button>
+      <button class="btn btn-secondary" onclick="closeSSImportModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openSSImportModal() {
+  document.getElementById('ss-import-modal').style.display = 'flex';
+  document.getElementById('ss-preview').style.display = 'none';
+  document.getElementById('ss-status').style.display = 'none';
+  document.getElementById('ss-apply-btn').disabled = true;
+  document.getElementById('ss-csv-input').value = '';
+}
+function closeSSImportModal() {
+  document.getElementById('ss-import-modal').style.display = 'none';
+}
+
+async function ssPreview() {
+  const f = document.getElementById('ss-csv-input').files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('csv_file', f);
+  fd.append('mode', 'preview');
+  const prev = document.getElementById('ss-preview');
+  const pc   = document.getElementById('ss-preview-content');
+  prev.style.display = 'block';
+  pc.innerHTML = 'Analysing…';
+  try {
+    const res  = await fetch('/api/class/import-ss-csv', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!data.ok) { pc.innerHTML = `<span style="color:#e53e3e">Error: ${data.error}</span>`; return; }
+    const unmHtml = data.unmatched_names.length
+      ? `<div style="margin-top:8px;color:#92400e"><strong>${data.unmatched}</strong> not matched: ${data.unmatched_names.slice(0,8).join(', ')}${data.unmatched_names.length>8?'…':''}</div>`
+      : '';
+    pc.innerHTML = `<div style="color:#166534"><strong>${data.matched}</strong> pupils matched successfully</div>${unmHtml}`;
+    document.getElementById('ss-apply-btn').disabled = (data.matched === 0);
+  } catch(e) { pc.innerHTML = `<span style="color:#e53e3e">Failed: ${e.message}</span>`; }
+}
+
+async function ssApply() {
+  const f = document.getElementById('ss-csv-input').files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('csv_file', f);
+  fd.append('mode', 'apply');
+  const btn = document.getElementById('ss-apply-btn');
+  const st  = document.getElementById('ss-status');
+  btn.disabled = true;
+  btn.textContent = 'Applying…';
+  st.style.display = 'block';
+  st.style.color = '#64748b';
+  st.textContent = 'Saving credentials…';
+  try {
+    const res  = await fetch('/api/class/import-ss-csv', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!data.ok) { st.style.color='#e53e3e'; st.textContent=`Error: ${data.error}`; return; }
+    st.style.color = '#166534';
+    st.textContent = `✅ Applied to ${data.applied} pupils. ${data.unmatched ? data.unmatched+' unmatched (check names match exactly).' : ''}`;
+    setTimeout(closeSSImportModal, 2500);
+  } catch(e) { st.style.color='#e53e3e'; st.textContent=`Failed: ${e.message}`; }
+  finally { btn.disabled=false; btn.textContent='Apply credentials'; }
+}
+</script>
+
+{% endblock %}
 {% block content %}
 
 <div class="page-header">
@@ -11,6 +100,7 @@
       {% endfor %}
     </select>
     <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import names</button>
+    <button class="btn btn-secondary" onclick="openSSImportModal()" title="Import Spelling Shed credentials from CSV export">🐝 Import SS logins</button>
     <button class="btn btn-secondary" onclick="openMasteryModal()" title="Import pupils with spelling mastery data">📊 Import mastery</button>
     <button class="btn btn-secondary" onclick="openSettingsModal()" title="Edit class teacher label">⚙ Settings</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
@@ -926,4 +1016,93 @@ async function confirmMasteryImport() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 load();
 </script>
+
+<!-- ── Spelling Shed CSV import modal ──────────────────────────────────────── -->
+<div id="ss-import-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:560px">
+    <div class="cm-modal-hdr">
+      <h3>🐝 Import Spelling Shed Logins</h3>
+      <button onclick="closeSSImportModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8">✕</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0 0 12px">
+        Upload the CSV downloaded from Spelling Shed (whole-school export).
+        Pupils are matched by full name and year group. Review the preview before applying.
+      </p>
+      <div class="cm-field">
+        <label>Spelling Shed export CSV</label>
+        <input type="file" id="ss-csv-input" accept=".csv" class="cm-input"
+               onchange="ssPreview()" style="padding:6px">
+      </div>
+      <div id="ss-preview" style="display:none;background:#f8fafc;border-radius:8px;padding:12px;font-size:13px">
+        <div id="ss-preview-content"></div>
+      </div>
+      <div id="ss-status" style="display:none;margin-top:8px;font-size:13px;font-weight:600"></div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" id="ss-apply-btn" onclick="ssApply()" disabled>Apply credentials</button>
+      <button class="btn btn-secondary" onclick="closeSSImportModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openSSImportModal() {
+  document.getElementById('ss-import-modal').style.display = 'flex';
+  document.getElementById('ss-preview').style.display = 'none';
+  document.getElementById('ss-status').style.display = 'none';
+  document.getElementById('ss-apply-btn').disabled = true;
+  document.getElementById('ss-csv-input').value = '';
+}
+function closeSSImportModal() {
+  document.getElementById('ss-import-modal').style.display = 'none';
+}
+
+async function ssPreview() {
+  const f = document.getElementById('ss-csv-input').files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('csv_file', f);
+  fd.append('mode', 'preview');
+  const prev = document.getElementById('ss-preview');
+  const pc   = document.getElementById('ss-preview-content');
+  prev.style.display = 'block';
+  pc.innerHTML = 'Analysing…';
+  try {
+    const res  = await fetch('/api/class/import-ss-csv', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!data.ok) { pc.innerHTML = `<span style="color:#e53e3e">Error: ${data.error}</span>`; return; }
+    const unmHtml = data.unmatched_names.length
+      ? `<div style="margin-top:8px;color:#92400e"><strong>${data.unmatched}</strong> not matched: ${data.unmatched_names.slice(0,8).join(', ')}${data.unmatched_names.length>8?'…':''}</div>`
+      : '';
+    pc.innerHTML = `<div style="color:#166534"><strong>${data.matched}</strong> pupils matched successfully</div>${unmHtml}`;
+    document.getElementById('ss-apply-btn').disabled = (data.matched === 0);
+  } catch(e) { pc.innerHTML = `<span style="color:#e53e3e">Failed: ${e.message}</span>`; }
+}
+
+async function ssApply() {
+  const f = document.getElementById('ss-csv-input').files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append('csv_file', f);
+  fd.append('mode', 'apply');
+  const btn = document.getElementById('ss-apply-btn');
+  const st  = document.getElementById('ss-status');
+  btn.disabled = true;
+  btn.textContent = 'Applying…';
+  st.style.display = 'block';
+  st.style.color = '#64748b';
+  st.textContent = 'Saving credentials…';
+  try {
+    const res  = await fetch('/api/class/import-ss-csv', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!data.ok) { st.style.color='#e53e3e'; st.textContent=`Error: ${data.error}`; return; }
+    st.style.color = '#166534';
+    st.textContent = `✅ Applied to ${data.applied} pupils. ${data.unmatched ? data.unmatched+' unmatched (check names match exactly).' : ''}`;
+    setTimeout(closeSSImportModal, 2500);
+  } catch(e) { st.style.color='#e53e3e'; st.textContent=`Failed: ${e.message}`; }
+  finally { btn.disabled=false; btn.textContent='Apply credentials'; }
+}
+</script>
+
 {% endblock %}
