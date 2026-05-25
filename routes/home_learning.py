@@ -93,22 +93,8 @@ def _load_class_pupils(cls):
 
 @hl_bp.route('/home-learning')
 def home_learning():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-    yr  = session.get('year_group', '4')
-    cls = request.args.get('cls', f'Y{yr}_all')
-    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
-        cls = 'all'
-    wc = load_weekly_config()
-    week_ref = wc.get('week_ref', '')
-    # For rule display, use Y4_IM config as reference
-    ref_cls = get_ref_class(cls)
-    cls_cfg  = wc.get('classes', {}).get(ref_cls, {})
-    main_rule = get_rule(cls_cfg.get('main_rule_id', ''))
-    return render_template('home_learning.html',
-        cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")),
-        week_ref=week_ref,
-        main_rule_title=main_rule[2] if main_rule else '— (set in Settings)')
+    from flask import redirect
+    return redirect('https://spelling-homelearning.streamlit.app/')
 
 
 @hl_bp.route('/api/hl/ping')
