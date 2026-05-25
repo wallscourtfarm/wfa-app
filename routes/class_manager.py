@@ -509,3 +509,143 @@ def api_mastery_template():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename=mastery_import_Y{yr}_template.csv'}
     )
+
+
+@cm_bp.route('/api/class/import-ss-csv', methods=['POST'])
+def api_import_ss_csv():
+    """
+    Parse a Spelling Shed export CSV and match pupils to the app by full name + year group.
+    CSV columns: name(0), school_username(4), group(6), password(7).
+    Returns a list of matched/unmatched results for review, then applies on confirm.
+    """
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        import csv, io, unicodedata
+
+        def normalise(s):
+            s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
+            return s.lower().strip()
+
+        mode = request.form.get('mode', 'preview')   # 'preview' or 'apply'
+        f    = request.files.get('csv_file')
+        if not f:
+            return jsonify({'ok': False, 'error': 'No file uploaded'})
+
+        text   = f.read().decode('utf-8-sig')
+        reader = csv.reader(io.StringIO(text))
+        rows   = list(reader)
+        if not rows:
+            return jsonify({'ok': False, 'error': 'Empty CSV'})
+
+        # Skip header row if present
+        data_rows = rows[1:] if rows[0][0].lower() in ('name', 'full name') else rows
+
+        # Parse CSV entries
+        ss_entries = []
+        for row in data_rows:
+            if len(row) < 8:
+                continue
+            full_name = row[0].strip()
+            ss_user   = row[4].strip()
+            yr_label  = row[6].strip()          # e.g. "Year 4"
+            ss_pass   = row[7].strip()
+            if not full_name or not ss_user:
+                continue
+            # Parse year group number from "Year 4" → "4"
+            yr = yr_label.replace('Year ', '').replace('year ', '').strip()
+            parts = full_name.split(' ', 1)
+            first = parts[0]
+            last  = parts[1] if len(parts) > 1 else ''
+            ss_entries.append({
+                'full_name': full_name,
+                'first': first, 'last': last,
+                'yr': yr,
+                'ss_user': ss_user, 'ss_pass': ss_pass
+            })
+
+        # Load all pupils from the data store grouped by class
+        from data_manager import YEAR_GROUP_CLASSES, _resolve_classes
+        all_class_data = {}
+        for yr, classes in YEAR_GROUP_CLASSES.items():
+            for cid in classes:
+                d = load_class(cid)
+                if d:
+                    all_class_data[cid] = d
+
+        # Build a flat lookup: (normalised_full_name, yr) → (cid, pupil)
+        lookup = {}
+        for cid, d in all_class_data.items():
+            for p in d.get('pupils', []):
+                key = (normalise(f"{p.get('first','')} {p.get('last','')}"),
+                       str(p.get('yr') or ''))
+                lookup[key] = (cid, p)
+                # Also index by year from the class ID (e.g. Y4_IM → yr='4')
+                yr_from_cls = cid[1] if len(cid) > 1 else ''
+                lookup[(normalise(f"{p.get('first','')} {p.get('last','')}"), yr_from_cls)] = (cid, p)
+
+        matched   = []
+        unmatched = []
+
+        for entry in ss_entries:
+            key = (normalise(f"{entry['first']} {entry['last']}"), entry['yr'])
+            result = lookup.get(key)
+
+            if not result:
+                # Try without year group (looser match)
+                for (name_key, _), val in lookup.items():
+                    if name_key == normalise(f"{entry['first']} {entry['last']}"):
+                        result = val
+                        break
+
+            if result:
+                cid, pupil = result
+                matched.append({
+                    'pupil_id': pupil['id'],
+                    'cls':      cid,
+                    'name':     f"{pupil.get('first','')} {pupil.get('last','')}".strip(),
+                    'ss_user':  entry['ss_user'],
+                    'ss_pass':  entry['ss_pass'],
+                })
+            else:
+                unmatched.append({
+                    'name': entry['full_name'],
+                    'yr':   entry['yr'],
+                    'ss_user': entry['ss_user'],
+                    'ss_pass': entry['ss_pass'],
+                })
+
+        if mode == 'preview':
+            return jsonify({
+                'ok': True,
+                'matched':   len(matched),
+                'unmatched': len(unmatched),
+                'unmatched_names': [u['name'] for u in unmatched],
+                'preview':   matched[:5],
+            })
+
+        # Apply mode — write credentials back to class files
+        updates_by_cls = {}
+        for m in matched:
+            updates_by_cls.setdefault(m['cls'], []).append(m)
+
+        applied = 0
+        for cid, updates in updates_by_cls.items():
+            d, sha_c = _load_class_file(cid)
+            if not d:
+                continue
+            id_map = {u['pupil_id']: u for u in updates}
+            for p in d.get('pupils', []):
+                if p['id'] in id_map:
+                    u = id_map[p['id']]
+                    p['ss_user'] = u['ss_user']
+                    p['ss_pass'] = u['ss_pass']
+                    applied += 1
+            _save_class_file(cid, d, sha_c, f'Import Spelling Shed credentials ({len(updates)} pupils)')
+
+        return jsonify({'ok': True, 'applied': applied, 'unmatched': len(unmatched),
+                        'unmatched_names': [u['name'] for u in unmatched]})
+
+    except Exception as e:
+        return _err(e)
+
