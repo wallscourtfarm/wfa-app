@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Menu Publisher — WFA{% endblock %}
+
+{% block content %}
+<style>
+  .mp-wrap   { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .mp-h1     { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+  .mp-sub    { color: #666; font-size: 0.9rem; margin-bottom: 28px; }
+
+  .mp-section {
+    background: white;
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+  }
+  .mp-section h2 {
+    font-size: 1rem; font-weight: 800; margin: 0 0 16px;
+    padding-bottom: 10px; border-bottom: 2px solid #eee;
+  }
+
+  /* Current menu summary */
+  .mp-meta { font-size: 0.88rem; color: #555; line-height: 1.9; }
+  .mp-meta strong { color: #111; }
+
+  /* Upload area */
+  .mp-upload-area {
+    border: 2px dashed #ccc; border-radius: 10px;
+    padding: 28px; text-align: center; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    color: #888; font-size: 0.9rem;
+  }
+  .mp-upload-area.drag-over { border-color: var(--brand); background: #f0f8ff; }
+  .mp-upload-area input[type=file] { display: none; }
+  .mp-upload-area .filename { margin-top: 8px; color: #333; font-weight: 700; }
+
+  /* Buttons */
+  .mp-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 8px; border: none;
+    font-size: 0.88rem; font-weight: 800; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .mp-btn:hover:not(:disabled) { opacity: 0.85; }
+  .mp-btn:disabled { opacity: 0.45; cursor: default; }
+  .mp-btn-primary { background: var(--brand); color: white; }
+  .mp-btn-success { background: #2bae62; color: white; }
+  .mp-btn-sm      { padding: 5px 12px; font-size: 0.82rem; }
+
+  /* Spinner */
+  .mp-spinner {
+    display: none; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status messages */
+  .mp-msg {
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 0.88rem; font-weight: 600; margin-top: 14px;
+    display: none;
+  }
+  .mp-msg.ok    { background: #d4f0e2; color: #1a6e3d; }
+  .mp-msg.error { background: #fde8e8; color: #9b1c1c; }
+
+  /* Term label */
+  .mp-term-input {
+    width: 100%; padding: 8px 12px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 0.9rem;
+    font-family: inherit; margin-bottom: 16px;
+    box-sizing: border-box;
+  }
+  .mp-term-input:focus { outline: none; border-color: var(--brand); }
+
+  /* Editable table */
+  .mp-table-wrap { overflow-x: auto; }
+  .mp-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.84rem;
+  }
+  .mp-table th {
+    background: #f5f5f5; padding: 8px 10px;
+    text-align: left; font-weight: 800;
+    border-bottom: 2px solid #ddd;
+    white-space: nowrap;
+  }
+  .mp-table td {
+    padding: 6px 10px; border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  .mp-table td[contenteditable=true] {
+    cursor: text; border-radius: 4px;
+  }
+  .mp-table td[contenteditable=true]:focus {
+    outline: 2px solid var(--brand); background: #f0f8ff;
+  }
+  .mp-table .red-opt  { color: #c0392b; }
+  .mp-table .grn-opt  { color: #1a6e3d; }
+  .mp-table .monday-cell { font-weight: 700; color: #555; }
+  .mp-table .day-cell { color: #888; }
+
+  /* Commit msg */
+  .mp-commit-wrap { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+  .mp-commit-input {
+    flex: 1; padding: 8px 12px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 0.88rem; font-family: inherit;
+  }
+  .mp-commit-input:focus { outline: none; border-color: var(--brand); }
+
+  .mp-links { margin-top: 12px; font-size: 0.84rem; }
+  .mp-links a { margin-right: 12px; color: var(--brand); font-weight: 700; }
+</style>
+
+<div class="mp-wrap">
+  <div class="mp-h1">🍽️ Menu Publisher</div>
+  <p class="mp-sub">Upload a new menu PDF, review, then publish to all morning displays.</p>
+
+  <!-- Current published menu -->
+  <div class="mp-section">
+    <h2>Currently published</h2>
+    {% if current %}
+      <div class="mp-meta">
+        <strong>Term:</strong> {{ current._termLabel or '(none)' }}<br>
+        <strong>Last updated:</strong> {{ current._lastUpdated or '(unknown)' }}<br>
+        <strong>Weeks covered:</strong> {{ current.weeks | length }}<br>
+        {% set mondays = current.weeks.keys() | sort %}
+        {% if mondays %}
+          <strong>First Monday:</strong> {{ mondays | first }} &nbsp;·&nbsp;
+          <strong>Last Monday:</strong> {{ mondays | last }}
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="mp-meta">No menu currently published, or unreachable.</p>
+    {% endif %}
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="mp-section">
+    <h2>1 — Upload menu PDF</h2>
+    <div class="mp-upload-area" id="dropZone" onclick="document.getElementById('pdfInput').click()">
+      <div>📄 Drop the Aspens menu PDF here, or click to browse</div>
+      <div class="filename" id="fileName">No file chosen</div>
+      <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChosen(this)">
+    </div>
+    <div style="margin-top:14px">
+      <button class="mp-btn mp-btn-primary" id="extractBtn" disabled onclick="extractMenu()">
+        <span class="mp-spinner" id="extractSpinner"></span>
+        🤖 Extract with Claude
+      </button>
+    </div>
+    <div class="mp-msg" id="extractMsg"></div>
+  </div>
+
+  <!-- Step 2: Review -->
+  <div class="mp-section" id="reviewSection" style="display:none">
+    <h2>2 — Review and edit</h2>
+    <label style="font-size:0.88rem;font-weight:700;display:block;margin-bottom:6px">Term label</label>
+    <input class="mp-term-input" id="termLabel" placeholder="e.g. Summer 2026">
+
+    <div class="mp-table-wrap">
+      <table class="mp-table" id="menuTable">
+        <thead>
+          <tr>
+            <th>Monday</th><th>Day</th>
+            <th class="red-opt">🔴 Red option</th>
+            <th class="grn-opt">🟢 Green option</th>
+          </tr>
+        </thead>
+        <tbody id="menuBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Step 3: Publish -->
+  <div class="mp-section" id="publishSection" style="display:none">
+    <h2>3 — Publish</h2>
+    <div class="mp-commit-wrap">
+      <input class="mp-commit-input" id="commitMsg" value="Update menu (via WFA app)">
+      <button class="mp-btn mp-btn-success" id="publishBtn" onclick="publishMenu()">
+        <span class="mp-spinner" id="publishSpinner"></span>
+        🚀 Publish to GitHub
+      </button>
+    </div>
+    <div class="mp-msg" id="publishMsg"></div>
+    <div class="mp-links" id="publishLinks" style="display:none">
+      <strong>Morning displays:</strong>
+      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year1-beech/" target="_blank">Y1</a>
+      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year2-willow/" target="_blank">Y2</a>
+      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year3-acer/" target="_blank">Y3</a>
+      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year4-maple/" target="_blank">Y4</a>
+      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year5-hazel/" target="_blank">Y5</a>
+      <a href="https://staff.wallscourt-farm-academy.co.uk/morning/year6-elm/" target="_blank">Y6</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const DAYS = ["Mon","Tue","Wed","Thu","Fri"];
+let extractedMenu = null;
+
+// ── Drop zone ──────────────────────────────────────────────────────────────
+const dropZone = document.getElementById("dropZone");
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave",  () => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith(".pdf")) setFile(f);
+});
+
+function onFileChosen(input) { if (input.files[0]) setFile(input.files[0]); }
+
+function setFile(f) {
+  document.getElementById("fileName").textContent = f.name;
+  document.getElementById("pdfInput")._file = f;
+  document.getElementById("extractBtn").disabled = false;
+}
+
+// ── Extract ────────────────────────────────────────────────────────────────
+async function extractMenu() {
+  const f = document.getElementById("pdfInput")._file;
+  if (!f) return;
+
+  const btn = document.getElementById("extractBtn");
+  const spinner = document.getElementById("extractSpinner");
+  const msg = document.getElementById("extractMsg");
+
+  btn.disabled = true;
+  spinner.style.display = "inline-block";
+  showMsg(msg, "", "");
+
+  try {
+    const fd = new FormData();
+    fd.append("pdf", f);
+    const res = await fetch("/menu/extract", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "Unknown error");
+
+    extractedMenu = data.menu;
+    document.getElementById("termLabel").value = data.menu._termLabel || "";
+    renderTable(data.menu);
+    document.getElementById("reviewSection").style.display = "";
+    document.getElementById("publishSection").style.display = "";
+    showMsg(msg, `Extracted ${Object.keys(data.menu.weeks).length} weeks.`, "ok");
+  } catch(e) {
+    showMsg(msg, "Extract failed: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = "none";
+  }
+}
+
+// ── Table ──────────────────────────────────────────────────────────────────
+function renderTable(menu) {
+  const tbody = document.getElementById("menuBody");
+  tbody.innerHTML = "";
+  for (const [monday, days] of Object.entries(menu.weeks).sort()) {
+    DAYS.forEach((day, i) => {
+      const opts = days[day] || ["",""];
+      const tr = document.createElement("tr");
+      tr.innerHTML = \`
+        <td class="monday-cell" data-monday="\${monday}">\${i===0 ? monday : ""}</td>
+        <td class="day-cell">\${day}</td>
+        <td class="red-opt" contenteditable="true" data-monday="\${monday}" data-day="\${day}" data-col="0">\${opts[0]||""}</td>
+        <td class="grn-opt" contenteditable="true" data-monday="\${monday}" data-day="\${day}" data-col="1">\${opts[1]||""}</td>
+      \`;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function getMenuFromTable() {
+  const weeks = {};
+  document.querySelectorAll("[data-monday][data-day]").forEach(td => {
+    const m = td.dataset.monday, d = td.dataset.day, col = parseInt(td.dataset.col);
+    if (!weeks[m]) weeks[m] = {};
+    if (!weeks[m][d]) weeks[m][d] = ["",""];
+    weeks[m][d][col] = td.textContent.trim();
+  });
+  return weeks;
+}
+
+// ── Publish ────────────────────────────────────────────────────────────────
+async function publishMenu() {
+  const btn = document.getElementById("publishBtn");
+  const spinner = document.getElementById("publishSpinner");
+  const msg = document.getElementById("publishMsg");
+  const commitMsg = document.getElementById("commitMsg").value.trim() || "Update menu (via WFA app)";
+
+  const termLabel = document.getElementById("termLabel").value.trim();
+  const weeks = getMenuFromTable();
+  const menu = {
+    _comment: "WFA shared lunch menu. Each key is a Monday in YYYY-MM-DD. Each day holds [red_option, green_option].",
+    _lastUpdated: new Date().toISOString().slice(0,10),
+    _termLabel: termLabel,
+    weeks: Object.fromEntries(Object.entries(weeks).sort())
+  };
+
+  btn.disabled = true;
+  spinner.style.display = "inline-block";
+  showMsg(msg, "", "");
+
+  try {
+    const res = await fetch("/menu/publish", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({menu, message: commitMsg})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "Unknown error");
+    showMsg(msg, "✅ Published! Morning displays will update within a minute.", "ok");
+    document.getElementById("publishLinks").style.display = "";
+  } catch(e) {
+    showMsg(msg, "Publish failed: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = "none";
+  }
+}
+
+function showMsg(el, text, type) {
+  el.textContent = text;
+  el.className = "mp-msg" + (type ? " " + type : "");
+  el.style.display = text ? "" : "none";
+}
+</script>
+{% endblock %}
