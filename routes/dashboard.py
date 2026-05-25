@@ -5,7 +5,6 @@ from data_manager import load_dashboard, TT_ORDER, ALL_CLASSES, get_class_option
 dash_bp = Blueprint('dash', __name__)
 CLASS_OPTIONS = get_class_options()
 
-@dash_bp.route('/')
 @dash_bp.route('/dashboard')
 def dashboard():
     if not session.get('authenticated'):
