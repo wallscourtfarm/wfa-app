@@ -77,7 +77,6 @@ body {
   align-items: center;
   flex: 1;
   gap: 2px;
-  overflow: hidden;
 }
 
 .nav-links a {
@@ -454,10 +453,6 @@ body {
   padding: 8px 10px;
   border-radius: var(--radius);
   white-space: nowrap;
-  display: flex;
-  align-items: center;
-  height: 100%;
-  box-sizing: border-box;
   cursor: pointer;
 }
 .nav-item:hover, .nav-item.active { color:#fff; border-bottom-color:#fff; }
