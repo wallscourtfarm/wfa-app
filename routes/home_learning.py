@@ -111,7 +111,7 @@ def api_hl_status(job_id):
     _prune_jobs()
     job = _JOBS.get(job_id)
     if not job:
-        return jsonify({'ok': False, 'error': 'Job not found'})
+        return jsonify({'ok': False, 'status': 'error', 'error': 'Job not found or expired — please generate again'})
     return jsonify(job)
 
 
@@ -173,28 +173,35 @@ def api_hl_generate():
     _is_col          = is_column
 
     def _run():
-        try:
-            from hl_generator import generate_hl_content
-            std_data = generate_hl_content(
-                maths_topic=_maths_topic, reading_topic=_reading_topic,
-                week_ref=_week_ref, version='standard',
-                maths_notes=_maths_notes, vocab_word=_vocab_word)
-            if _is_col:
-                std_data = _enforce_column_method(std_data)
-        except Exception as e:
-            _JOBS[job_id] = {'status': 'error', 'error': f'Standard content failed: {e}', 'ts': _time.time()}
+        from hl_generator import generate_hl_content
+
+        # Run standard and adapted content generation in parallel
+        results = {}
+        errors  = {}
+
+        def _gen(version):
+            try:
+                data = generate_hl_content(
+                    maths_topic=_maths_topic, reading_topic=_reading_topic,
+                    week_ref=_week_ref, version=version,
+                    maths_notes=_maths_notes, vocab_word=_vocab_word)
+                if _is_col:
+                    data = _enforce_column_method(data)
+                results[version] = data
+            except Exception as e:
+                errors[version] = str(e)
+
+        t_std = threading.Thread(target=_gen, args=('standard',), daemon=True)
+        t_adp = threading.Thread(target=_gen, args=('adapted',),  daemon=True)
+        t_std.start(); t_adp.start()
+        t_std.join();  t_adp.join()
+
+        if 'standard' in errors:
+            _JOBS[job_id] = {'status': 'error', 'error': f'Standard content failed: {errors["standard"]}', 'ts': _time.time()}
             return
 
-        try:
-            adp_data = generate_hl_content(
-                maths_topic=_maths_topic, reading_topic=_reading_topic,
-                week_ref=_week_ref, version='adapted',
-                maths_notes=_maths_notes, vocab_word=_vocab_word)
-            if _is_col:
-                adp_data = _enforce_column_method(adp_data)
-        except Exception as e:
-            _JOBS[job_id] = {'status': 'error', 'error': f'Adapted content failed: {e}', 'ts': _time.time()}
-            return
+        std_data = results.get('standard')
+        adp_data = results.get('adapted')
 
         hl_cfg   = {'standard': std_data, 'adapted': adp_data}
         wkly_cfg = {'week_ref': _week_ref}
