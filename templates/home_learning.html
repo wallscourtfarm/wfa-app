@@ -95,6 +95,7 @@ async function generate() {
 
   try {
     const res = await fetch('/api/hl/generate', {
+      headers: {'Content-Type': 'application/json'},
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
