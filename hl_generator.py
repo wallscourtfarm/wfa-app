@@ -88,6 +88,13 @@ Column addition/subtraction topics (e.g. "column method", "written addition", "w
   - Q5: misconception challenge. answer_type:"lines", answer_lines:2.
 
 """
++ """
+
+MATHS NOTES (if provided by teacher): Free-form instructions about how to structure or lay out specific questions.
+Follow these exactly as written — they override any default assumptions above.
+The word "grid" in maths notes refers to the column method Th H T O grid boxes, NOT the coordinate grid.
+
+"""
 + _GRID_SCHEMA
 + _GRID_RULES
 + """
@@ -203,6 +210,13 @@ Grid: 6×6, 2-3 simple elements only. Omit if topic needs no grid (grid_elements
 Simple vocabulary. Short sentences. No multi-step reasoning.
 
 """
++ """
+
+MATHS NOTES (if provided by teacher): Free-form instructions about how to structure or lay out specific questions.
+Follow these exactly as written — they override any default assumptions above.
+The word "grid" in maths notes refers to the column method Th H T O grid boxes, NOT the coordinate grid.
+
+"""
 + _GRID_SCHEMA
 + _GRID_RULES
 + """
@@ -315,8 +329,8 @@ def _validate_grid_geometry(elements, grid_size):
 
 
 _COLUMN_TOPIC_KEYWORDS = {
-    "column", "addition", "subtraction", "written method", "written addition",
-    "written subtraction", "column method"
+    "column method", "written method", "written addition",
+    "written subtraction", "formal written"
 }
 
 def _topic_needs_column(maths_topic):
