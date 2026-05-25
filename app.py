@@ -2,6 +2,12 @@ import os
 from flask import Flask
 
 app = Flask(__name__)
+
+@app.errorhandler(Exception)
+def handle_any_exception(e):
+    import traceback
+    from flask import jsonify
+    return jsonify({'ok': False, 'error': str(e), 'trace': traceback.format_exc()[-800:]}), 500
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
 
 from routes.auth          import auth_bp
