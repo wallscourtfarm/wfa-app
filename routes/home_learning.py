@@ -5,7 +5,7 @@ from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
 CLASS_OPTIONS = get_class_options()
-COLUMN_KEYWORDS = {'column', 'addition', 'subtraction', 'written method'}
+COLUMN_KEYWORDS = {'column method', 'written method', 'written addition', 'written subtraction', 'formal written'}
 
 
 def _get_hl_pupils(pupils, version='standard'):
@@ -38,8 +38,10 @@ def _enforce_column_method(data):
 
 
 def _is_column_topic(maths_topic, maths_notes):
-    combined = (maths_topic + ' ' + maths_notes).lower()
-    return any(kw in combined for kw in COLUMN_KEYWORDS)
+    # Only check maths_topic — maths_notes are free-form teacher instructions
+    # and should not trigger forced column method behaviour
+    t = maths_topic.lower()
+    return any(kw in t for kw in COLUMN_KEYWORDS)
 
 
 def _load_class_pupils(cls):
