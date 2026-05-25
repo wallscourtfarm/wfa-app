@@ -604,6 +604,8 @@ function openEditModal(pid, e) {
   document.getElementById('edit-tt-mode').value     = p.tt_mode;
   document.getElementById('edit-table').value       = p.table || '';
   document.getElementById('edit-adapted-hl').checked = p.adapted_hl;
+  document.getElementById('edit-ss-user').value = p.ss_user || '';
+  document.getElementById('edit-ss-pass').value = p.ss_pass || '';
 
   // Populate move-to select with all classes except current
   const sel = document.getElementById('move-to-cls');
@@ -633,6 +635,8 @@ async function saveEdit() {
           tt_mode:    document.getElementById('edit-tt-mode').value,
           table:      document.getElementById('edit-table').value.trim(),
           adapted_hl: document.getElementById('edit-adapted-hl').checked,
+          ss_user:    document.getElementById('edit-ss-user').value.trim(),
+          ss_pass:    document.getElementById('edit-ss-pass').value.trim(),
         },
       }),
     });
