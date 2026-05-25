@@ -139,11 +139,13 @@
   <!-- Step 1: Upload -->
   <div class="mp-section">
     <h2>1 — Upload menu PDF</h2>
-    <div class="mp-upload-area" id="dropZone" onclick="document.getElementById('pdfInput').click()">
+    <label class="mp-upload-area" id="dropZone" for="pdfInput">
       <div>📄 Drop the Aspens menu PDF here, or click to browse</div>
       <div class="filename" id="fileName">No file chosen</div>
-      <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChosen(this)">
-    </div>
+    </label>
+    <input type="file" id="pdfInput" accept=".pdf"
+           style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1"
+           onchange="onFileChosen(this)">
     <div style="margin-top:14px">
       <button class="mp-btn mp-btn-primary" id="extractBtn" disabled onclick="extractMenu()">
         <span class="mp-spinner" id="extractSpinner"></span>
