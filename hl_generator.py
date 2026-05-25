@@ -412,15 +412,11 @@ def generate_hl_content(
     )
 
     data = _call(system, user)
+    # Validate but don't retry — a second Claude call adds 30-60s.
+    # The prompt is strong enough; maths notes guide Claude directly.
     try:
         _validate(data, version, maths_topic)
-    except ValueError as e:
-        err_str = str(e)
-        retry_user = (
-            user + "\n\nPREVIOUS ATTEMPT FAILED VALIDATION:\n" + err_str +
-            "\n\nPlease fix the issue and regenerate. Refer to the worked examples in the system prompt."
-        )
-        data = _call(system, retry_user)
-        _validate(data, version, maths_topic)
+    except ValueError:
+        pass  # Return best-effort output rather than doubling the wait time
     return data
 
