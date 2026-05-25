@@ -520,10 +520,13 @@ body {
 .settings-save-row{ padding:4px 0; }
 
 .nav-logo {
-  height: 44px;
+  height: 36px;
   width: auto;
   display: block;
-  mix-blend-mode: multiply;
+  background: white;
+  border-radius: 6px;
+  padding: 3px 6px;
+  box-sizing: content-box;
 }
 
 .nav-version { font-size:11px; font-weight:600; opacity:.85; margin-left:6px; }
