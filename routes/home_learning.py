@@ -43,16 +43,14 @@ def _is_column_topic(maths_topic, maths_notes):
 
 
 def _load_class_pupils(cls):
-    """Load pupils for one class or all classes combined."""
-    if cls == 'all':
-        all_pupils = []
-        for cid in ALL_CLASSES:
-            d = load_class(cid)
-            if d:
-                all_pupils.extend(d.get('pupils', []))
-        return all_pupils
-    d = load_class(cls)
-    return d.get('pupils', []) if d else []
+    """Load pupils for one class, a year _all aggregate, or all classes combined."""
+    from data_manager import _resolve_classes
+    pupils = []
+    for cid in _resolve_classes(cls):
+        d = load_class(cid)
+        if d:
+            pupils.extend(d.get('pupils', []))
+    return pupils
 
 
 @hl_bp.route('/home-learning')
