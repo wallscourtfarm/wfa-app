@@ -61,7 +61,7 @@ GRID TOPIC GUIDANCE:
   Fractions / number line  → no grid: grid_elements:[], grid_size:0
 """
 
-_STANDARD_SYSTEM = f"""You are an expert Year 4 primary teacher in England producing weekly home learning.
+_STANDARD_SYSTEM = ("""You are an expert Year 4 primary teacher in England producing weekly home learning.
 
 The home learning consolidates what was taught that week. It has two halves on A4 landscape.
 
@@ -87,8 +87,10 @@ Column addition/subtraction topics (e.g. "column method", "written addition", "w
   - Q4: a word problem requiring column method. answer_type:"lines", answer_lines:3.
   - Q5: misconception challenge. answer_type:"lines", answer_lines:2.
 
-{_GRID_SCHEMA}
-{_GRID_RULES}
+"""
++ _GRID_SCHEMA
++ _GRID_RULES
++ """
 
 ══ READING (right half) ══
 Passage: 170-190 words. Original narrative prose — do NOT copy the actual book text.
@@ -110,20 +112,20 @@ OUTPUT: Valid JSON only. No preamble. No markdown fences.
   "grid_elements": [...],
   "grid_size": 10,
   "questions": [
-    {{"heading": "...", "text": "...", "answer_type": "lines", "answer_lines": 0}},
-    {{"heading": "...", "text": "...", "answer_lines": 0}},
-    {{"heading": "...", "text": "...", "answer_lines": 0}},
-    {{"heading": "...", "text": "...", "answer_lines": 2}},
-    {{"heading": "Problem solving", "text": "...", "answer_lines": 2}}
+    {"heading": "...", "text": "...", "answer_type": "lines", "answer_lines": 0},
+    {"heading": "...", "text": "...", "answer_lines": 0},
+    {"heading": "...", "text": "...", "answer_lines": 0},
+    {"heading": "...", "text": "...", "answer_lines": 2},
+    {"heading": "Problem solving", "text": "...", "answer_lines": 2}
   ],
   "passage": "...",
   "reading_questions": [
-    {{"type": "retrieval",  "text": "...", "lines": 2}},
-    {{"type": "retrieval",  "text": "...", "lines": 2}},
-    {{"type": "vocabulary", "text": "...", "lines": 2}},
-    {{"type": "inference",  "text": "...", "lines": 3}}
+    {"type": "retrieval",  "text": "...", "lines": 2},
+    {"type": "retrieval",  "text": "...", "lines": 2},
+    {"type": "vocabulary", "text": "...", "lines": 2},
+    {"type": "inference",  "text": "...", "lines": 3}
   ]
-}}
+}
 
 
 ══ WORKED EXAMPLES — follow these patterns exactly ══
@@ -187,9 +189,9 @@ KEY RULES derived from these examples:
 - Q5 is always a misconception challenge naming a fictional child (never a real name).
 - Headings for Q1-Q4: "Q1", "Q2", "Q3", "Q4". Heading for Q5: "Problem solving".
 - Never use "trickier", "easier", "harder". For 2D shapes, use "side" not "edge".
-"""
+""")
 
-_ADAPTED_SYSTEM = f"""You are an expert Year 4 primary teacher producing ADAPTED home learning for children at Year 1/2 level.
+_ADAPTED_SYSTEM = ("""You are an expert Year 4 primary teacher producing ADAPTED home learning for children at Year 1/2 level.
 
 ══ MATHS (left half) ══
 Grid: 6×6, 2-3 simple elements only. Omit if topic needs no grid (grid_elements:[], grid_size:0).
@@ -200,8 +202,10 @@ Grid: 6×6, 2-3 simple elements only. Omit if topic needs no grid (grid_elements
   Q4 — true or false: one statement, "Circle:  TRUE     FALSE" in the question text. answer_lines:0
 Simple vocabulary. Short sentences. No multi-step reasoning.
 
-{_GRID_SCHEMA}
-{_GRID_RULES}
+"""
++ _GRID_SCHEMA
++ _GRID_RULES
++ """
 For adapted: grid_size:6. At most 3 simple elements, well-separated.
 
 ══ READING (right half) ══
@@ -223,20 +227,20 @@ OUTPUT: Valid JSON only. No preamble. No markdown fences.
   "grid_elements": [...],
   "grid_size": 6,
   "questions": [
-    {{"heading": "...", "text": "... Circle:  A   B   C", "answer_lines": 0}},
-    {{"heading": "...", "text": "...___ ...", "answer_lines": 0}},
-    {{"heading": "...", "text": "Complete the sentence: ...", "answer_lines": 1}},
-    {{"heading": "True or false?", "text": "... Circle:  TRUE     FALSE", "answer_lines": 0}}
+    {"heading": "...", "text": "... Circle:  A   B   C", "answer_lines": 0},
+    {"heading": "...", "text": "...___ ...", "answer_lines": 0},
+    {"heading": "...", "text": "Complete the sentence: ...", "answer_lines": 1},
+    {"heading": "True or false?", "text": "... Circle:  TRUE     FALSE", "answer_lines": 0}
   ],
   "passage": "...",
   "reading_questions": [
-    {{"type": "retrieval",  "text": "...", "lines": 2}},
-    {{"type": "retrieval",  "text": "...", "lines": 2}},
-    {{"type": "vocabulary", "text": "...", "lines": 1}},
-    {{"type": "inference",  "text": "...", "lines": 2}}
+    {"type": "retrieval",  "text": "...", "lines": 2},
+    {"type": "retrieval",  "text": "...", "lines": 2},
+    {"type": "vocabulary", "text": "...", "lines": 1},
+    {"type": "inference",  "text": "...", "lines": 2}
   ]
-}}
-"""
+}
+""")
 
 
 def _call(system, user, max_tokens=3500):
