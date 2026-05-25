@@ -1,0 +1,603 @@
+{
+  "_meta": {
+    "source": "CLF Primary Curriculum Progression Summary v3.3 \u2014 Wallscourt Farm Academy 2025-26",
+    "year_group": "Y4",
+    "note": "Words extracted from Key vocabulary and curriculum content sections. Used to supplement Claude-generated word lists."
+  },
+  "topics": {
+    "sound": {
+      "keywords": [
+        "sound",
+        "sounds",
+        "vibration",
+        "vibrations",
+        "noise",
+        "pitch",
+        "volume",
+        "hearing",
+        "music",
+        "waves",
+        "acoustics"
+      ],
+      "words": [
+        "vibration",
+        "pitch",
+        "volume",
+        "eardrum",
+        "vacuum",
+        "larynx",
+        "frequency",
+        "amplitude",
+        "conductor",
+        "absorb",
+        "reflect",
+        "insulate",
+        "wave",
+        "decibel",
+        "muffle",
+        "medium"
+      ]
+    },
+    "electricity": {
+      "keywords": [
+        "electricity",
+        "circuit",
+        "circuits",
+        "electric",
+        "electrical",
+        "current",
+        "battery",
+        "switch",
+        "conductor",
+        "insulator"
+      ],
+      "words": [
+        "circuit",
+        "conductor",
+        "insulator",
+        "battery",
+        "switch",
+        "bulb",
+        "buzzer",
+        "component",
+        "voltage",
+        "symbol",
+        "series",
+        "cell",
+        "wire",
+        "resistance",
+        "appliance",
+        "complete"
+      ]
+    },
+    "light": {
+      "keywords": [
+        "light",
+        "shadow",
+        "reflection",
+        "refraction",
+        "opaque",
+        "transparent",
+        "translucent"
+      ],
+      "words": [
+        "shadow",
+        "reflect",
+        "opaque",
+        "transparent",
+        "translucent",
+        "prism",
+        "spectrum",
+        "source",
+        "absorb",
+        "refract",
+        "image",
+        "mirror",
+        "beam",
+        "angle",
+        "visible"
+      ]
+    },
+    "states_of_matter": {
+      "keywords": [
+        "states of matter",
+        "solid",
+        "liquid",
+        "gas",
+        "melting",
+        "freezing",
+        "evaporation",
+        "condensation",
+        "dissolving",
+        "water cycle"
+      ],
+      "words": [
+        "solid",
+        "liquid",
+        "melting",
+        "freezing",
+        "evaporation",
+        "condensation",
+        "temperature",
+        "reversible",
+        "particle",
+        "vapour",
+        "boiling",
+        "dissolve",
+        "solution",
+        "mixture",
+        "density"
+      ]
+    },
+    "classification": {
+      "keywords": [
+        "classification",
+        "classify",
+        "animals",
+        "vertebrates",
+        "invertebrates",
+        "living things",
+        "species",
+        "habitat",
+        "organism"
+      ],
+      "words": [
+        "vertebrate",
+        "invertebrate",
+        "mammal",
+        "reptile",
+        "amphibian",
+        "backbone",
+        "organism",
+        "classify",
+        "habitat",
+        "species",
+        "arachnid",
+        "crustacean",
+        "mollusc",
+        "insect",
+        "feathers"
+      ]
+    },
+    "digestive_system": {
+      "keywords": [
+        "digestion",
+        "digestive",
+        "teeth",
+        "stomach",
+        "intestine",
+        "body",
+        "organs",
+        "human body",
+        "nutrition",
+        "diet"
+      ],
+      "words": [
+        "oesophagus",
+        "stomach",
+        "intestine",
+        "salivary",
+        "molars",
+        "incisors",
+        "canines",
+        "premolars",
+        "absorb",
+        "digestion",
+        "enzyme",
+        "nutrient",
+        "liver",
+        "glands",
+        "anus"
+      ]
+    },
+    "rocks": {
+      "keywords": [
+        "rocks",
+        "geology",
+        "igneous",
+        "sedimentary",
+        "metamorphic",
+        "fossils",
+        "minerals",
+        "soil",
+        "earth",
+        "crust",
+        "mantle"
+      ],
+      "words": [
+        "igneous",
+        "sedimentary",
+        "metamorphic",
+        "fossil",
+        "crust",
+        "mantle",
+        "volcano",
+        "magma",
+        "mineral",
+        "crystal",
+        "erosion",
+        "geology",
+        "pressure",
+        "permeable",
+        "layers"
+      ]
+    },
+    "plants": {
+      "keywords": [
+        "plants",
+        "photosynthesis",
+        "pollination",
+        "seeds",
+        "flowers",
+        "growth",
+        "roots",
+        "stems",
+        "leaves",
+        "reproduction"
+      ],
+      "words": [
+        "photosynthesis",
+        "pollination",
+        "dispersal",
+        "germination",
+        "nutrients",
+        "absorb",
+        "transport",
+        "roots",
+        "stems",
+        "chlorophyll",
+        "stomata",
+        "reproduction",
+        "fertilise",
+        "petal",
+        "pistil"
+      ]
+    },
+    "anglo_saxons": {
+      "keywords": [
+        "anglo-saxons",
+        "anglo saxons",
+        "saxons",
+        "vikings",
+        "medieval",
+        "early medieval",
+        "heptarchy",
+        "kingdom"
+      ],
+      "words": [
+        "kingdom",
+        "monastery",
+        "invasion",
+        "Christianity",
+        "Danelaw",
+        "settlement",
+        "chronicle",
+        "pagan",
+        "runes",
+        "pilgrimage",
+        "conquest",
+        "thane",
+        "serf",
+        "mead",
+        "Heptarchy"
+      ]
+    },
+    "mayans": {
+      "keywords": [
+        "maya",
+        "mayan",
+        "mayans",
+        "ancient civilisation",
+        "mesoamerica",
+        "aztec",
+        "inca"
+      ],
+      "words": [
+        "pyramid",
+        "civilisation",
+        "sacrifice",
+        "astronomy",
+        "calendar",
+        "hierarchy",
+        "polytheist",
+        "irrigation",
+        "codex",
+        "deity",
+        "obsidian",
+        "jaguar",
+        "Teotihuacan",
+        "glyphs",
+        "maize"
+      ]
+    },
+    "london": {
+      "keywords": [
+        "london",
+        "capital",
+        "uk",
+        "united kingdom",
+        "england",
+        "south east",
+        "british",
+        "southeast"
+      ],
+      "words": [
+        "capital",
+        "borough",
+        "parliament",
+        "Thames",
+        "landmark",
+        "tourism",
+        "heritage",
+        "commute",
+        "urban",
+        "metropolitan",
+        "county",
+        "suburb",
+        "multicultural",
+        "historic",
+        "monument"
+      ]
+    },
+    "south_america": {
+      "keywords": [
+        "south america",
+        "south american",
+        "brazil",
+        "peru",
+        "amazon",
+        "rainforest",
+        "equator",
+        "tropics",
+        "andes",
+        "latin america",
+        "jungle"
+      ],
+      "words": [
+        "rainforest",
+        "equator",
+        "tropics",
+        "continent",
+        "biome",
+        "latitude",
+        "longitude",
+        "hemisphere",
+        "climate",
+        "vegetation",
+        "deforestation",
+        "biodiversity",
+        "canopy",
+        "Amazon",
+        "altitude"
+      ]
+    },
+    "geography_skills": {
+      "keywords": [
+        "geography",
+        "maps",
+        "grid reference",
+        "compass",
+        "fieldwork",
+        "physical",
+        "human",
+        "features"
+      ],
+      "words": [
+        "hemisphere",
+        "latitude",
+        "longitude",
+        "meridian",
+        "contour",
+        "symbol",
+        "gradient",
+        "fieldwork",
+        "compass",
+        "coordinates",
+        "scale",
+        "settlement",
+        "urban",
+        "rural",
+        "topography"
+      ]
+    },
+    "fractions": {
+      "keywords": [
+        "fractions",
+        "fraction",
+        "decimals",
+        "percentages",
+        "equivalent",
+        "numerator",
+        "denominator"
+      ],
+      "words": [
+        "numerator",
+        "denominator",
+        "equivalent",
+        "improper",
+        "mixed",
+        "decimal",
+        "percentage",
+        "fraction",
+        "simplify",
+        "compare",
+        "convert",
+        "tenth",
+        "hundredth",
+        "proportion",
+        "ratio"
+      ]
+    },
+    "multiplication": {
+      "keywords": [
+        "multiplication",
+        "times tables",
+        "multiply",
+        "division",
+        "factors",
+        "multiples",
+        "product"
+      ],
+      "words": [
+        "multiple",
+        "factor",
+        "product",
+        "divisor",
+        "quotient",
+        "remainder",
+        "commutative",
+        "inverse",
+        "efficient",
+        "partition",
+        "formal",
+        "estimate",
+        "digit",
+        "algorithm",
+        "array"
+      ]
+    },
+    "place_value": {
+      "keywords": [
+        "place value",
+        "numbers",
+        "digits",
+        "thousands",
+        "rounding",
+        "negative",
+        "roman numerals"
+      ],
+      "words": [
+        "thousand",
+        "hundred",
+        "decimal",
+        "negative",
+        "rounding",
+        "partition",
+        "represent",
+        "compare",
+        "order",
+        "estimate",
+        "numeral",
+        "digit",
+        "value",
+        "column",
+        "integer"
+      ]
+    },
+    "english_grammar": {
+      "keywords": [
+        "grammar",
+        "punctuation",
+        "writing",
+        "sentences",
+        "clauses",
+        "spelling",
+        "english language"
+      ],
+      "words": [
+        "adverbial",
+        "clause",
+        "cohesion",
+        "pronoun",
+        "possessive",
+        "formality",
+        "register",
+        "demarcate",
+        "fronted",
+        "Standard",
+        "conjunction",
+        "apostrophe",
+        "paragraph",
+        "vocabulary",
+        "tense"
+      ]
+    },
+    "reading": {
+      "keywords": [
+        "reading",
+        "comprehension",
+        "inference",
+        "retrieval",
+        "vocabulary",
+        "author",
+        "text"
+      ],
+      "words": [
+        "inference",
+        "retrieve",
+        "evidence",
+        "viewpoint",
+        "connotation",
+        "denotation",
+        "perspective",
+        "summarise",
+        "compare",
+        "predict",
+        "evaluate",
+        "theme",
+        "convention",
+        "structure",
+        "author"
+      ]
+    },
+    "vikings": {
+      "keywords": [
+        "viking",
+        "vikings",
+        "norse",
+        "scandinavia",
+        "norsemen",
+        "danelaw",
+        "nordic",
+        "longship"
+      ],
+      "words": [
+        "longship",
+        "raid",
+        "Norsemen",
+        "Scandinavia",
+        "Valhalla",
+        "berserker",
+        "Danelaw",
+        "runes",
+        "settlement",
+        "pillage",
+        "monastery",
+        "conquest",
+        "pagan",
+        "fjord",
+        "Odin"
+      ]
+    },
+    "islam": {
+      "keywords": [
+        "islam",
+        "muslim",
+        "five pillars",
+        "mosque",
+        "religion",
+        "faith",
+        "quran",
+        "arabic",
+        "golden age"
+      ],
+      "words": [
+        "mosque",
+        "prayer",
+        "pilgrimage",
+        "prophet",
+        "revelation",
+        "Ramadan",
+        "Zakat",
+        "Shahada",
+        "Hajj",
+        "Sawm",
+        "scripture",
+        "Arabic",
+        "Quran",
+        "Mecca",
+        "Medina"
+      ]
+    }
+  }
+}
