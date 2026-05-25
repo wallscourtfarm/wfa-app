@@ -79,6 +79,54 @@ const CLS = "{{ cls }}";
 
 function getVal(id) { return document.getElementById(id)?.value.trim() || ''; }
 
+function showResult(data) {
+  if (data.std_pdf) {
+    const dlStd = document.getElementById('dl-std');
+    dlStd.href = URL.createObjectURL(b64toBlob(data.std_pdf, 'application/pdf'));
+    dlStd.download = `HL_${data.week_ref}_Standard.pdf`;
+    dlStd.style.display = '';
+  }
+  if (data.adp_pdf) {
+    const dlAdp = document.getElementById('dl-adp');
+    dlAdp.href = URL.createObjectURL(b64toBlob(data.adp_pdf, 'application/pdf'));
+    dlAdp.download = `HL_${data.week_ref}_Adapted.pdf`;
+    dlAdp.style.display = '';
+  }
+  document.getElementById('results-meta').textContent =
+    `Standard: ${data.n_std} pupils · Adapted: ${data.n_adp} pupils · Week ${data.week_ref}`;
+  document.getElementById('results').classList.remove('hidden');
+  showStatus('', '');
+}
+
+function pollJob(job_id, elapsed) {
+  elapsed = elapsed || 0;
+  document.getElementById('progress-msg').textContent =
+    `Generating — ${Math.round(elapsed)}s. Claude is writing content and building PDFs…`;
+  fetch(`/api/hl/status/${job_id}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'done') {
+        document.getElementById('progress').classList.add('hidden');
+        document.getElementById('generate-btn').disabled = false;
+        if (!data.ok) { showStatus('Error: ' + (data.error || 'Unknown'), 'error'); return; }
+        showResult(data);
+      } else if (data.status === 'error') {
+        document.getElementById('progress').classList.add('hidden');
+        document.getElementById('generate-btn').disabled = false;
+        showStatus('Error: ' + (data.error || 'Unknown'), 'error');
+      } else {
+        if (elapsed > 180) {
+          document.getElementById('progress').classList.add('hidden');
+          document.getElementById('generate-btn').disabled = false;
+          showStatus('Timed out after 3 minutes — please try again.', 'error');
+          return;
+        }
+        setTimeout(() => pollJob(job_id, elapsed + 3), 3000);
+      }
+    })
+    .catch(() => setTimeout(() => pollJob(job_id, elapsed + 3), 3000));
+}
+
 async function generate() {
   const maths_topic   = getVal('maths_topic');
   const reading_topic = getVal('reading_topic');
@@ -86,65 +134,36 @@ async function generate() {
     showStatus('Maths topic and reading text are both required.', 'error');
     return;
   }
-
   const btn = document.getElementById('generate-btn');
   btn.disabled = true;
   document.getElementById('results').classList.add('hidden');
   document.getElementById('progress').classList.remove('hidden');
-  document.getElementById('progress-msg').textContent = 'Generating content and building PDFs — takes about 60 seconds, please wait…';
-
+  document.getElementById('progress-msg').textContent = 'Starting…';
   try {
     const res = await fetch('/api/hl/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        cls:              CLS,
-        maths_topic:      maths_topic,
-        maths_notes:      getVal('maths_notes'),
-        reading_topic:    reading_topic,
-        vocab_word:       getVal('vocab_word'),
+        cls: CLS,
+        maths_topic: maths_topic,
+        maths_notes: getVal('maths_notes'),
+        reading_topic: reading_topic,
+        vocab_word: getVal('vocab_word'),
         rule_explanation: getVal('rule_explanation'),
       })
     });
-
-    // progress stays visible until done
     const data = await res.json();
-
-    document.getElementById('progress').classList.add('hidden');
-    btn.disabled = false;
-
-    if (!data.ok) {
-      showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+    if (!data.ok || !data.job_id) {
+      document.getElementById('progress').classList.add('hidden');
+      btn.disabled = false;
+      showStatus('Error: ' + (data.error || 'Could not start job'), 'error');
       return;
     }
-
-    // Standard PDF download link
-    if (data.std_pdf) {
-      const dlStd = document.getElementById('dl-std');
-      const blob = b64toBlob(data.std_pdf, 'application/pdf');
-      dlStd.href = URL.createObjectURL(blob);
-      dlStd.download = `HL_${data.week_ref}_Standard.pdf`;
-      dlStd.style.display = '';
-    }
-
-    // Adapted PDF download link
-    if (data.adp_pdf) {
-      const dlAdp = document.getElementById('dl-adp');
-      const blob = b64toBlob(data.adp_pdf, 'application/pdf');
-      dlAdp.href = URL.createObjectURL(blob);
-      dlAdp.download = `HL_${data.week_ref}_Adapted.pdf`;
-      dlAdp.style.display = '';
-    }
-
-    document.getElementById('results-meta').textContent =
-      `Standard: ${data.n_std} pupils · Adapted: ${data.n_adp} pupils · Week ${data.week_ref}`;
-    document.getElementById('results').classList.remove('hidden');
-    showStatus('', '');
-
-  } catch (err) {
+    setTimeout(() => pollJob(data.job_id, 0), 3000);
+  } catch(err) {
     document.getElementById('progress').classList.add('hidden');
     btn.disabled = false;
-    showStatus('Request failed — check the server is running and try again. (' + err + ')', 'error');
+    showStatus('Could not reach server: ' + err, 'error');
   }
 }
 
