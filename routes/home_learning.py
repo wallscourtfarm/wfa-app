@@ -5,6 +5,19 @@ from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
 CLASS_OPTIONS = get_class_options()
+
+# ── Async job store ───────────────────────────────────────────────────────────
+import threading, uuid, time as _time
+
+_JOBS = {}   # job_id → {'status': 'pending'|'done'|'error', 'result': ..., 'ts': float}
+
+def _prune_jobs():
+    """Remove jobs older than 10 minutes."""
+    cutoff = _time.time() - 600
+    stale  = [k for k, v in _JOBS.items() if v.get('ts', 0) < cutoff]
+    for k in stale:
+        _JOBS.pop(k, None)
+
 COLUMN_KEYWORDS = {'column method', 'written method', 'written addition', 'written subtraction', 'formal written'}
 
 
@@ -90,6 +103,18 @@ def api_hl_ping():
     return jsonify({'ok': len(errors) == 0, 'errors': errors})
 
 
+@hl_bp.route('/api/hl/status/<job_id>')
+def api_hl_status(job_id):
+    """Poll job status — returns immediately."""
+    if not session.get('authenticated'):
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    _prune_jobs()
+    job = _JOBS.get(job_id)
+    if not job:
+        return jsonify({'ok': False, 'error': 'Job not found'})
+    return jsonify(job)
+
+
 @hl_bp.route('/api/hl/generate', methods=['POST'])
 def api_hl_generate():
     if not session.get('authenticated'):
@@ -129,52 +154,81 @@ def api_hl_generate():
 
     is_column = _is_column_topic(maths_topic, maths_notes)
 
-    try:
-        from hl_generator import generate_hl_content
-        std_data = generate_hl_content(
-            maths_topic=maths_topic, reading_topic=reading_topic,
-            week_ref=week_ref, version='standard',
-            maths_notes=maths_notes, vocab_word=vocab_word)
-        if is_column:
-            std_data = _enforce_column_method(std_data)
-    except Exception as e:
-        return jsonify({'ok': False, 'error': f'Standard content generation failed: {e}'})
+    job_id = str(uuid.uuid4())
+    _JOBS[job_id] = {'status': 'pending', 'ts': _time.time()}
 
-    try:
-        adp_data = generate_hl_content(
-            maths_topic=maths_topic, reading_topic=reading_topic,
-            week_ref=week_ref, version='adapted',
-            maths_notes=maths_notes, vocab_word=vocab_word)
-        if is_column:
-            adp_data = _enforce_column_method(adp_data)
-    except Exception as e:
-        return jsonify({'ok': False, 'error': f'Adapted content generation failed: {e}'})
+    # Capture everything needed for the thread (no request context in thread)
+    _cls             = cls
+    _maths_topic     = maths_topic
+    _maths_notes     = maths_notes
+    _reading_topic   = reading_topic
+    _vocab_word      = vocab_word
+    _rule_explanation= rule_explanation
+    _week_ref        = week_ref
+    _rule_title      = rule_title
+    _rule_words      = rule_words
+    _std_pupils      = std_pupils
+    _adp_pupils      = adp_pupils
+    _key_words_map   = key_words_map
+    _is_col          = is_column
 
-    hl_cfg   = {'standard': std_data, 'adapted': adp_data}
-    wkly_cfg = {'week_ref': week_ref}
-
-    try:
-        from pdf_builder import build_hl_pdf
-        std_bytes = build_hl_pdf(
-            std_pupils, hl_cfg, wkly_cfg, version='standard',
-            rule_title=rule_title, rule_words=rule_words,
-            key_words_map=key_words_map, rule_explanation=rule_explanation)
-    except Exception as e:
-        return jsonify({'ok': False, 'error': f'Standard PDF build failed: {e}'})
-
-    adp_bytes = None
-    if adp_pupils:
+    def _run():
         try:
-            adp_bytes = build_hl_pdf(
-                adp_pupils, hl_cfg, wkly_cfg, version='adapted',
-                rule_title=rule_title, rule_words=rule_words,
-                key_words_map=key_words_map, rule_explanation=rule_explanation)
+            from hl_generator import generate_hl_content
+            std_data = generate_hl_content(
+                maths_topic=_maths_topic, reading_topic=_reading_topic,
+                week_ref=_week_ref, version='standard',
+                maths_notes=_maths_notes, vocab_word=_vocab_word)
+            if _is_col:
+                std_data = _enforce_column_method(std_data)
         except Exception as e:
-            return jsonify({'ok': False, 'error': f'Adapted PDF build failed: {e}'})
+            _JOBS[job_id] = {'status': 'error', 'error': f'Standard content failed: {e}', 'ts': _time.time()}
+            return
 
-    return jsonify({
-        'ok': True, 'week_ref': week_ref,
-        'std_pdf': base64.b64encode(std_bytes).decode() if std_bytes else None,
-        'adp_pdf': base64.b64encode(adp_bytes).decode() if adp_bytes else None,
-        'n_std': len(std_pupils), 'n_adp': len(adp_pupils),
-    })
+        try:
+            adp_data = generate_hl_content(
+                maths_topic=_maths_topic, reading_topic=_reading_topic,
+                week_ref=_week_ref, version='adapted',
+                maths_notes=_maths_notes, vocab_word=_vocab_word)
+            if _is_col:
+                adp_data = _enforce_column_method(adp_data)
+        except Exception as e:
+            _JOBS[job_id] = {'status': 'error', 'error': f'Adapted content failed: {e}', 'ts': _time.time()}
+            return
+
+        hl_cfg   = {'standard': std_data, 'adapted': adp_data}
+        wkly_cfg = {'week_ref': _week_ref}
+
+        try:
+            from pdf_builder import build_hl_pdf
+            std_bytes = build_hl_pdf(
+                _std_pupils, hl_cfg, wkly_cfg, version='standard',
+                rule_title=_rule_title, rule_words=_rule_words,
+                key_words_map=_key_words_map, rule_explanation=_rule_explanation)
+        except Exception as e:
+            _JOBS[job_id] = {'status': 'error', 'error': f'Standard PDF failed: {e}', 'ts': _time.time()}
+            return
+
+        adp_bytes = None
+        if _adp_pupils:
+            try:
+                adp_bytes = build_hl_pdf(
+                    _adp_pupils, hl_cfg, wkly_cfg, version='adapted',
+                    rule_title=_rule_title, rule_words=_rule_words,
+                    key_words_map=_key_words_map, rule_explanation=_rule_explanation)
+            except Exception as e:
+                pass  # Adapted failure is non-fatal
+
+        _JOBS[job_id] = {
+            'status':   'done',
+            'ok':       True,
+            'week_ref': _week_ref,
+            'std_pdf':  base64.b64encode(std_bytes).decode() if std_bytes else None,
+            'adp_pdf':  base64.b64encode(adp_bytes).decode() if adp_bytes else None,
+            'n_std':    len(_std_pupils),
+            'n_adp':    len(_adp_pupils),
+            'ts':       _time.time(),
+        }
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({'ok': True, 'job_id': job_id, 'status': 'pending'})
