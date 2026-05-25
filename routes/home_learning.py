@@ -94,7 +94,7 @@ def _load_class_pupils(cls):
 @hl_bp.route('/home-learning')
 def home_learning():
     from flask import redirect
-    return redirect('https://spelling-homelearning.streamlit.app/')
+    return redirect('https://spelling-homelearning.streamlit.app/?year=4')
 
 
 @hl_bp.route('/api/hl/ping')
