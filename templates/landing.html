@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallscourt Farm Academy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231798d3'/%3E%3Crect x='8' y='4' width='16' height='24' rx='2' fill='white'/%3E%3Crect x='10' y='8' width='12' height='2' rx='1' fill='%231798d3'/%3E%3Crect x='10' y='12' width='12' height='2' rx='1' fill='%23ccc'/%3E%3Crect x='10' y='16' width='12' height='2' rx='1' fill='%23ccc'/%3E%3Crect x='10' y='20' width='8' height='2' rx='1' fill='%23ccc'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wallscourtfarm/wfa-shared@main/web/wfa.css">
+<style>
+  :root { --max-w: 900px; }
+
+  .hero {
+    text-align: center;
+    padding: 60px 24px 40px;
+  }
+  .hero img {
+    height: 80px;
+    margin-bottom: 20px;
+    border-radius: 16px;
+    background: white;
+    padding: 8px 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .hero h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #0a0101;
+    margin-bottom: 8px;
+  }
+  .hero p {
+    font-size: 1rem;
+    color: #555;
+    font-weight: 600;
+  }
+
+  .sections {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 24px 60px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 24px;
+  }
+
+  .section-card {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 28px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card .icon { font-size: 2.8rem; }
+  .section-card h2 {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #0a0101;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: 0;
+    border: none;
+    padding: 0;
+    display: block;
+    color: #0a0101;
+  }
+  .section-card p {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: 600;
+    line-height: 1.55;
+    flex-grow: 1;
+  }
+  .section-card a.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-decoration: none;
+    text-align: center;
+    transition: opacity 0.15s;
+  }
+  .section-card a.btn:hover { opacity: 0.85; }
+
+  .btn-blue  { background: var(--wfa-blue);  color: white; }
+  .btn-green { background: #2bae62;           color: white; }
+  .btn-dark  { background: #1a1a2e;           color: white; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img src="https://cdn.jsdelivr.net/gh/wallscourtfarm/wfa-shared@main/web/wfa_logo.webp" alt="Wallscourt Farm Academy">
+  <h1>Wallscourt Farm Academy</h1>
+  <p>Part of Cabot Learning Federation &mdash; Bristol</p>
+</div>
+
+<div class="sections">
+
+  <div class="section-card">
+    <div class="icon">🖥️</div>
+    <h2>Morning Learning &amp; Staff Tools</h2>
+    <p>Year-group morning displays, scheduling, rotas, labels, bookings and assessment tools for all staff.</p>
+    <a class="btn btn-blue" href="https://staff.wallscourt-farm-academy.co.uk">Go to Staff Tools &rarr;</a>
+  </div>
+
+  <div class="section-card">
+    <div class="icon">🎮</div>
+    <h2>Learning Games</h2>
+    <p>Times tables, phonics, maths games and more &mdash; activities for learners across the school.</p>
+    <a class="btn btn-green" href="https://games.wallscourt-farm-academy.co.uk">Go to Learning Games &rarr;</a>
+  </div>
+
+  <div class="section-card">
+    <div class="icon">🔒</div>
+    <h2>Staff App</h2>
+    <p>Spelling tracker, assessments, home learning, reading and class management tools. Staff login required.</p>
+    <a class="btn btn-dark" href="{ url_for('auth.login') }">Sign in &rarr;</a>
+  </div>
+
+</div>
+
+</body>
+</html>
