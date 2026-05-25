@@ -7,7 +7,7 @@ import json
 import os
 import re
 
-_VOCAB_PATH = os.path.join(os.path.dirname(__file__), "..", "clf_vocabulary.json")
+_VOCAB_PATH = os.path.join(os.path.dirname(__file__), "clf_vocabulary.json")
 
 
 def _load_vocab():
