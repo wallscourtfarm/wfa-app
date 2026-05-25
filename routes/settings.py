@@ -51,6 +51,8 @@ def api_settings_save():
             wc['classes'][cls_id]['main_rule_id']     = cfg['main_rule_id']
         if cfg.get('revision_rule_id') is not None:
             wc['classes'][cls_id]['revision_rule_id'] = cfg['revision_rule_id']
+        if 'rule_explanation' in cfg:
+            wc['classes'][cls_id]['rule_explanation'] = cfg['rule_explanation']
 
     ok = save_weekly_config(wc)
     return jsonify({'ok': ok, 'error': None if ok else 'GitHub write failed'})
