@@ -390,6 +390,7 @@ async function ssApply() {
 <style>
 .cm-table { width:100%; border-collapse:collapse; font-size:14px; }
 .cm-table th { background:#f8fafc; color:#64748b; font-size:12px; font-weight:700;
+
   text-transform:uppercase; letter-spacing:.5px; padding:8px 12px; text-align:left;
   border-bottom:2px solid #e2e8f0; white-space:nowrap; }
 .cm-table td { padding:9px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
@@ -398,6 +399,19 @@ async function ssApply() {
 .cm-table tr.pair-selectable:hover { cursor:pointer; }
 .cm-table tr.pair-selectable:hover td { background:#fef3c7; }
 .cm-table tr.pending-row td { background:#fffbeb; }
+.inline-tbl {
+  width:40px; border:1px solid transparent; border-radius:4px;
+  font-size:14px; text-align:center; padding:2px 4px;
+  background:transparent; transition:border-color .15s;
+  font-family:inherit; color:inherit;
+}
+.inline-tbl:hover { border-color:#cbd5e1; }
+.inline-tbl:focus { outline:none; border-color:#1798d3; background:white; }
+.inline-tbl::placeholder { color:#94a3b8; font-style:italic; }
+.pair-cell { cursor:pointer; }
+.pair-cell:hover .no-pair { color:#1798d3; text-decoration:underline; }
+.pair-cell .pair-name { text-decoration-line:underline; text-decoration-style:dotted;
+  text-underline-offset:2px; text-decoration-color:#94a3b8; }
 
 .group-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; }
 .group-main     { background:#dbeafe; color:#1d4ed8; }
@@ -561,17 +575,27 @@ function render() {
       <td><strong>${p.first}</strong> ${p.last || ''}</td>
       <td>${groupBadge}</td>
       <td>${p.tt_set}${p.tt_mode === 'xd' ? '×÷' : '×'}</td>
-      <td>${p.table || '—'}</td>
+      <td>
+        <input type="text" class="inline-tbl"
+               value="${p.table || ''}"
+               data-id="${p.id}" data-orig="${p.table || ''}"
+               placeholder="—"
+               title="Click to edit table number"
+               onfocus="this.dataset.orig=this.value;this.style.borderColor='#1798d3'"
+               onblur="saveTableInline(this)"
+               onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){this.value=this.dataset.orig||'';this.style.borderColor='transparent';this.blur();}">
+      </td>
       <td>${p.adapted_hl ? '✅' : '—'}</td>
-      <td>${pairLabel}
+      <td class="pair-cell" onclick="if(!_pairMode&&!event.target.closest('button'))openPairModal('${p.id}',event)"
+          title="${_pairMode ? '' : 'Click to assign pair'}">
+        ${pairDot}${p.partner_name
+          ? `<span class="pair-name">${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
+              ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}</span>`
+          : `<span class="no-pair">${_pairMode ? 'Unpaired' : 'Click to pair'}</span>`}
         ${p.partner_name && !_pairMode
           ? `<button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
               style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">
               Unpair</button>` : ''}
-        ${!p.partner_name && !_pairMode
-          ? `<button class="btn btn-ghost btn-sm" onclick="openPairModal('${p.id}',event)"
-              style="margin-left:6px;font-size:11px;padding:2px 8px">
-              + Pair</button>` : ''}
       </td>
       <td style="color:#94a3b8;font-size:12px">${p.word_pos}</td>
       <td>
@@ -745,6 +769,37 @@ async function saveEdit() {
     else showStatus('Save failed: ' + d.error, 'error');
   } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
   finally { showSpin('edit', false); }
+}
+
+async function saveTableInline(input) {
+  input.style.borderColor = 'transparent';
+  const pid   = input.dataset.id;
+  const val   = input.value.trim();
+  const orig  = input.dataset.orig || '';
+  if (val === orig) return;                    // no change — nothing to do
+  input.style.opacity = '0.5';
+  try {
+    const resp = await fetch('/api/class/pupil/update', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS_ID, pupil_id: pid, changes: { table: val } }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      input.dataset.orig = val;
+      showStatus('Table saved.');
+      // Update local _pupils so re-render reflects change without a full reload
+      const p = _pupils.find(x => x.id === pid);
+      if (p) p.table = val;
+    } else {
+      input.value = orig;
+      showStatus('Save failed: ' + d.error, 'error');
+    }
+  } catch(e) {
+    input.value = orig;
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    input.style.opacity = '1';
+  }
 }
 
 async function moveCurrentPupil() {
