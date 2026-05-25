@@ -62,6 +62,16 @@
         {% endfor %}
       </select>
     </div>
+    <div class="settings-row">
+      <label class="settings-label">Rule explanation</label>
+      <input id="rule_explanation" type="text" class="cm-input"
+             style="max-width:420px"
+             value="{{ cls_cfg.get('rule_explanation', '') }}"
+             placeholder="e.g. Adding -tion changes a verb to a noun (action, revision)">
+      <span style="font-size:12px;color:#94a3b8;margin-left:8px">
+        Auto-fills the Home Learning generator — saves re-typing each week.
+      </span>
+    </div>
   </div>
 
   <div class="settings-save-row">
@@ -75,13 +85,15 @@
 <script>
 async function saveSettings() {
   const week_ref       = document.getElementById('week_ref').value.trim();
-  const main_rule_id   = document.getElementById('main_rule').value || null;
-  const rev_rule_id    = document.getElementById('revision_rule').value || null;
+  const main_rule_id     = document.getElementById('main_rule').value || null;
+  const rev_rule_id      = document.getElementById('revision_rule').value || null;
+  const rule_explanation = document.getElementById('rule_explanation').value.trim();
 
   // Apply same rules to both classes
   const classes = {};
   {{ yr_classes | tojson }}.forEach(cls => {
-    classes[cls] = { main_rule_id: main_rule_id, revision_rule_id: rev_rule_id };
+    classes[cls] = { main_rule_id: main_rule_id, revision_rule_id: rev_rule_id,
+                     rule_explanation: rule_explanation };
   });
 
   const btn = event.target;
