@@ -29,14 +29,13 @@ RULE_TITLE_MAP = {f'{r[0]}-{r[1]}': r[2] for r in SPELLING_RULES}
 
 
 def _load_pupils(cls):
-    if cls == 'all':
-        pupils = []
-        for cid in ALL_CLASSES:
-            d = load_class(cid)
-            if d: pupils.extend(d.get('pupils', []))
-        return pupils
-    d = load_class(cls)
-    return d.get('pupils', []) if d else []
+    from data_manager import _resolve_classes
+    pupils = []
+    for cid in _resolve_classes(cls):
+        d = load_class(cid)
+        if d:
+            pupils.extend(d.get('pupils', []))
+    return pupils
 
 
 def _rule_priorities(pupils):
