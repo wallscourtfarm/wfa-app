@@ -33,18 +33,20 @@ body {
   background: var(--brand);
   color: #fff;
   padding: 0 16px;
-  height: 72px;
+  height: 68px;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 4px rgba(0,0,0,.15);
 }
 
 .nav-brand {
-  font-weight: 700;
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
   margin-right: 12px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .year-switcher {
@@ -72,8 +74,10 @@ body {
 
 .nav-links {
   display: flex;
-  gap: 4px;
+  align-items: center;
   flex: 1;
+  gap: 2px;
+  overflow: hidden;
 }
 
 .nav-links a {
@@ -443,10 +447,18 @@ body {
 
 /* ── Nav items (match existing pattern) ─────────────────────────────── */
 .nav-item {
-  color:rgba(255,255,255,.85); text-decoration:none; padding:0 12px;
-  height:48px; display:flex; align-items:center; font-size:13px;
-  border-bottom:3px solid transparent; transition:color .15s,border-color .15s;
-  white-space:nowrap;
+  color: rgba(255,255,255,.9);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
 }
 .nav-item:hover, .nav-item.active { color:#fff; border-bottom-color:#fff; }
 .nav-item.active { font-weight:600; }
@@ -520,13 +532,14 @@ body {
 .settings-save-row{ padding:4px 0; }
 
 .nav-logo {
-  height: 48px;
+  height: 46px;
   width: auto;
-  display: block;
   background: white;
   border-radius: 8px;
   padding: 4px 8px;
   box-sizing: content-box;
+  display: block;
+  flex-shrink: 0;
 }
 
 .nav-version { font-size:11px; font-weight:600; opacity:.85; margin-left:6px; }
