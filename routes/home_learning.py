@@ -229,25 +229,31 @@ def api_hl_generate():
         hl_cfg   = {'standard': std_data, 'adapted': adp_data}
         wkly_cfg = {'week_ref': _week_ref}
 
-        try:
-            from pdf_builder import build_hl_pdf
-            std_bytes = build_hl_pdf(
-                _std_pupils, hl_cfg, wkly_cfg, version='standard',
-                rule_title=_rule_title, rule_words=_rule_words,
-                key_words_map=_key_words_map, rule_explanation=_rule_explanation)
-        except Exception as e:
-            _JOBS[job_id] = {'status': 'error', 'error': f'Standard PDF failed: {e}', 'ts': _time.time()}
-            return
+        from pdf_builder import build_hl_pdf
+        _pdfs = {}
 
-        adp_bytes = None
-        if _adp_pupils:
+        def _build_pdf(ver, pupils):
             try:
-                adp_bytes = build_hl_pdf(
-                    _adp_pupils, hl_cfg, wkly_cfg, version='adapted',
+                _pdfs[ver] = build_hl_pdf(
+                    pupils, hl_cfg, wkly_cfg, version=ver,
                     rule_title=_rule_title, rule_words=_rule_words,
                     key_words_map=_key_words_map, rule_explanation=_rule_explanation)
             except Exception as e:
-                pass  # Adapted failure is non-fatal
+                _pdfs[ver + '_err'] = str(e)
+
+        tp1 = threading.Thread(target=_build_pdf, args=('standard', _std_pupils), daemon=True)
+        tp2 = threading.Thread(target=_build_pdf, args=('adapted', _adp_pupils), daemon=True) if _adp_pupils else None
+        tp1.start()
+        if tp2: tp2.start()
+        tp1.join()
+        if tp2: tp2.join()
+
+        if 'standard_err' in _pdfs:
+            _job_write(job_id, {'status': 'error', 'error': f'Standard PDF failed: {_pdfs["standard_err"]}'})            
+            return
+
+        std_bytes = _pdfs.get('standard')
+        adp_bytes = _pdfs.get('adapted')
 
         _job_write(job_id, {
             'status':   'done',
