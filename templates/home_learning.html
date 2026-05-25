@@ -29,8 +29,8 @@
 
   <div class="hl-field">
     <label class="hl-label">Maths notes <span class="opt">(optional)</span></label>
-    <input id="maths_notes" type="text" class="hl-input"
-           placeholder="e.g. Q1: triangle beside mirror line, well-spaced. Q3: blank drawing space.">
+    <textarea id="maths_notes" class="hl-input hl-textarea" rows="3"
+              placeholder="e.g. Q1: triangle beside mirror line, well-spaced. Q3: blank drawing space."></textarea>
   </div>
 
   <div class="hl-field">
@@ -115,10 +115,10 @@ function pollJob(job_id, elapsed) {
         document.getElementById('generate-btn').disabled = false;
         showStatus('Error: ' + (data.error || 'Unknown'), 'error');
       } else {
-        if (elapsed > 180) {
+        if (elapsed > 600) {
           document.getElementById('progress').classList.add('hidden');
           document.getElementById('generate-btn').disabled = false;
-          showStatus('Timed out after 3 minutes — please try again.', 'error');
+          showStatus('Timed out after 10 minutes — please try again.', 'error');
           return;
         }
         setTimeout(() => pollJob(job_id, elapsed + 3), 3000);
