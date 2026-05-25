@@ -41,7 +41,7 @@
       </a>
 
       <!-- Assessment dropdown -->
-      <div class="nav-dropdown {% if request.endpoint in ['bee.spelling_bee','tt.tt_check','word_assessment.word_assessment','rule_assessment.rule_reassessment','homophone_assessment.homophone_assessment','live.session_management'] %}active{% endif %}">
+      <div class="nav-dropdown {% if request.endpoint in ['bee.spelling_bee','tt.tt_check','word_assessment.word_assessment','rule_assessment.rule_reassessment','homophone_assessment.homophone_assessment'] %}active{% endif %}">
         <span class="nav-item nav-dropdown-toggle">✅ Assessment ▾</span>
         <div class="dropdown-menu">
           <a href="{{ url_for('bee.spelling_bee') }}"
@@ -60,10 +60,6 @@
              class="{% if request.endpoint=='homophone_assessment.homophone_assessment' %}active{% endif %}">
             🔤 Homophones
           </a>
-          <a href="{{ url_for('live.session_management') }}"
-             class="{% if request.endpoint == 'live.session_management' %}active{% endif %}">
-            📋 Session Manager
-          </a>
           {% if active_year not in ('1', '2') %}
           <a href="{{ url_for('tt.tt_check') }}"
              class="{% if request.endpoint=='tt.tt_check' %}active{% endif %}">
@@ -73,23 +69,10 @@
         </div>
       </div>
 
-      <div class="nav-dropdown {% if request.endpoint in ['learners.learners','class_manager.class_manager','rollover.rollover_page'] %}active{% endif %}">
-        <span class="nav-item nav-dropdown-toggle">👤 Pupils ▾</span>
-        <div class="dropdown-menu">
-          <a href="{{ url_for('learners.learners') }}"
-             class="{% if request.endpoint=='learners.learners' %}active{% endif %}">
-            📊 Overview
-          </a>
-          <a href="{{ url_for('class_manager.class_manager') }}"
-             class="{% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
-            ✏️ Manage
-          </a>
-          <a href="{{ url_for('rollover.rollover_page') }}"
-             class="{% if request.endpoint=='rollover.rollover_page' %}active{% endif %}">
-            🔄 Year-End Rollover
-          </a>
-        </div>
-      </div>
+      <a href="{{ url_for('learners.learners') }}"
+         class="nav-item {% if request.endpoint=='learners.learners' %}active{% endif %}">
+        👤 Pupils
+      </a>
 
       <a href="{{ url_for('insights.insights') }}"
          class="nav-item {% if request.endpoint=='insights.insights' %}active{% endif %}">
@@ -111,10 +94,27 @@
         🖨️ Print
       </a>
 
-      <a href="{{ url_for('settings.settings') }}"
-         class="nav-item {% if request.endpoint=='settings.settings' %}active{% endif %}">
-        ⚙️ Settings
-      </a>
+      <div class="nav-dropdown {% if request.endpoint in ['settings.settings','live.session_management','class_manager.class_manager','rollover.rollover_page'] %}active{% endif %}">
+        <span class="nav-item nav-dropdown-toggle">⚙️ Admin ▾</span>
+        <div class="dropdown-menu">
+          <a href="{{ url_for('settings.settings') }}"
+             class="{% if request.endpoint=='settings.settings' %}active{% endif %}">
+            ⚙️ Settings
+          </a>
+          <a href="{{ url_for('live.session_management') }}"
+             class="{% if request.endpoint=='live.session_management' %}active{% endif %}">
+            📋 Session Manager
+          </a>
+          <a href="{{ url_for('class_manager.class_manager') }}"
+             class="{% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
+            👤 Manage Pupils
+          </a>
+          <a href="{{ url_for('rollover.rollover_page') }}"
+             class="{% if request.endpoint=='rollover.rollover_page' %}active{% endif %}">
+            🔄 Year-End Rollover
+          </a>
+        </div>
+      </div>
 
     </div>
     <a href="{{ url_for('auth.logout') }}" class="nav-logout">Log out</a>
