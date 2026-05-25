@@ -6,17 +6,40 @@ from word_bank import get_active_words
 hl_bp = Blueprint('hl', __name__)
 CLASS_OPTIONS = get_class_options()
 
-# ── Async job store ───────────────────────────────────────────────────────────
-import threading, uuid, time as _time
+# ── Async job store (disk-based — survives worker restarts) ─────────────────
+import threading, uuid, time as _time, json as _json, os as _os
 
-_JOBS = {}   # job_id → {'status': 'pending'|'done'|'error', 'result': ..., 'ts': float}
+_JOB_DIR = '/tmp/hl_jobs'
+_os.makedirs(_JOB_DIR, exist_ok=True)
+
+def _job_path(job_id):
+    return _os.path.join(_JOB_DIR, f'{job_id}.json')
+
+def _job_write(job_id, data):
+    data['ts'] = _time.time()
+    try:
+        with open(_job_path(job_id), 'w') as f:
+            _json.dump(data, f)
+    except Exception:
+        pass
+
+def _job_read(job_id):
+    try:
+        with open(_job_path(job_id)) as f:
+            return _json.load(f)
+    except Exception:
+        return None
 
 def _prune_jobs():
-    """Remove jobs older than 10 minutes."""
-    cutoff = _time.time() - 600
-    stale  = [k for k, v in _JOBS.items() if v.get('ts', 0) < cutoff]
-    for k in stale:
-        _JOBS.pop(k, None)
+    """Remove job files older than 30 minutes."""
+    cutoff = _time.time() - 1800
+    try:
+        for fn in _os.listdir(_JOB_DIR):
+            fp = _os.path.join(_JOB_DIR, fn)
+            if _os.path.getmtime(fp) < cutoff:
+                _os.unlink(fp)
+    except Exception:
+        pass
 
 COLUMN_KEYWORDS = {'column method', 'written method', 'written addition', 'written subtraction', 'formal written'}
 
@@ -109,7 +132,7 @@ def api_hl_status(job_id):
     if not session.get('authenticated'):
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     _prune_jobs()
-    job = _JOBS.get(job_id)
+    job = _job_read(job_id)
     if not job:
         return jsonify({'ok': False, 'status': 'error', 'error': 'Job not found or expired — please generate again'})
     return jsonify(job)
@@ -155,7 +178,7 @@ def api_hl_generate():
     is_column = _is_column_topic(maths_topic, maths_notes)
 
     job_id = str(uuid.uuid4())
-    _JOBS[job_id] = {'status': 'pending', 'ts': _time.time()}
+    _job_write(job_id, {'status': 'pending'})
 
     # Capture everything needed for the thread (no request context in thread)
     _cls             = cls
@@ -197,7 +220,7 @@ def api_hl_generate():
         t_std.join();  t_adp.join()
 
         if 'standard' in errors:
-            _JOBS[job_id] = {'status': 'error', 'error': f'Standard content failed: {errors["standard"]}', 'ts': _time.time()}
+            _job_write(job_id, {'status': 'error', 'error': f'Standard content failed: {errors["standard"]}'})
             return
 
         std_data = results.get('standard')
@@ -226,7 +249,7 @@ def api_hl_generate():
             except Exception as e:
                 pass  # Adapted failure is non-fatal
 
-        _JOBS[job_id] = {
+        _job_write(job_id, {
             'status':   'done',
             'ok':       True,
             'week_ref': _week_ref,
@@ -234,8 +257,7 @@ def api_hl_generate():
             'adp_pdf':  base64.b64encode(adp_bytes).decode() if adp_bytes else None,
             'n_std':    len(_std_pupils),
             'n_adp':    len(_adp_pupils),
-            'ts':       _time.time(),
-        }
+        })
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({'ok': True, 'job_id': job_id, 'status': 'pending'})
