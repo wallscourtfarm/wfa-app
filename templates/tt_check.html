@@ -15,8 +15,6 @@
 <div id="status-bar" class="status-bar hidden"></div>
 
 {% if pupils %}
-{# Group pupils by stage #}
-{% set ns = namespace(current_label=None) %}
 <div class="tt-table-wrap">
   <table class="tt-table" id="tt-table">
     <thead>
@@ -24,9 +22,9 @@
         <th class="col-check">
           <input type="checkbox" id="check-all" title="Select all">
         </th>
-        <th>Name</th>
-        <th>Stage</th>
-        <th>Next stage</th>
+        <th class="sortable" data-col="1">Name <span class="sort-arrow"></span></th>
+        <th class="sortable" data-col="2">Stage <span class="sort-arrow"></span></th>
+        <th class="sortable" data-col="3">Next stage <span class="sort-arrow"></span></th>
       </tr>
     </thead>
     <tbody>
@@ -76,6 +74,13 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+  .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  .sortable:hover { background: rgba(0,0,0,0.05); }
+  .sort-arrow { display: inline-block; width: 1em; text-align: center; color: #aaa; font-size: 0.8em; }
+  .sort-arrow.asc::after  { content: ' ▲'; color: var(--brand, #1798d3); }
+  .sort-arrow.desc::after { content: ' ▼'; color: var(--brand, #1798d3); }
+</style>
 <script>
 const CLS = "{{ cls }}";
 
@@ -99,6 +104,59 @@ document.querySelectorAll('.next-stage').forEach(cell => {
   const result = advanceTT(cell.dataset.set, cell.dataset.mode);
   cell.querySelector('.next-label').textContent = ttLabel(result.set, result.mode);
 });
+
+// ── Column sort ───────────────────────────────────────────────────────────────
+(function() {
+  const table = document.getElementById('tt-table');
+  if (!table) return;
+
+  // For stage columns, use TT_ORDER index for numeric sort
+  function stageValue(text) {
+    const raw = text.replace(/[×÷x]/g, '').trim();
+    const i = TT_ORDER.indexOf(raw);
+    return i >= 0 ? i : 999;
+  }
+
+  let lastCol = null;
+  let ascending = true;
+
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = parseInt(th.dataset.col, 10);
+      ascending = (lastCol === col) ? !ascending : true;
+      lastCol = col;
+
+      // Update arrows
+      document.querySelectorAll('th.sortable .sort-arrow').forEach(a => {
+        a.className = 'sort-arrow';
+      });
+      const arrow = th.querySelector('.sort-arrow');
+      arrow.className = 'sort-arrow ' + (ascending ? 'asc' : 'desc');
+
+      const tbody = table.querySelector('tbody');
+      const rows  = Array.from(tbody.querySelectorAll('tr'));
+
+      rows.sort((a, b) => {
+        const aCell = a.cells[col];
+        const bCell = b.cells[col];
+        const aText = aCell ? aCell.textContent.trim() : '';
+        const bText = bCell ? bCell.textContent.trim() : '';
+
+        let cmp;
+        if (col === 2 || col === 3) {
+          // Stage columns — sort by TT_ORDER position
+          cmp = stageValue(aText) - stageValue(bText);
+        } else {
+          // Name — locale string sort
+          cmp = aText.localeCompare(bText, 'en', {sensitivity: 'base'});
+        }
+        return ascending ? cmp : -cmp;
+      });
+
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+})();
 
 // ── Selection ────────────────────────────────────────────────────────────────
 const advanceBtn   = document.getElementById('btn-advance');
@@ -167,6 +225,7 @@ advanceBtn.addEventListener('click', async () => {
 
 // ── Refresh ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-refresh').addEventListener('click', () => location.reload());
+
 // ── TT sheet download ─────────────────────────────────────────────────────────
 function triggerDownload(b64, mime, filename) {
   const bytes = atob(b64);
