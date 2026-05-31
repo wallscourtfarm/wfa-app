@@ -3,7 +3,7 @@ from datetime import datetime, date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, send_file, make_response)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
@@ -122,7 +122,7 @@ def api_bee_create():
         week_ref = wc.get('week_ref', '')
         rule_wds = _rule_words(wc, cls)
 
-        class_ids = ALL_CLASSES if cls == 'all' else [cls]
+        class_ids = _resolve_classes(cls)
         all_pupils = {}
         for cid in class_ids:
             d = load_class(cid)
@@ -640,7 +640,7 @@ def api_assess_create():
             return jsonify({'ok': False, 'error': 'No items — check your selection'})
 
         # ── Build pupil list ────────────────────────────────────────────────
-        class_ids = ALL_CLASSES if cls == 'all' else [cls]
+        class_ids = _resolve_classes(cls)
         pupils = []
         for cid in class_ids:
             d = load_class(cid)
