@@ -133,7 +133,7 @@ def render_word_search_pdf(grid, words, word_positions, title, year_group="Y4"):
 
         # Fit the grid: use up to 68% of the remaining vertical space
         max_cell_w = usable_w / n
-        max_cell_h = (content_bottom() - top) * 0.68 / n
+        max_cell_h = (top - content_bottom()) * 0.68 / n
         cell = min(max_cell_w, max_cell_h, 33)
 
         grid_w = n * cell
