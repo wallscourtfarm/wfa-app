@@ -44,18 +44,14 @@ def _pupil_active_words(p, n=5):
 
 def _rule_words(wc, cls):
     """Get up to 5 rule words for the current week from weekly config."""
-    from data_manager import get_ref_class as _grc
+    from data_manager import get_ref_class as _grc, get_rule
     cfg  = wc.get('classes', {}).get(_grc(cls), {})
     words = []
     for key in ('main_rule_id', 'revision_rule_id'):
         rid = cfg.get(key, '')
         if rid:
-            try:
-                stage, step = int(rid.split('-')[0]), int(rid.split('-')[1])
-                rule = next((r for r in SPELLING_RULES if r[0]==stage and r[1]==step), None)
-                if rule: words.extend(rule[3])
-            except Exception:
-                pass
+            rule = get_rule(rid)
+            if rule: words.extend(rule[3])
     return list(dict.fromkeys(words))[:5]   # dedupe, max 5
 
 def _save_session(session_id, data):
