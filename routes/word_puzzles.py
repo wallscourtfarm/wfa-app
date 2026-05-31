@@ -65,8 +65,8 @@ def word_search():
 
     size = {"Easy": 10, "Medium": 12, "Hard": 15}.get(difficulty, 12)
     try:
-        puzzle = generate_word_search(words, size=size, difficulty=difficulty)
-        pdf    = render_word_search_pdf(puzzle, display_title, year_group)
+        grid, placed, failed, positions = generate_word_search(words, size=size, difficulty=difficulty)
+        pdf    = render_word_search_pdf(grid, placed, positions, display_title, year_group)
         return _send_pdf(pdf, f"word_search_{display_title.lower().replace(' ','_')}.pdf")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -109,7 +109,7 @@ def word_ladder():
         return jsonify({"error": "Please enter a topic"}), 400
     try:
         puzzle = generate_word_ladder(topic, year_group, difficulty, _api_key())
-        pdf    = render_word_ladder_pdf(puzzle, topic, year_group)
+        pdf    = render_word_ladder_pdf(puzzle, year_group)
         return _send_pdf(pdf, f"word_ladder_{topic.lower().replace(' ','_')}.pdf")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -164,7 +164,7 @@ def cloze_passage():
         return jsonify({"error": "Please enter a topic"}), 400
     try:
         puzzle = generate_cloze(topic, year_group, difficulty, _api_key())
-        pdf    = render_cloze_pdf(puzzle, topic, year_group)
+        pdf    = render_cloze_pdf(puzzle, year_group)
         return _send_pdf(pdf, f"cloze_{topic.lower().replace(' ','_')}.pdf")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
