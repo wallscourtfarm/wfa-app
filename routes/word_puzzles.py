@@ -87,7 +87,7 @@ def nine_letters():
         return jsonify({"error": "Please enter a topic"}), 400
     try:
         puzzle = generate_nine_letters(topic, year_group, _api_key())
-        pdf    = render_nine_letters_pdf(puzzle, topic, year_group)
+        pdf    = render_nine_letters_pdf(puzzle, year_group)
         return _send_pdf(pdf, f"nine_letters_{topic.lower().replace(' ','_')}.pdf")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
