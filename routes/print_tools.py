@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -15,15 +15,12 @@ def _auth():
 
 
 def _load_pupils(cls):
-    if cls == 'all':
-        pupils = []
-        for cid in ALL_CLASSES:
-            d = load_class(cid)
-            if d:
-                pupils.extend(d.get('pupils', []))
-        return pupils
-    d = load_class(cls)
-    return d.get('pupils', []) if d else []
+    pupils = []
+    for cid in _resolve_classes(cls):
+        d = load_class(cid)
+        if d:
+            pupils.extend(d.get('pupils', []))
+    return pupils
 
 
 def _get_rules(cls):

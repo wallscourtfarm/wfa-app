@@ -3,7 +3,7 @@ from datetime import date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
 from spelling_rules import SPELLING_RULES
 
 ha_bp = Blueprint('homophone_assessment', __name__)
@@ -32,14 +32,11 @@ def _err(e):
     return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
 
 def _load_pupils(cls):
-    if cls == 'all':
-        pupils = []
-        for cid in ALL_CLASSES:
-            d = load_class(cid)
-            if d: pupils.extend(d.get('pupils', []))
-        return pupils
-    d = load_class(cls)
-    return d.get('pupils', []) if d else []
+    pupils = []
+    for cid in _resolve_classes(cls):
+        d = load_class(cid)
+        if d: pupils.extend(d.get('pupils', []))
+    return pupils
 
 def _load_rule_cloze():
     r = _req.get(
@@ -324,7 +321,7 @@ def api_ha_confirm():
         sections = _build_sections(selected, cloze)
         today    = date.today().strftime('%Y-%m-%d')
 
-        class_ids = ALL_CLASSES if cls == 'all' else [cls]
+        class_ids = _resolve_classes(cls)
         saved, unmatched = 0, []
 
         for cid in class_ids:
