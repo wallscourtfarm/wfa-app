@@ -13,7 +13,7 @@ from .pdf_utils import (
     PAGE_W, PAGE_H, MARGIN, HEADER_H, FOOTER_Y,
     YEAR_COLOURS, DEFAULT_COLOUR,
     hex_colour as _hex,
-    draw_header, draw_footer, content_top,
+    draw_header, draw_footer, content_top, content_bottom,
 )
 
 
