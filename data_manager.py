@@ -185,6 +185,10 @@ def load_dashboard(class_id='Y4_all'):
 # ── Lowest Confidence Key Spellings ───────────────────────────────────────────────
 
 def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
+    """Return top_n Key Spelling words most commonly unmastered across pupils.
+    Includes the current year group AND all prior years (Key Spellings only),
+    so gaps from earlier years surface alongside current-year words.
+    """
     class_ids = _resolve_classes(class_id)
     all_pupils = []
     for cid in class_ids:
@@ -192,8 +196,14 @@ def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
         if d: all_pupils.extend(d.get('pupils', []))
     if not all_pupils:
         return []
+    # Build set of years to include: current year and all prior years with Key Spellings
+    YEAR_ORDER = ['3', '4', '5', '6']  # Key Spellings start at Y3
+    if year and year in YEAR_ORDER:
+        include_years = set(YEAR_ORDER[:YEAR_ORDER.index(year) + 1])
+    else:
+        include_years = None  # no filter — include all
     key_words = [w for w, yr, ks, phase, label in WORD_BANK
-                 if label == 'Key Spelling' and (year is None or yr == year)]
+                 if label == 'Key Spelling' and (include_years is None or yr in include_years)]
     if not key_words:
         return []
     total = len(all_pupils)
