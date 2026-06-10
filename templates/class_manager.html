@@ -122,7 +122,7 @@ async function ssApply() {
     <label style="font-size:13px;color:#92400e">Colour:</label>
     <select id="pair-colour-sel" style="font-size:13px;border-radius:6px;padding:3px 6px;border:1px solid #fbbf24">
       {% for c in pair_colours %}
-      <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#AD1457','#00838F','#5D4037','#37474F') else 'black' }}">{{ c.name }}</option>
+      <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#00838F','#5D4037','#37474F','#AD1457','#4527A0','#00695C','#880E4F','#827717','#01579B','#4E342E','#BF360C') else 'black' }}">{{ c.name }}</option>
       {% endfor %}
     </select>
     <button class="btn btn-secondary btn-sm" onclick="togglePairMode()">✕ Done</button>
@@ -308,7 +308,7 @@ async function ssApply() {
         <label>Pair colour</label>
         <select id="pair-modal-colour" class="cm-input" style="max-width:160px">
           {% for c in pair_colours %}
-          <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#AD1457','#00838F','#5D4037','#37474F') else 'black' }}">{{ c.name }}</option>
+          <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#00838F','#5D4037','#37474F','#AD1457','#4527A0','#00695C','#880E4F','#827717','#01579B','#4E342E','#BF360C') else 'black' }}">{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -417,6 +417,9 @@ async function ssApply() {
 .group-main     { background:#dbeafe; color:#1d4ed8; }
 .group-revision { background:#fce7f3; color:#9d174d; }
 .pending-badge  { background:#fef3c7; color:#92400e; }
+.pair-num { display:inline-block; font-size:11px; font-weight:700; color:#374151;
+  background:#f3f4f6; border:1px solid #d1d5db; border-radius:4px;
+  padding:0 4px; line-height:17px; margin-right:2px; }
 .pair-dot { display:inline-block; width:14px; height:14px; border-radius:50%; border:1.5px solid rgba(0,0,0,0.18);
   margin-right:6px; vertical-align:middle; border:1px solid rgba(0,0,0,.15); }
 .no-pair { font-size:12px; color:#94a3b8; font-style:italic; }
@@ -562,8 +565,16 @@ function render() {
     const pairDot = p.pair_colour
       ? `<span class="pair-dot" style="background:${p.pair_colour}"></span>` : '';
     const clsShort = c => c.replace(/^Y\d+_/, '');
+    // Compute sequential pair number for this pupil's pair_id
+    if (!window._pairNums) window._pairNums = {};
+    if (!window._nextPairNum) window._nextPairNum = 1;
+    if (p.pair_id && !window._pairNums[p.pair_id]) {
+      window._pairNums[p.pair_id] = window._nextPairNum++;
+    }
+    const pairNum = p.pair_id && window._pairNums[p.pair_id]
+      ? `<span class="pair-num">P${window._pairNums[p.pair_id]}</span>` : '';
     const pairLabel = p.partner_name
-      ? `${pairDot}${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
+      ? `${pairDot}${pairNum} ${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
           ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}`
       : `<span class="no-pair">Unpaired</span>`;
 
