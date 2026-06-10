@@ -31,9 +31,12 @@
 </div>
 {% endif %}
 
+{% set lp_map = {} %}
+{% for lp in learner_pupils %}{% set _ = lp_map.update({lp.id: lp}) %}{% endfor %}
+
 <div class="section-block">
   <h3 class="section-title">Spelling mastery</h3>
-  <p class="section-caption">Click a column header to sort.</p>
+  <p class="section-caption">Click a row to see full detail. Click a column header to sort.</p>
   <div class="tt-table-wrap" style="max-width:none;">
     <table class="tt-table" id="masteryTable">
       <thead>
@@ -51,7 +54,8 @@
       </thead>
       <tbody>
         {% for r in rows %}
-        <tr>
+        {% set lp = lp_map.get(r.get('id','')) %}
+        <tr class="learner-row" onclick="toggleDetail('dash-{{ loop.index }}')">
           <td class="pupil-name">{{ r.first }}</td>
           <td>{{ r.last }}</td>
           {% if cls=='all' %}<td>{{ r.cls }}</td>{% endif %}
@@ -64,6 +68,66 @@
           {% if active_year in ("1","2") %}<td class="num-col"><div class="prog-cell"><div class="prog-fill--ks" style="width:{{ r.ks1_pct }}%"></div><span>{{ r.ks1_pct }}%</span></div></td>
           {% else %}<td class="num-col"><div class="prog-cell"><div class="prog-fill--ks" style="width:{{ r.ks2_pct }}%"></div><span>{{ r.ks2_pct }}%</span></div></td>{% endif %}
           <td class="num-col"><div class="prog-cell"><div class="prog-fill--all" style="width:{{ r.all_pct }}%"></div><span>{{ r.all_pct }}%</span></div></td>
+        </tr>
+        <tr class="learner-detail hidden" id="detail-dash-{{ loop.index }}">
+          <td colspan="10">
+            {% if lp %}
+            <div class="ld-grid">
+              <div class="ld-section">
+                <h4 class="ld-heading">Key Spellings</h4>
+                <div class="ld-kv">Position in word bank: <strong>{{ lp.word_pos }}</strong></div>
+                <div class="ld-kv">Words mastered: <strong>{{ lp.mastered_count }}</strong></div>
+                {% if lp.active_words %}
+                <div class="ld-kv" style="margin-top:4px">Next to learn:</div>
+                <div class="ld-wordlist">
+                  {% for w in lp.active_words %}<span class="ld-word">{{ w }}</span>{% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              <div class="ld-section">
+                <h4 class="ld-heading">Homophones</h4>
+                {% if lp.hm_stages %}
+                  {% for s in lp.hm_stages %}
+                  <div class="ld-stage-row">
+                    <span class="ld-stage-label">{{ s.label }}</span>
+                    {% if s.last_date %}
+                      <span class="ld-badge ld-badge--{{ s.status }}">{{ s.status|title }}</span>
+                      <span class="ld-score">{{ s.correct }}/{{ s.total }} ({{ s.pct }}%)</span>
+                      <span class="ld-date">{{ s.last_date }}</span>
+                    {% else %}
+                      <span class="ld-badge ld-badge--none">Not assessed</span>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="ld-empty">No homophone data yet.</p>
+                {% endif %}
+              </div>
+              <div class="ld-section ld-section--wide">
+                <h4 class="ld-heading">Rule Confidence
+                  <span class="ld-count">({{ lp.rc_latest|length }} rule{{ 's' if lp.rc_latest|length != 1 else '' }} assessed)</span>
+                </h4>
+                {% if lp.rc_latest %}
+                <div class="ld-rule-list">
+                  {% for rc in lp.rc_latest %}
+                  <div class="ld-rule-row">
+                    <span class="ld-rule-id">{{ rc.rule_id }}</span>
+                    <span class="ld-rule-title">{{ rc.title }}</span>
+                    <span class="ld-badge ld-badge--{{ rc.status }}">{{ rc.status|title }}</span>
+                    <span class="ld-score">{{ rc.correct }}/{{ rc.total }}</span>
+                    <span class="ld-date">{{ rc.week }} · {{ rc.date }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% else %}
+                  <p class="ld-empty">No rule assessment data yet.</p>
+                {% endif %}
+              </div>
+            </div>
+            {% else %}
+            <p class="ld-empty" style="padding:8px">No detail available.</p>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
