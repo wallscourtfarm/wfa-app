@@ -2,7 +2,8 @@
 data_manager.py — WFA Flask app data layer
 Data lives in wallscourtfarm/spelling-homelearning GitHub repo.
 """
-import os, json, base64, requests
+import os, json, base64, requests, time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from word_bank import WORD_BANK, get_active_words, mastery_stats
 
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
@@ -74,13 +75,28 @@ def get_class_options(include_all_per_year=True):
             options.append((cid, f'Y{yr} \u2014 {suffix}'))
     return options
 
+# ── In-process TTL cache ──────────────────────────────────────────────────────
+_CACHE     = {}   # path -> (data, sha, expires_at)
+_CACHE_TTL = 90   # seconds
+
+def _invalidate(path):
+    _CACHE.pop(path, None)
+
 # ── GitHub I/O ────────────────────────────────────────────────────────────────
 
 def _get_file(path):
+    now = time.time()
+    if path in _CACHE:
+        cached_data, cached_sha, expires = _CACHE[path]
+        if now < expires:
+            return cached_data, cached_sha
     r = requests.get(f'{BASE_URL}/{path}', headers=HEADERS, timeout=10)
     if r.status_code == 200:
         d = r.json()
-        return json.loads(base64.b64decode(d['content']).decode('utf-8')), d['sha']
+        data = json.loads(base64.b64decode(d['content']).decode('utf-8'))
+        sha  = d['sha']
+        _CACHE[path] = (data, sha, now + _CACHE_TTL)
+        return data, sha
     return None, None
 
 def _put_file(path, data, sha, message):
@@ -89,7 +105,21 @@ def _put_file(path, data, sha, message):
     ).decode('utf-8')
     r = requests.put(f'{BASE_URL}/{path}', headers=HEADERS,
                      json={'message':message,'content':content,'sha':sha,'branch':BRANCH}, timeout=15)
-    return r.status_code in (200, 201)
+    if r.status_code in (200, 201):
+        _invalidate(path)   # evict stale entry after a write
+        return True
+    return False
+
+def _load_classes_parallel(class_ids):
+    """Fetch multiple class files concurrently; returns {cid: data_or_None}."""
+    if len(class_ids) <= 1:
+        return {cid: load_class(cid) for cid in class_ids}
+    results = {}
+    with ThreadPoolExecutor(max_workers=len(class_ids)) as ex:
+        futures = {ex.submit(load_class, cid): cid for cid in class_ids}
+        for f in as_completed(futures):
+            results[futures[f]] = f.result()
+    return results
 
 # ── TT helpers ────────────────────────────────────────────────────────────────
 
@@ -165,9 +195,10 @@ def _pupil_row(p):
 
 def load_dashboard(class_id='Y4_all'):
     class_ids = _resolve_classes(class_id)
+    class_data = _load_classes_parallel(class_ids)
     all_pupils = []
     for cid in class_ids:
-        d = load_class(cid)
+        d = class_data.get(cid)
         if d: all_pupils.extend(d.get('pupils', []))
     if not all_pupils and class_id not in ('all',) and not class_id.endswith('_all'):
         return None
@@ -191,9 +222,10 @@ def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
     so gaps from earlier years surface alongside current-year words.
     """
     class_ids = _resolve_classes(class_id)
+    class_data = _load_classes_parallel(class_ids)
     all_pupils = []
     for cid in class_ids:
-        d = load_class(cid)
+        d = class_data.get(cid)
         if d: all_pupils.extend(d.get('pupils', []))
     if not all_pupils:
         return []
@@ -299,26 +331,29 @@ def save_bee_assessment(class_id, assessments):
 # ── Learners ──────────────────────────────────────────────────────────────────
 
 def load_learners(class_id='Y4_all'):
-    # Build cross-class id->name map for partner resolution
-    all_data = {}
-    for cid in ALL_CLASSES:
-        d = load_class(cid)
+    # Resolve the target classes
+    target_ids = _resolve_classes(class_id)
+    # Partner lookup: same year group only (partners are always within a year)
+    yr = class_id[1] if len(class_id) > 1 and class_id[0] == 'Y' else '4'
+    yr_class_ids = list(YEAR_GROUP_CLASSES.get(yr, target_ids))
+    all_ids = list(dict.fromkeys(yr_class_ids + target_ids))  # deduplicated
+    class_data = _load_classes_parallel(all_ids)
+
+    partner_map = {}
+    for cid in yr_class_ids:
+        d = class_data.get(cid)
         if d:
             for p in d.get('pupils', []):
-                all_data[p['id']] = p.get('first') or '?'
+                partner_map[p['id']] = p.get('first') or '?'
 
     pupils = []
-    for cid in _resolve_classes(class_id):
-        d = load_class(cid)
+    for cid in target_ids:
+        d = class_data.get(cid)
         if d:
             pupils.extend(d.get('pupils', []))
 
-    result = []
-    for p in pupils:
-        pid = p.get('pair_id', '')
-        partner = all_data.get(pid, '—') if pid else '—'
-        result.append({**p, 'partner_name': partner})
-    return result
+    return [{**p, 'partner_name': partner_map.get(p.get('pair_id',''), '—')
+             if p.get('pair_id') else '—'} for p in pupils]
 
 def save_weekly_config(data):
     """Save weekly_config.json back to GitHub."""
