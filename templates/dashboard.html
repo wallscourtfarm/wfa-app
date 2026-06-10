@@ -162,21 +162,32 @@ if (ctx) new Chart(ctx, {
   data:{labels:{{ tt_labels|safe }},datasets:[{data:{{ tt_values|safe }},backgroundColor:'#1798d3',borderRadius:4}]},
   options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{grid:{display:false}}},responsive:true,maintainAspectRatio:false}
 });
+
+function toggleDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  if (row) row.classList.toggle('hidden');
+}
+
 let sortCol=-1,sortAsc=true;
 document.querySelectorAll('#masteryTable th[data-col]').forEach(th=>{
   th.style.cursor='pointer';
-  th.addEventListener('click',()=>{
+  th.addEventListener('click', e => {
+    e.stopPropagation();
     const col=parseInt(th.dataset.col);
     if(sortCol===col) sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;}
     const tbody=document.querySelector('#masteryTable tbody');
-    const rows=[...tbody.querySelectorAll('tr')];
-    rows.sort((a,b)=>{
-      const va=a.cells[col].textContent.trim(),vb=b.cells[col].textContent.trim();
+    // Keep summary+detail rows paired
+    const pairs=[];
+    const allRows=[...tbody.querySelectorAll('tr')];
+    for(let i=0;i<allRows.length;i+=2) pairs.push([allRows[i],allRows[i+1]]);
+    pairs.sort((a,b)=>{
+      const va=a[0].cells[col]?.textContent.trim()||'';
+      const vb=b[0].cells[col]?.textContent.trim()||'';
       const na=parseFloat(va),nb=parseFloat(vb);
       const cmp=isNaN(na)?va.localeCompare(vb):na-nb;
       return sortAsc?cmp:-cmp;
     });
-    rows.forEach(r=>tbody.appendChild(r));
+    pairs.forEach(([summary,detail])=>{tbody.appendChild(summary);tbody.appendChild(detail);});
     document.querySelectorAll('#masteryTable th').forEach(h=>h.textContent=h.textContent.replace(/ [▲▼]$/,''));
     th.textContent+=sortAsc?' ▲':' ▼';
   });
