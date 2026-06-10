@@ -121,8 +121,8 @@ async function ssApply() {
   <div style="display:flex;gap:8px;align-items:center">
     <label style="font-size:13px;color:#92400e">Colour:</label>
     <select id="pair-colour-sel" style="font-size:13px;border-radius:6px;padding:3px 6px;border:1px solid #fbbf24">
-      {% for colour in pair_colours %}
-      <option value="{{ colour }}" style="background:{{ colour }}">{{ colour }}</option>
+      {% for c in pair_colours %}
+      <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#AD1457','#00838F','#5D4037','#37474F') else 'black' }}">{{ c.name }}</option>
       {% endfor %}
     </select>
     <button class="btn btn-secondary btn-sm" onclick="togglePairMode()">✕ Done</button>
@@ -307,8 +307,8 @@ async function ssApply() {
       <div class="cm-field" style="flex:1">
         <label>Pair colour</label>
         <select id="pair-modal-colour" class="cm-input" style="max-width:160px">
-          {% for colour in pair_colours %}
-          <option value="{{ colour }}" style="background:{{ colour }}">{{ colour }}</option>
+          {% for c in pair_colours %}
+          <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#AD1457','#00838F','#5D4037','#37474F') else 'black' }}">{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -417,7 +417,7 @@ async function ssApply() {
 .group-main     { background:#dbeafe; color:#1d4ed8; }
 .group-revision { background:#fce7f3; color:#9d174d; }
 .pending-badge  { background:#fef3c7; color:#92400e; }
-.pair-dot { display:inline-block; width:12px; height:12px; border-radius:50%;
+.pair-dot { display:inline-block; width:14px; height:14px; border-radius:50%; border:1.5px solid rgba(0,0,0,0.18);
   margin-right:6px; vertical-align:middle; border:1px solid rgba(0,0,0,.15); }
 .no-pair { font-size:12px; color:#94a3b8; font-style:italic; }
 
@@ -662,6 +662,14 @@ function openPairModal(pid, e) {
     `Pair ${pupil ? pupil.first : pid} with…`;
   document.getElementById('pair-search').value = '';
   populatePairList('');
+  // Auto-suggest first colour not already used by another pair
+  const usedColours = new Set(
+    [..._pupils, ...(_allPupils||[])].map(p => p.pair_colour).filter(Boolean)
+  );
+  const colourSel = document.getElementById('pair-modal-colour');
+  const opts = [...colourSel.options];
+  const suggestion = opts.find(o => !usedColours.has(o.value));
+  if (suggestion) colourSel.value = suggestion.value;
   document.getElementById('pair-modal').style.display = 'flex';
 }
 
