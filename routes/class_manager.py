@@ -23,11 +23,21 @@ PAIR_COLOURS = [
     {'hex': '#2E7D32', 'name': 'Green'},
     {'hex': '#E65100', 'name': 'Orange'},
     {'hex': '#6A1B9A', 'name': 'Purple'},
-    {'hex': '#AD1457', 'name': 'Pink'},
     {'hex': '#00838F', 'name': 'Teal'},
-    {'hex': '#F9A825', 'name': 'Yellow'},
+    {'hex': '#F9A825', 'name': 'Gold'},
     {'hex': '#5D4037', 'name': 'Brown'},
+    {'hex': '#AD1457', 'name': 'Hot Pink'},
     {'hex': '#37474F', 'name': 'Slate'},
+    {'hex': '#0288D1', 'name': 'Sky Blue'},
+    {'hex': '#558B2F', 'name': 'Lime'},
+    {'hex': '#BF360C', 'name': 'Rust'},
+    {'hex': '#4527A0', 'name': 'Indigo'},
+    {'hex': '#00695C', 'name': 'Emerald'},
+    {'hex': '#F57F17', 'name': 'Amber'},
+    {'hex': '#880E4F', 'name': 'Maroon'},
+    {'hex': '#827717', 'name': 'Olive'},
+    {'hex': '#01579B', 'name': 'Navy'},
+    {'hex': '#4E342E', 'name': 'Chocolate'},
 ]
 
 
