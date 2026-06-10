@@ -182,6 +182,30 @@ def load_dashboard(class_id='Y4_all'):
     }
     return {'rows': rows, 'tt_dist': tt_dist, 'stats': stats}
 
+# ── Lowest Confidence Key Spellings ───────────────────────────────────────────────
+
+def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
+    class_ids = _resolve_classes(class_id)
+    all_pupils = []
+    for cid in class_ids:
+        d = load_class(cid)
+        if d: all_pupils.extend(d.get('pupils', []))
+    if not all_pupils:
+        return []
+    key_words = [w for w, yr, ks, phase, label in WORD_BANK
+                 if label == 'Key Spelling' and (year is None or yr == year)]
+    if not key_words:
+        return []
+    total = len(all_pupils)
+    counts = {}
+    for word in key_words:
+        wl = word.lower()
+        counts[wl] = sum(1 for p in all_pupils if wl not in {m.lower() for m in p.get('mastered', [])})
+    sorted_words = sorted(counts.items(), key=lambda x: -x[1])[:top_n]
+    return [{'word': w, 'unmastered': c, 'total': total,
+             'pct': round(c / total * 100) if total else 0}
+            for w, c in sorted_words]
+
 # ── TT Check ─────────────────────────────────────────────────────────────────
 
 def load_tt_pupils(class_id='Y4_IM'):
