@@ -142,6 +142,7 @@ def _pupil_row(p):
     s = mastery_stats(m)
     ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
     return {
+        'id':        p.get('id',''),
         'first':     p.get('first',''),
         'last':      p.get('last',''),
         'group':     p.get('group','main'),
