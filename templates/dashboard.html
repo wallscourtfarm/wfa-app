@@ -71,6 +71,22 @@
   </div>
 </div>
 {% endif %}
+
+{% if lc_words %}
+<div class="section-block">
+  <h3 class="section-title">Lowest confidence key spellings</h3>
+  <p class="section-caption">Words most commonly unmastered across the class — use the top 3 for weekly spelling practice.</p>
+  <ol class="lc-list">
+    {% for item in lc_words %}
+    <li class="lc-item{% if loop.index <= 3 %} lc-top3{% endif %}">
+      <span class="lc-word">{{ item.word }}{% if loop.index <= 3 %} ⭐{% endif %}</span>
+      <div class="lc-bar-wrap"><div class="lc-bar" style="width:{{ item.pct }}%"></div></div>
+      <span class="lc-count">{{ item.unmastered }}/{{ item.total }} ({{ item.pct }}%)</span>
+    </li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
