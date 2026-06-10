@@ -554,6 +554,7 @@ function render() {
   if (!_pupils.length) { empty.style.display='block'; return; }
   empty.style.display = 'none';
 
+  window._pairNums = {}; window._nextPairNum = 1;
   _pupils.forEach(p => {
     const tr = document.createElement('tr');
     const isPending = p.pending;
