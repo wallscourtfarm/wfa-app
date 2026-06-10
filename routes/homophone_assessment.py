@@ -178,8 +178,9 @@ def api_ha_generate():
         sections = _build_sections(selected, cloze)
 
         from assessment_builder import build_homophone_assessment_pdf, build_homophone_assessment_teacher_pdf
-        pdf_bytes     = build_homophone_assessment_pdf(pupils, sections, week_ref)
-        teacher_bytes = build_homophone_assessment_teacher_pdf(sections, week_ref)
+        ha_week_ref   = re.sub(r'W\d+', '', week_ref)  # T3W2 → T3
+        pdf_bytes     = build_homophone_assessment_pdf(pupils, sections, ha_week_ref)
+        teacher_bytes = build_homophone_assessment_teacher_pdf(sections, ha_week_ref)
 
         n_words = sum(len(rows) for _, _, rows in sections)
         return jsonify({
