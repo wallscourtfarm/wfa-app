@@ -17,9 +17,17 @@ _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.
 
 CLASS_OPTIONS  = get_class_options(include_all_per_year=False)
 TT_SETS        = ['2', '5', '4', '8', '3', '6', '9', '7', '11', '12', 'All']
-PAIR_COLOURS   = [
-    '#0070C0', '#00B050', '#FF0000', '#FF6600', '#7030A0',
-    '#00FFFF', '#66FF33', '#FF99CC', '#FFC000', '#000000',
+PAIR_COLOURS = [
+    {'hex': '#1565C0', 'name': 'Blue'},
+    {'hex': '#C62828', 'name': 'Red'},
+    {'hex': '#2E7D32', 'name': 'Green'},
+    {'hex': '#E65100', 'name': 'Orange'},
+    {'hex': '#6A1B9A', 'name': 'Purple'},
+    {'hex': '#AD1457', 'name': 'Pink'},
+    {'hex': '#00838F', 'name': 'Teal'},
+    {'hex': '#F9A825', 'name': 'Yellow'},
+    {'hex': '#5D4037', 'name': 'Brown'},
+    {'hex': '#37474F', 'name': 'Slate'},
 ]
 
 
