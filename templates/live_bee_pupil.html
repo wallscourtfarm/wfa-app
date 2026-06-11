@@ -188,8 +188,13 @@ async function saveResult(nCorrect) {
       }),
     });
     const d = await resp.json();
-    document.getElementById('save-status').textContent =
-      d.ok ? '✅ Results saved.' : '⚠️ Could not save — tell your teacher.';
+    if (d.ok) {
+      // Update score with server's set-based result (handles partner-skipped-a-word cases)
+      document.getElementById('done-score').textContent = `${d.correct} out of ${d.total} correct`;
+      document.getElementById('save-status').textContent = '✅ Results saved.';
+    } else {
+      document.getElementById('save-status').textContent = '⚠️ Could not save — tell your teacher.';
+    }
   } catch(e) {
     document.getElementById('save-status').textContent = '⚠️ Could not save — tell your teacher.';
   }
