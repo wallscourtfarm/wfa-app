@@ -12,7 +12,7 @@ live_bp = Blueprint('live', __name__)
 # ── Font registration ─────────────────────────────────────────────────────────
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-_FONT_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+_FONT_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'fonts')
 _SASSOON_PATH = os.path.join(_FONT_DIR, 'SassoonInfant.ttf')
 if os.path.exists(_SASSOON_PATH):
     pdfmetrics.registerFont(TTFont('SassoonInfant', _SASSOON_PATH))
