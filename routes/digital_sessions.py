@@ -290,21 +290,31 @@ def _build_bee_cards(sess, base_url):
         c.setFillColorRGB(0.4, 0.4, 0.4)
         c.drawString(info_x, qr_y + 4, 'Scan to start →')
 
-        # ── Word list ─────────────────────────────────────────────────────────
-        word_top = qr_y - 3 * mm
-        word_h   = min(4.5 * mm, (word_top - (cy - row_h + PAD)) / max(n_wds, 1))
+        # ── Word list — 2 columns (key words left, rule words right) ─────────
+        word_top  = qr_y - 3 * mm
+        avail_h   = word_top - (cy - row_h + PAD)
+        split     = 5                             # first 5 = key spellings
+        n_left    = min(split, n_wds)
+        n_right   = max(0, n_wds - split)
+        n_rows    = max(n_left, n_right, 1)
+        word_h    = min(5.5 * mm, avail_h / n_rows)
+        fs        = 11
+        half_w    = (col_w - 2 * PAD) / 2
+
+        # Vertical centre-line divider when both columns are used
+        if n_right > 0:
+            mid_x = cx + PAD + half_w
+            c.setStrokeColorRGB(0.80, 0.80, 0.80)
+            c.setLineWidth(0.4)
+            c.line(mid_x, word_top, mid_x, word_top - n_rows * word_h)
+
         for i, word in enumerate(words):
-            wy = word_top - i * word_h
-            if i == 5:
-                c.setStrokeColorRGB(0.75, 0.75, 0.75)
-                c.setLineWidth(0.3)
-                c.setDash([2, 2])
-                c.line(cx + PAD, wy + word_h * 0.8, cx + col_w - PAD, wy + word_h * 0.8)
-                c.setDash()
-            fs = 9.5 if n_wds <= 8 else 8
-            c.setFont('Helvetica', fs)
-            c.setFillColorRGB(*(NAVY if i < 5 else (0.22, 0.22, 0.52)))
-            c.drawString(cx + PAD, wy, f'{i + 1}.  {word}')
+            col_x  = cx + PAD + (0 if i < split else half_w + 2 * mm)
+            row_i  = i if i < split else i - split
+            wy     = word_top - row_i * word_h
+            c.setFont('Helvetica-Bold' if i < split else 'Helvetica', fs)
+            c.setFillColorRGB(*(NAVY if i < split else (0.22, 0.22, 0.52)))
+            c.drawString(col_x, wy, f'{i + 1}.  {word}')
 
     pupils = sess.get('pupils', [])
     for idx, p_rec in enumerate(pupils):
@@ -344,9 +354,24 @@ def bee_pupil(session_id, pupil_id):
 
 # ── Pupil: Submit result ──────────────────────────────────────────────────────
 
+def _typed_matches_word(typed, word):
+    """Case-insensitive match; respect capitalisation for proper nouns."""
+    t = typed.strip()
+    if t.lower() != word.lower():
+        return False
+    if word[0] != word[0].lower():   # proper noun — must be capitalised
+        return t[0] != t[0].lower()
+    return True
+
+
 @live_bp.route('/api/live/submit', methods=['POST'])
 def api_live_submit():
-    """Save pupil assessment result (called by JS on pupil's device)."""
+    """Save pupil assessment result (called by JS on pupil's device).
+
+    Scoring is set-based: a word is counted correct if it was typed correctly
+    at ANY point in the session, not just in the matching slot.  This prevents
+    a one-word-skipped read by the partner from wiping out the whole score.
+    """
     try:
         body       = request.get_json(force=True)
         session_id = body.get('session_id', '')
@@ -357,20 +382,34 @@ def api_live_submit():
         if not session_id or not pupil_id:
             return jsonify({'ok': False, 'error': 'Missing session_id or pupil_id'})
 
-        correct = sum(1 for a in answers if a.get('correct'))
-        total   = len(answers)
+        # Load session to get the canonical word list for this pupil
+        sess        = _load_session(session_id)
+        typed_strs  = [a.get('typed', '') for a in answers]
+
+        if sess:
+            pupil_sess     = next((p for p in sess.get('pupils', []) if p['id'] == pupil_id), None)
+            expected_words = [item['word'] for item in (pupil_sess or {}).get('items', [])]
+        else:
+            expected_words = [a['word'] for a in answers]
+
+        # A word is correct if it was typed correctly at any point in the session
+        correct_set = {w for w in expected_words
+                       if any(_typed_matches_word(t, w) for t in typed_strs)}
+        correct = len(correct_set)
+        total   = len(expected_words) or len(answers)
 
         result = {
-            'session_id':   session_id,
-            'pupil_id':     pupil_id,
-            'name':         body.get('name', ''),
-            'week_ref':     body.get('week_ref', ''),
-            'session_type': sess_type,
-            'submitted':    datetime.now().isoformat(),
-            'correct':      correct,
-            'total':        total,
-            'score_pct':    round(correct / total * 100) if total else 0,
-            'answers':      answers,
+            'session_id':    session_id,
+            'pupil_id':      pupil_id,
+            'name':          body.get('name', ''),
+            'week_ref':      body.get('week_ref', ''),
+            'session_type':  sess_type,
+            'submitted':     datetime.now().isoformat(),
+            'correct':       correct,
+            'total':         total,
+            'score_pct':     round(correct / total * 100) if total else 0,
+            'correct_words': sorted(correct_set),
+            'answers':       answers,
         }
         ok = _save_result(session_id, pupil_id, result)
         return jsonify({'ok': ok, 'correct': correct, 'total': total,
