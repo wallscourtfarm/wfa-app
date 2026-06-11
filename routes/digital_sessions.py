@@ -9,6 +9,17 @@ from spelling_rules import SPELLING_RULES
 
 live_bp = Blueprint('live', __name__)
 
+# ── Font registration ─────────────────────────────────────────────────────────
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+_FONT_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+_SASSOON_PATH = os.path.join(_FONT_DIR, 'SassoonInfant.ttf')
+if os.path.exists(_SASSOON_PATH):
+    pdfmetrics.registerFont(TTFont('SassoonInfant', _SASSOON_PATH))
+    SASSOON = 'SassoonInfant'
+else:
+    SASSOON = 'Helvetica'
+
 PAT       = os.environ.get('GITHUB_TOKEN', '')
 DATA_REPO = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
 _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.v3+json'}
@@ -291,55 +302,47 @@ def _build_bee_cards(sess, base_url):
         c.drawString(info_x, qr_y + 4, 'Scan to start →')
 
         # ── Word list — grid table with column headers ───────────────────────
-        LABEL_H   = 6 * mm          # height reserved for column header row
-        split     = 5               # first 5 = key spellings
+        LABEL_H   = 6 * mm
+        split     = 5
         n_rows    = max(min(split, n_wds), max(0, n_wds - split), 1)
         table_top = qr_y - 3 * mm
         avail_h   = table_top - (cy - row_h + PAD)
         word_h    = min(6.5 * mm, (avail_h - LABEL_H) / n_rows)
         table_h   = LABEL_H + n_rows * word_h
-        fs        = 13
-        grid_col  = (0.16, 0.44, 0.62)   # navy-ish grid lines
+        fs        = 12
+        grid_col  = (0.16, 0.44, 0.62)
+        cell_pad  = 3 * mm
         table_l   = cx + PAD
         table_r   = cx + col_w - PAD
         table_w   = table_r - table_l
         mid_x     = table_l + table_w / 2
 
-        # ── Draw grid lines ──────────────────────────────────────────────────
+        # ── Grid lines ───────────────────────────────────────────────────────
         c.setStrokeColorRGB(*grid_col)
         c.setLineWidth(0.6)
-
-        # Outer border
         c.rect(table_l, table_top - table_h, table_w, table_h, stroke=1, fill=0)
-
-        # Vertical centre divider
-        c.line(mid_x, table_top, mid_x, table_top - table_h)
-
-        # Horizontal line below header row
-        c.line(table_l, table_top - LABEL_H, table_r, table_top - LABEL_H)
-
-        # Horizontal lines between word rows
-        c.setLineWidth(0.35)
+        c.line(mid_x, table_top, mid_x, table_top - table_h)           # centre divider
+        c.line(table_l, table_top - LABEL_H, table_r, table_top - LABEL_H)  # header rule
+        c.setLineWidth(0.3)
         for row_i in range(1, n_rows):
             ly = table_top - LABEL_H - row_i * word_h
             c.line(table_l, ly, table_r, ly)
 
-        # ── Column header labels ─────────────────────────────────────────────
-        c.setFont('Helvetica', 8)
-        c.setFillColorRGB(0.35, 0.35, 0.35)
+        # ── Column header labels (left-aligned, matching words) ──────────────
+        c.setFont('Helvetica', 7.5)
+        c.setFillColorRGB(0.40, 0.40, 0.40)
         lbl_y = table_top - LABEL_H + 2 * mm
-        c.drawCentredString(table_l + table_w / 4,     lbl_y, 'Key spellings')
+        c.drawString(table_l + cell_pad, lbl_y, 'Key spellings')
         if n_wds > split:
-            c.drawCentredString(table_l + 3 * table_w / 4, lbl_y, 'Spelling rule')
+            c.drawString(mid_x + cell_pad, lbl_y, 'Spelling rule')
 
-        # ── Words ────────────────────────────────────────────────────────────
-        cell_pad = 3 * mm
+        # ── Words (Sassoon Infant, uniform navy, left-aligned) ───────────────
         for i, word in enumerate(words):
             col_x = table_l + cell_pad if i < split else mid_x + cell_pad
             row_i = i if i < split else i - split
             wy    = table_top - LABEL_H - row_i * word_h - word_h / 2 - 2
-            c.setFont('Helvetica', fs)
-            c.setFillColorRGB(*(NAVY if i < split else (0.22, 0.22, 0.52)))
+            c.setFont(SASSOON, fs)
+            c.setFillColorRGB(*NAVY)
             c.drawString(col_x, wy, f'{i + 1}. {word}')
 
     pupils = sess.get('pupils', [])
