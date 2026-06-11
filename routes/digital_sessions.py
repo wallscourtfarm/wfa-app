@@ -290,31 +290,57 @@ def _build_bee_cards(sess, base_url):
         c.setFillColorRGB(0.4, 0.4, 0.4)
         c.drawString(info_x, qr_y + 4, 'Scan to start →')
 
-        # ── Word list — 2 columns (key words left, rule words right) ─────────
-        word_top  = qr_y - 3 * mm
-        avail_h   = word_top - (cy - row_h + PAD)
-        split     = 5                             # first 5 = key spellings
-        n_left    = min(split, n_wds)
-        n_right   = max(0, n_wds - split)
-        n_rows    = max(n_left, n_right, 1)
-        word_h    = min(5.5 * mm, avail_h / n_rows)
-        fs        = 11
-        half_w    = (col_w - 2 * PAD) / 2
+        # ── Word list — grid table with column headers ───────────────────────
+        LABEL_H   = 6 * mm          # height reserved for column header row
+        split     = 5               # first 5 = key spellings
+        n_rows    = max(min(split, n_wds), max(0, n_wds - split), 1)
+        table_top = qr_y - 3 * mm
+        avail_h   = table_top - (cy - row_h + PAD)
+        word_h    = min(6.5 * mm, (avail_h - LABEL_H) / n_rows)
+        table_h   = LABEL_H + n_rows * word_h
+        fs        = 13
+        grid_col  = (0.16, 0.44, 0.62)   # navy-ish grid lines
+        table_l   = cx + PAD
+        table_r   = cx + col_w - PAD
+        table_w   = table_r - table_l
+        mid_x     = table_l + table_w / 2
 
-        # Vertical centre-line divider when both columns are used
-        if n_right > 0:
-            mid_x = cx + PAD + half_w
-            c.setStrokeColorRGB(0.80, 0.80, 0.80)
-            c.setLineWidth(0.4)
-            c.line(mid_x, word_top, mid_x, word_top - n_rows * word_h)
+        # ── Draw grid lines ──────────────────────────────────────────────────
+        c.setStrokeColorRGB(*grid_col)
+        c.setLineWidth(0.6)
 
+        # Outer border
+        c.rect(table_l, table_top - table_h, table_w, table_h, stroke=1, fill=0)
+
+        # Vertical centre divider
+        c.line(mid_x, table_top, mid_x, table_top - table_h)
+
+        # Horizontal line below header row
+        c.line(table_l, table_top - LABEL_H, table_r, table_top - LABEL_H)
+
+        # Horizontal lines between word rows
+        c.setLineWidth(0.35)
+        for row_i in range(1, n_rows):
+            ly = table_top - LABEL_H - row_i * word_h
+            c.line(table_l, ly, table_r, ly)
+
+        # ── Column header labels ─────────────────────────────────────────────
+        c.setFont('Helvetica', 8)
+        c.setFillColorRGB(0.35, 0.35, 0.35)
+        lbl_y = table_top - LABEL_H + 2 * mm
+        c.drawCentredString(table_l + table_w / 4,     lbl_y, 'Key spellings')
+        if n_wds > split:
+            c.drawCentredString(table_l + 3 * table_w / 4, lbl_y, 'Spelling rule')
+
+        # ── Words ────────────────────────────────────────────────────────────
+        cell_pad = 3 * mm
         for i, word in enumerate(words):
-            col_x  = cx + PAD + (0 if i < split else half_w + 2 * mm)
-            row_i  = i if i < split else i - split
-            wy     = word_top - row_i * word_h
-            c.setFont('Helvetica-Bold' if i < split else 'Helvetica', fs)
+            col_x = table_l + cell_pad if i < split else mid_x + cell_pad
+            row_i = i if i < split else i - split
+            wy    = table_top - LABEL_H - row_i * word_h - word_h / 2 - 2
+            c.setFont('Helvetica', fs)
             c.setFillColorRGB(*(NAVY if i < split else (0.22, 0.22, 0.52)))
-            c.drawString(col_x, wy, f'{i + 1}.  {word}')
+            c.drawString(col_x, wy, f'{i + 1}. {word}')
 
     pupils = sess.get('pupils', [])
     for idx, p_rec in enumerate(pupils):
