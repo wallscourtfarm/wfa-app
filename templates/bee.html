@@ -112,8 +112,8 @@
 </div>
 
 <div class="bee-save-row">
-  <button id="save-btn" class="btn btn-primary" onclick="saveAll()">💾 Save &amp; update lists</button>
-  <span id="save-hint" class="save-hint">Select words to save</span>
+  <button id="save-btn" class="btn btn-secondary" onclick="saveAll(true)">💾 Save now</button>
+  <span id="save-hint" class="save-hint"></span>
 </div>
 
 {% else %}
@@ -233,18 +233,33 @@ async function processSession() {
 }
 
 // ── Manual entry ──────────────────────────────────────────────────────────────
+let _autoSaveTimer = null;
+let _saving = false;
+
 function toggleWord(btn) {
   btn.classList.toggle('word-pill--on');
-  updateHint();
+  scheduleAutoSave();
 }
 
-function updateHint() {
-  const n = document.querySelectorAll('.word-pill--on').length;
-  document.getElementById('save-hint').textContent =
-    n > 0 ? `${n} word(s) selected` : 'Select words to save';
+// Also autosave when a Confident checkbox changes
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('conf-check')) scheduleAutoSave();
+});
+
+function scheduleAutoSave() {
+  setHint('⏳ Unsaved changes…');
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => saveAll(false), 2000);
 }
 
-async function saveAll() {
+function setHint(msg) {
+  document.getElementById('save-hint').textContent = msg;
+}
+
+async function saveAll(manual = false) {
+  if (_saving) return;
+  clearTimeout(_autoSaveTimer);
+
   const rows = document.querySelectorAll('.bee-row[data-pid]');
   const assessments = [];
   rows.forEach(row => {
@@ -256,12 +271,16 @@ async function saveAll() {
   });
 
   if (!assessments.length) {
-    showStatus('Nothing selected — click some words first.', 'info');
+    if (manual) showStatus('Nothing selected — click some words first.', 'info');
+    setHint('');
     return;
   }
 
+  _saving = true;
   const btn = document.getElementById('save-btn');
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true;
+  setHint('💾 Saving…');
+
   try {
     const res  = await fetch('/api/bee/save', {
       method: 'POST',
@@ -270,15 +289,22 @@ async function saveAll() {
     });
     const data = await res.json();
     if (data.ok) {
-      showStatus(`✓ Saved ${data.saved} pupil(s). Reloading…`);
-      setTimeout(() => location.reload(), 1400);
+      const t = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      setHint(`✅ Autosaved at ${t}`);
+      if (manual) {
+        showStatus(`✓ Saved ${data.saved} pupil(s). Reloading…`);
+        setTimeout(() => location.reload(), 1400);
+      }
     } else {
+      setHint('⚠️ Save failed — try Save now');
       showStatus('Error: ' + (data.error || 'Unknown'), 'error');
-      btn.disabled = false; btn.textContent = '💾 Save & update lists';
     }
   } catch {
+    setHint('⚠️ Save failed — try Save now');
     showStatus('Network error — try again.', 'error');
-    btn.disabled = false; btn.textContent = '💾 Save & update lists';
+  } finally {
+    _saving = false;
+    btn.disabled = false;
   }
 }
 </script>
