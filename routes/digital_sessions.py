@@ -240,76 +240,71 @@ def _build_bee_cards(sess, base_url):
 
     def draw_card(cx, cy, p_rec):
         """Draw one card at column-left cx, row-top cy."""
-        PAD      = 5 * mm
-        HDR_H    = 22 * mm
+        PAD      = 4 * mm
+        HDR_H    = 14 * mm      # slimmer: name + partner on one line
         words    = [it['word'] for it in p_rec.get('items', [])]
         n_wds    = len(words)
         colour_rgb = hex_to_rgb(p_rec.get('pair_colour') or '#1798d3')
         name       = f"{p_rec['first']} {p_rec.get('last', '')}".strip()
         partner    = p_rec.get('partner_name', '')
 
-        # ── Colour header ────────────────────────────────────────────────────
+        # ── Colour header — single line ──────────────────────────────────────
         c.setFillColorRGB(*colour_rgb)
         c.rect(cx, cy - HDR_H, col_w, HDR_H, fill=1, stroke=0)
 
-        # Name pill — use ReportLab's built-in roundRect
-        pill_w = min(col_w - 8 * mm, len(name) * 7.5 + 16)
-        pill_h = 10 * mm
-        pill_x = cx + (col_w - pill_w) / 2
-        pill_y = cy - HDR_H / 2 - pill_h / 2 + (3 * mm if partner else 0)
-        c.setFillColorRGB(1, 1, 1)
-        c.roundRect(pill_x, pill_y, pill_w, pill_h, 5, stroke=0, fill=1)
-        c.setFillColorRGB(*NAVY)
-        c.setFont('Helvetica-Bold', 14)
-        c.drawCentredString(cx + col_w / 2, pill_y + 2.5 * mm, name)
-
-        # Partner pill
+        mid_y = cy - HDR_H / 2
         if partner:
-            p_pill_w = min(col_w - 16 * mm, len(f'Partner: {partner}') * 5.2 + 14)
-            p_pill_h = 6 * mm
-            p_pill_x = cx + (col_w - p_pill_w) / 2
-            p_pill_y = pill_y - p_pill_h - 2 * mm
+            # Name left-of-centre, partner right-of-centre
+            c.setFont('Helvetica-Bold', 12)
             c.setFillColorRGB(1, 1, 1)
-            c.roundRect(p_pill_x, p_pill_y, p_pill_w, p_pill_h, 3, stroke=0, fill=1)
-            c.setFillColorRGB(*NAVY)
+            c.drawCentredString(cx + col_w * 0.38, mid_y - 2, name)
             c.setFont('Helvetica', 8)
-            c.drawCentredString(cx + col_w / 2, p_pill_y + 1.5 * mm, f'Partner: {partner}')
+            c.setFillColorRGB(1, 1, 1)
+            # Thin vertical separator
+            c.setStrokeColorRGB(1, 1, 1)
+            c.setLineWidth(0.5)
+            c.line(cx + col_w * 0.62, mid_y - 4 * mm, cx + col_w * 0.62, mid_y + 3 * mm)
+            c.drawCentredString(cx + col_w * 0.81, mid_y - 2, f'Partner: {partner}')
+        else:
+            c.setFont('Helvetica-Bold', 13)
+            c.setFillColorRGB(1, 1, 1)
+            c.drawCentredString(cx + col_w / 2, mid_y - 2, name)
 
-        # ── QR code ───────────────────────────────────────────────────────────
+        # ── QR code (smaller, more space for table) ───────────────────────────
         url     = f'{base_url}/live/bee/{session_id}/{p_rec["id"]}'
-        qr      = qrcode.QRCode(box_size=5, border=2)
+        qr      = qrcode.QRCode(box_size=4, border=2)
         qr.add_data(url)
         qr.make(fit=True)
         img     = qr.make_image(fill_color='#1a3c6e', back_color='white')
         qr_io   = __import__('io').BytesIO()
         img.save(qr_io, format='PNG')
         qr_io.seek(0)
-        qr_size = 30 * mm
+        qr_size = 22 * mm
         qr_x    = cx + PAD
-        qr_y    = cy - HDR_H - qr_size - 3 * mm
+        qr_y    = cy - HDR_H - 2 * mm - qr_size
         c.drawImage(ImageReader(qr_io), qr_x, qr_y, qr_size, qr_size)
 
         # Session info beside QR
         info_x = qr_x + qr_size + 3 * mm
-        c.setFont('Helvetica-Bold', 7)
+        c.setFont('Helvetica-Bold', 7.5)
         c.setFillColorRGB(*NAVY)
         c.drawString(info_x, qr_y + qr_size - 9, f'Session: {session_id}')
         if week_ref:
             c.setFont('Helvetica', 7)
-            c.drawString(info_x, qr_y + qr_size - 18, week_ref)
+            c.drawString(info_x, qr_y + qr_size - 19, week_ref)
         c.setFont('Helvetica', 6.5)
-        c.setFillColorRGB(0.4, 0.4, 0.4)
-        c.drawString(info_x, qr_y + 4, 'Scan to start →')
+        c.setFillColorRGB(0.45, 0.45, 0.45)
+        c.drawString(info_x, qr_y + 3, 'Scan to start →')
 
         # ── Word list — grid table with column headers ───────────────────────
-        LABEL_H   = 6 * mm
+        LABEL_H   = 5.5 * mm
         split     = 5
         n_rows    = max(min(split, n_wds), max(0, n_wds - split), 1)
-        table_top = qr_y - 3 * mm
+        table_top = qr_y - 2 * mm
         avail_h   = table_top - (cy - row_h + PAD)
-        word_h    = min(6.5 * mm, (avail_h - LABEL_H) / n_rows)
+        word_h    = min(9 * mm, (avail_h - LABEL_H) / n_rows)
         table_h   = LABEL_H + n_rows * word_h
-        fs        = 12
+        fs        = 14
         grid_col  = (0.16, 0.44, 0.62)
         cell_pad  = 3 * mm
         table_l   = cx + PAD
