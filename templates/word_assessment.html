@@ -97,7 +97,8 @@
 
 {% block scripts %}
 <script>
-const CLS = "{{ cls }}";
+const CLS      = "{{ cls }}";
+const WEEK_REF = {{ week_ref | tojson }};
 
 // ── Helpers ───────────────────────────────────────────────────────
 function selectedSections() {
