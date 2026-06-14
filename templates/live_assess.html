@@ -224,17 +224,7 @@ function loadWord() {
     prompt.textContent = 'Listen carefully, then type the word.';
   }
 
-  // Homophone options row
-  const optRow = document.getElementById('options-row');
-  if (SESS_TYPE === 'homophone' && item.options && item.options.length) {
-    optRow.style.display = 'flex';
-    optRow.innerHTML = item.options.map(o =>
-      `<span class="opt-chip">${o}</span>`
-    ).join('');
-  } else {
-    optRow.style.display = 'none';
-    optRow.innerHTML = '';
-  }
+  document.getElementById('options-row').style.display = 'none';
 
   typed = '';
   upd();
