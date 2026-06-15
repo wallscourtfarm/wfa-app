@@ -55,13 +55,15 @@ def _vision_prompt(word_list_text):
         "This is a scanned page from a Year 3/4 spelling assessment completed by a primary school pupil.\n\n"
         "The child's name is pre-printed at the top of the page — read it exactly as printed.\n\n"
         f"The assessment tests these words in order:\n{word_list_text}\n\n"
-        "Each row has a small square box on the right-hand side. The teacher marks correct answers "
-        "by drawing a single diagonal line from one corner of the box to the opposite corner. "
-        "An empty box or a box with only a small stray mark (not a full diagonal) means incorrect.\n\n"
-        "For each word that appears on this page, return true if the box contains a corner-to-corner "
-        "diagonal line, false if it is empty or has only a stray mark.\n\n"
+        "Each numbered row has a small square box in the FAR RIGHT column of the page. "
+        "Next to each box (to its left) is a small rule reference code like '2-31' or '4-1'.\n\n"
+        "MARKING RULES — read each box carefully:\n"
+        "- CORRECT (return true): the box contains a single clean diagonal line running from one corner to the opposite corner.\n"
+        "- INCORRECT (return false): the box is empty, OR contains only a faint partial mark, OR contains a heavy scribble/cross-out (a mistake the teacher corrected), OR you are uncertain.\n"
+        "When in doubt, return false.\n\n"
+        "Work through the rows in order, matching each word in the list above to its numbered row on the page.\n\n"
         "Return ONLY valid JSON: {\"name\": \"Full Name\", \"results\": {\"word1\": true, \"word2\": false}}\n"
-        "true = diagonal line present, false = empty or stray mark. "
+        "true = single clean diagonal line. false = empty, scribble, partial, or uncertain. "
         "Omit words not on this page. No preamble, no markdown fences."
     )
 
@@ -214,7 +216,7 @@ def api_wa_import_stream(job_id):
 
                 try:
                     page      = doc[page_num]
-                    mat       = fitz.Matrix(200/72, 200/72)
+                    mat       = fitz.Matrix(300/72, 300/72)
                     pix       = page.get_pixmap(matrix=mat)
                     img_b64   = base64.b64encode(pix.tobytes('png')).decode()
 
@@ -224,7 +226,7 @@ def api_wa_import_stream(job_id):
                                  'anthropic-version': '2023-06-01',
                                  'content-type': 'application/json'},
                         json={
-                            'model':      'claude-sonnet-4-20250514',
+                            'model':      'claude-opus-4-8',
                             'max_tokens': 1000,
                             'messages': [{'role': 'user', 'content': [
                                 {'type': 'image', 'source': {

@@ -102,14 +102,15 @@ def _vision_prompt(word_list_text):
         "This is a scanned page from a homophone assessment for Year 3/4 pupils.\n\n"
         "The child's name is pre-printed at the top — read it exactly as printed.\n\n"
         "The assessment tests homophones in context (cloze sentences). "
-        "Each row has a small square box on the right. "
-        "The teacher marks correct answers by drawing a single diagonal line "
-        "corner to corner across the box. "
-        "An empty box or a stray mark (not a full diagonal) means incorrect.\n\n"
+        "Each row has a small square box in the FAR RIGHT column of the page.\n\n"
+        "MARKING RULES — read each box carefully:\n"
+        "- CORRECT (return true): the box contains a single clean diagonal line running from one corner to the opposite corner.\n"
+        "- INCORRECT (return false): the box is empty, OR contains only a faint partial mark, OR contains a heavy scribble/cross-out (a mistake the teacher corrected), OR you are uncertain.\n"
+        "When in doubt, return false.\n\n"
         f"Words being tested on this page:\n{word_list_text}\n\n"
         'Return ONLY valid JSON: {"name": "Full Name", "results": {"word1": true, "word2": false}}\n'
-        "true = diagonal line, false = empty. Omit words not on this page. "
-        "No preamble, no markdown fences."
+        "true = single clean diagonal line. false = empty, scribble, partial, or uncertain. "
+        "Omit words not on this page. No preamble, no markdown fences."
     )
 
 def _stage_summary(homophone_mastered, sections):
@@ -263,7 +264,7 @@ def api_ha_import_stream(job_id):
             for page_num in range(n_pages):
                 yield ": keepalive\n\n"
                 try:
-                    mat = fitz.Matrix(200/72, 200/72)
+                    mat = fitz.Matrix(300/72, 300/72)
                     pix = doc[page_num].get_pixmap(matrix=mat)
                     img_b64 = base64.b64encode(pix.tobytes('png')).decode()
 
@@ -271,7 +272,7 @@ def api_ha_import_stream(job_id):
                         headers={'x-api-key': api_key,
                                  'anthropic-version': '2023-06-01',
                                  'content-type': 'application/json'},
-                        json={'model': 'claude-sonnet-4-20250514', 'max_tokens': 1500,
+                        json={'model': 'claude-opus-4-8', 'max_tokens': 1500,
                               'messages': [{'role': 'user', 'content': [
                                   {'type': 'image', 'source': {
                                       'type': 'base64', 'media_type': 'image/png', 'data': img_b64}},
