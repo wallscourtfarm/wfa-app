@@ -50,20 +50,33 @@ def _word_list_text(sections):
     words = [w for _, ws in sections for w in ws]
     return words, "\n".join(f"{i+1}. {w}" for i, w in enumerate(words))
 
-def _vision_prompt(word_list_text):
+def _vision_prompt(word_list_text, mark_format='circle'):
+    if mark_format == 'circle':
+        marking = (
+            "MARKING RULES — read each small circle in the FAR RIGHT column carefully:\n"
+            "- CORRECT (return true): the circle is filled in (solid green, coloured, or heavily shaded).\n"
+            "- INCORRECT (return false): the circle is empty/unfilled, OR has been scribbled over in black "
+            "(crossed out), OR you are uncertain.\n"
+            "When in doubt, return false."
+        )
+    else:
+        marking = (
+            "MARKING RULES — read each small square box in the FAR RIGHT column carefully:\n"
+            "- CORRECT (return true): the box contains a single clean diagonal line running from one corner to the opposite corner.\n"
+            "- INCORRECT (return false): the box is empty, OR contains only a faint partial mark, "
+            "OR contains a heavy scribble/cross-out (a mistake the teacher corrected), OR you are uncertain.\n"
+            "When in doubt, return false."
+        )
     return (
         "This is a scanned page from a Year 3/4 spelling assessment completed by a primary school pupil.\n\n"
         "The child's name is pre-printed at the top of the page — read it exactly as printed.\n\n"
         f"The assessment tests these words in order:\n{word_list_text}\n\n"
-        "Each numbered row has a small square box in the FAR RIGHT column of the page. "
-        "Next to each box (to its left) is a small rule reference code like '2-31' or '4-1'.\n\n"
-        "MARKING RULES — read each box carefully:\n"
-        "- CORRECT (return true): the box contains a single clean diagonal line running from one corner to the opposite corner.\n"
-        "- INCORRECT (return false): the box is empty, OR contains only a faint partial mark, OR contains a heavy scribble/cross-out (a mistake the teacher corrected), OR you are uncertain.\n"
-        "When in doubt, return false.\n\n"
+        "Each numbered row has a small marking symbol in the FAR RIGHT column of the page. "
+        "Next to it (to its left) is a small rule reference code like '2-31' or '4-1'.\n\n"
+        f"{marking}\n\n"
         "Work through the rows in order, matching each word in the list above to its numbered row on the page.\n\n"
         "Return ONLY valid JSON: {\"name\": \"Full Name\", \"results\": {\"word1\": true, \"word2\": false}}\n"
-        "true = single clean diagonal line. false = empty, scribble, partial, or uncertain. "
+        "true = correct mark present. false = empty, scribbled out, or uncertain. "
         "Omit words not on this page. No preamble, no markdown fences."
     )
 
@@ -159,9 +172,10 @@ def api_wa_import_upload():
             f.write(pdf_bytes)
         with open(f'/tmp/wa_{job_id}.json', 'w') as f:
             json.dump({
-                'cls':      body.get('cls', DEFAULT_CLASS),
-                'sections': body.get('sections', SECTION_KEYS),
-                'n_pages':  n_pages,
+                'cls':         body.get('cls', DEFAULT_CLASS),
+                'sections':    body.get('sections', SECTION_KEYS),
+                'mark_format': body.get('mark_format', 'circle'),
+                'n_pages':     n_pages,
             }, f)
 
         cloze_tmp    = _load_cloze_bank()
@@ -194,7 +208,8 @@ def api_wa_import_stream(job_id):
 
     sections      = _sections_from_keys(meta['sections'])
     _, wl_text    = _word_list_text(sections)
-    prompt        = _vision_prompt(wl_text)
+    mark_format   = meta.get('mark_format', 'circle')
+    prompt        = _vision_prompt(wl_text, mark_format)
     api_key       = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data):

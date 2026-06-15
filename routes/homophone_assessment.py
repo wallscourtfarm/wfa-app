@@ -97,19 +97,33 @@ def _word_list_text(sections):
             n += 1
     return words, '\n'.join(lines)
 
-def _vision_prompt(word_list_text):
+def _vision_prompt(word_list_text, mark_format='circle'):
+    if mark_format == 'circle':
+        marking = (
+            "MARKING RULES — read each small circle in the FAR RIGHT column carefully:\n"
+            "- CORRECT (return true): the circle is filled in (solid green, coloured, or heavily shaded). "
+            "A filled circle means the pupil got the word right.\n"
+            "- INCORRECT (return false): the circle is empty/unfilled, OR has been scribbled over in black "
+            "(crossed out), OR you are uncertain.\n"
+            "When in doubt, return false."
+        )
+    else:
+        marking = (
+            "MARKING RULES — read each small square box in the FAR RIGHT column carefully:\n"
+            "- CORRECT (return true): the box contains a single clean diagonal line running from one corner to the opposite corner.\n"
+            "- INCORRECT (return false): the box is empty, OR contains only a faint partial mark, "
+            "OR contains a heavy scribble/cross-out (a mistake the teacher corrected), OR you are uncertain.\n"
+            "When in doubt, return false."
+        )
     return (
         "This is a scanned page from a homophone assessment for Year 3/4 pupils.\n\n"
         "The child's name is pre-printed at the top — read it exactly as printed.\n\n"
         "The assessment tests homophones in context (cloze sentences). "
-        "Each row has a small square box in the FAR RIGHT column of the page.\n\n"
-        "MARKING RULES — read each box carefully:\n"
-        "- CORRECT (return true): the box contains a single clean diagonal line running from one corner to the opposite corner.\n"
-        "- INCORRECT (return false): the box is empty, OR contains only a faint partial mark, OR contains a heavy scribble/cross-out (a mistake the teacher corrected), OR you are uncertain.\n"
-        "When in doubt, return false.\n\n"
+        "Each row has a small marking symbol in the FAR RIGHT column of the page.\n\n"
+        f"{marking}\n\n"
         f"Words being tested on this page:\n{word_list_text}\n\n"
         'Return ONLY valid JSON: {"name": "Full Name", "results": {"word1": true, "word2": false}}\n'
-        "true = single clean diagonal line. false = empty, scribble, partial, or uncertain. "
+        "true = correct mark present. false = empty, scribbled out, or uncertain. "
         "Omit words not on this page. No preamble, no markdown fences."
     )
 
@@ -218,6 +232,7 @@ def api_ha_import_upload():
         with open(f'/tmp/ha_{job_id}.json', 'w') as f:
             json.dump({'cls': body.get('cls', DEFAULT_CLASS),
                        'stages': body.get('stages', []),
+                       'mark_format': body.get('mark_format', 'circle'),
                        'n_pages': n_pages}, f)
 
         # Compute total words for correct denominator on frontend
@@ -248,9 +263,10 @@ def api_ha_import_stream(job_id):
     selected = [int(s) for s in meta['stages']]
     cloze    = _load_rule_cloze()
     sections = _build_sections(selected, cloze)
-    _, wl_text = _word_list_text(sections)
-    prompt   = _vision_prompt(wl_text)
-    api_key  = os.environ.get('ANTHROPIC_API_KEY', '')
+    _, wl_text   = _word_list_text(sections)
+    mark_format  = meta.get('mark_format', 'circle')
+    prompt       = _vision_prompt(wl_text, mark_format)
+    api_key      = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data): return f"data: {json.dumps(data)}\n\n"
 

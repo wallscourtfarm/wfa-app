@@ -49,9 +49,10 @@ def _all_sections():
 
 # ── PDF pupil sheet ───────────────────────────────────────────────────────────
 
-def _draw_page_header(c, W, H, pupil_name, week_ref, page_label):
+def _draw_page_header(c, W, H, pupil_name, week_ref, page_label, assessment_type="Word Assessment"):
     """Blue header bar with name and week ref. Returns y below header."""
-    HDR = 14 * mm
+    HDR  = 14 * mm
+    NOTE = 5  * mm
     c.setFillColorRGB(0.30, 0.30, 0.30)
     c.rect(0, H - HDR, W, HDR, fill=1, stroke=0)
     c.setFillColorRGB(*WHITE)
@@ -59,8 +60,15 @@ def _draw_page_header(c, W, H, pupil_name, week_ref, page_label):
     c.drawString(10 * mm, H - HDR + (HDR - 11) / 2, pupil_name)
     c.setFont("Helvetica", 8)
     c.drawRightString(W - 10 * mm, H - HDR + (HDR - 8) / 2,
-                      f"Word Assessment  ·  {week_ref}  ·  {page_label}")
-    return H - HDR
+                      f"{assessment_type}  ·  {week_ref}  ·  {page_label}")
+    # Marking instruction strip
+    c.setFillColorRGB(0.95, 0.98, 0.95)
+    c.rect(0, H - HDR - NOTE, W, NOTE, fill=1, stroke=0)
+    c.setFillColorRGB(0.15, 0.45, 0.15)
+    c.setFont("Helvetica", 6.5)
+    c.drawCentredString(W / 2, H - HDR - NOTE + (NOTE - 6.5) / 2,
+                        "Marking: fill the circle ● with green highlighter = correct   |   Scribble out in black = mistake")
+    return H - HDR - NOTE
 
 
 def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
@@ -183,13 +191,13 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
                     sent_bl = line_y + 1.2 * mm
                     c.drawString(sent_x, sent_bl, display_sent)
 
-                    # Marking box — right-aligned, vertically centred
-                    BOX_SZ = 6 * mm
-                    box_x  = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
-                    box_y  = row_bot + (ROW_H - BOX_SZ) / 2
+                    # Marking circle — right-aligned, vertically centred
+                    CIRC_R = 2 * mm
+                    circ_cx = M + UW - MARK_W / 2
+                    circ_cy = row_bot + ROW_H / 2
                     c.setStrokeColorRGB(0.35, 0.35, 0.35)
                     c.setLineWidth(0.7)
-                    c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+                    c.circle(circ_cx, circ_cy, CIRC_R, fill=0, stroke=1)
 
                     cy -= ROW_H
 
@@ -448,12 +456,13 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
                 c.setFont('Helvetica', 6.5)
                 c.drawRightString(id_x, row_bot + ROW_H / 2 - 2.3, rule_id)
 
-                # Marking box
-                box_x = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
-                box_y = row_bot + (ROW_H - BOX_SZ) / 2
+                # Marking circle
+                CIRC_R  = 2 * mm
+                circ_cx = M + UW - MARK_W / 2
+                circ_cy = row_bot + ROW_H / 2
                 c.setStrokeColorRGB(0.35, 0.35, 0.35)
                 c.setLineWidth(0.7)
-                c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+                c.circle(circ_cx, circ_cy, CIRC_R, fill=0, stroke=1)
 
                 cy -= ROW_H
 
@@ -683,7 +692,8 @@ def build_homophone_assessment_pdf(pupils, sections, week_ref=""):
 
         for pg_idx, page_items in enumerate(pages):
             top_y = _draw_page_header(c, W, H, name, week_ref,
-                                      f'Page {pg_idx + 1} of {n_pages}')
+                                      f'Page {pg_idx + 1} of {n_pages}',
+                                      assessment_type="Homophone Assessment")
             cy = top_y - 5 * mm
 
             for item in page_items:
@@ -726,11 +736,12 @@ def build_homophone_assessment_pdf(pupils, sections, week_ref=""):
                     c.drawRightString(M + UW - MARK_W - 1 * mm,
                                       row_bot + ROW_H / 2 - 2.3, rule_id)
 
-                    box_x = M + UW - MARK_W + (MARK_W - BOX_SZ) / 2
-                    box_y = row_bot + (ROW_H - BOX_SZ) / 2
+                    CIRC_R  = 2 * mm
+                    circ_cx = M + UW - MARK_W / 2
+                    circ_cy = row_bot + ROW_H / 2
                     c.setStrokeColorRGB(0.35, 0.35, 0.35)
                     c.setLineWidth(0.7)
-                    c.rect(box_x, box_y, BOX_SZ, BOX_SZ, fill=0, stroke=1)
+                    c.circle(circ_cx, circ_cy, CIRC_R, fill=0, stroke=1)
 
                     cy -= ROW_H
 
