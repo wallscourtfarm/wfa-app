@@ -52,7 +52,6 @@ def _all_sections():
 def _draw_page_header(c, W, H, pupil_name, week_ref, page_label, assessment_type="Word Assessment"):
     """Blue header bar with name and week ref. Returns y below header."""
     HDR  = 14 * mm
-    NOTE = 5  * mm
     c.setFillColorRGB(0.30, 0.30, 0.30)
     c.rect(0, H - HDR, W, HDR, fill=1, stroke=0)
     c.setFillColorRGB(*WHITE)
@@ -61,14 +60,7 @@ def _draw_page_header(c, W, H, pupil_name, week_ref, page_label, assessment_type
     c.setFont("Helvetica", 8)
     c.drawRightString(W - 10 * mm, H - HDR + (HDR - 8) / 2,
                       f"{assessment_type}  ·  {week_ref}  ·  {page_label}")
-    # Marking instruction strip
-    c.setFillColorRGB(0.95, 0.98, 0.95)
-    c.rect(0, H - HDR - NOTE, W, NOTE, fill=1, stroke=0)
-    c.setFillColorRGB(0.15, 0.45, 0.15)
-    c.setFont("Helvetica", 6.5)
-    c.drawCentredString(W / 2, H - HDR - NOTE + (NOTE - 6.5) / 2,
-                        "Marking: fill the circle ● with green highlighter = correct   |   Scribble out in black = mistake")
-    return H - HDR - NOTE
+    return H - HDR
 
 
 def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
@@ -503,7 +495,8 @@ def _draw_teacher_row(c, cy, num, word, sentence, W, M, UW, ROW_H):
 
 def _teacher_header(c, W, H, week_ref, title):
     """Draw header bar for teacher copy. Returns y below bar."""
-    HDR = 14 * mm
+    HDR  = 14 * mm
+    NOTE = 5  * mm
     c.setFillColorRGB(0.30, 0.30, 0.30)
     c.rect(0, H - HDR, W, HDR, fill=1, stroke=0)
     c.setFillColorRGB(*WHITE)
@@ -511,7 +504,13 @@ def _teacher_header(c, W, H, week_ref, title):
     c.drawString(10 * mm, H - HDR + (HDR - 11) / 2, "TEACHER COPY")
     c.setFont("Helvetica", 8)
     c.drawRightString(W - 10 * mm, H - HDR + (HDR - 8) / 2, f"{title}  ·  {week_ref}")
-    return H - HDR
+    c.setFillColorRGB(0.95, 0.98, 0.95)
+    c.rect(0, H - HDR - NOTE, W, NOTE, fill=1, stroke=0)
+    c.setFillColorRGB(0.15, 0.45, 0.15)
+    c.setFont("Helvetica", 6.5)
+    c.drawCentredString(W / 2, H - HDR - NOTE + (NOTE - 6.5) / 2,
+                        "Marking: fill the circle ● with green highlighter = correct   |   Scribble out in black = mistake")
+    return H - HDR - NOTE
 
 
 def build_word_assessment_teacher_pdf(pupils, sections, cloze_lookup, week_ref=""):
