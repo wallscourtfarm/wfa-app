@@ -172,10 +172,11 @@ def api_wa_import_upload():
             f.write(pdf_bytes)
         with open(f'/tmp/wa_{job_id}.json', 'w') as f:
             json.dump({
-                'cls':         body.get('cls', DEFAULT_CLASS),
-                'sections':    body.get('sections', SECTION_KEYS),
-                'mark_format': body.get('mark_format', 'circle'),
-                'n_pages':     n_pages,
+                'cls':            body.get('cls', DEFAULT_CLASS),
+                'sections':       body.get('sections', SECTION_KEYS),
+                'mark_format':    body.get('mark_format', 'circle'),
+                'mark_convention': body.get('mark_convention', 'correct'),
+                'n_pages':        n_pages,
             }, f)
 
         cloze_tmp    = _load_cloze_bank()
@@ -206,11 +207,12 @@ def api_wa_import_stream(job_id):
     with open(tmp_meta) as f:
         meta = json.load(f)
 
-    sections      = _sections_from_keys(meta['sections'])
-    _, wl_text    = _word_list_text(sections)
-    mark_format   = meta.get('mark_format', 'circle')
-    prompt        = _vision_prompt(wl_text, mark_format)
-    api_key       = os.environ.get('ANTHROPIC_API_KEY', '')
+    sections        = _sections_from_keys(meta['sections'])
+    _, wl_text      = _word_list_text(sections)
+    mark_format     = meta.get('mark_format', 'circle')
+    mark_convention = meta.get('mark_convention', 'correct')
+    prompt          = _vision_prompt(wl_text, mark_format)
+    api_key         = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data):
         return f"data: {json.dumps(data)}\n\n"
@@ -259,12 +261,15 @@ def api_wa_import_stream(job_id):
                         text = re.sub(r'^```[a-z]*\n?', '', text)
                         text = re.sub(r'\n?```$', '', text)
                         parsed = json.loads(text)
+                        results = parsed.get('results', {})
+                        if mark_convention == 'mistake':
+                            results = {k: not v for k, v in results.items()}
                         yield sse({
                             'type':     'page',
                             'page_num': page_num + 1,
                             'total':    n_pages,
                             'name':     parsed.get('name', ''),
-                            'results':  parsed.get('results', {}),
+                            'results':  results,
                         })
                     else:
                         yield sse({

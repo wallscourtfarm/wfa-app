@@ -233,6 +233,7 @@ def api_ha_import_upload():
             json.dump({'cls': body.get('cls', DEFAULT_CLASS),
                        'stages': body.get('stages', []),
                        'mark_format': body.get('mark_format', 'circle'),
+                       'mark_convention': body.get('mark_convention', 'correct'),
                        'n_pages': n_pages}, f)
 
         # Compute total words for correct denominator on frontend
@@ -263,10 +264,11 @@ def api_ha_import_stream(job_id):
     selected = [int(s) for s in meta['stages']]
     cloze    = _load_rule_cloze()
     sections = _build_sections(selected, cloze)
-    _, wl_text   = _word_list_text(sections)
-    mark_format  = meta.get('mark_format', 'circle')
-    prompt       = _vision_prompt(wl_text, mark_format)
-    api_key      = os.environ.get('ANTHROPIC_API_KEY', '')
+    _, wl_text      = _word_list_text(sections)
+    mark_format     = meta.get('mark_format', 'circle')
+    mark_convention = meta.get('mark_convention', 'correct')
+    prompt          = _vision_prompt(wl_text, mark_format)
+    api_key         = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data): return f"data: {json.dumps(data)}\n\n"
 
@@ -300,9 +302,12 @@ def api_ha_import_stream(job_id):
                         text = re.sub(r'^```[a-z]*\n?', '', text)
                         text = re.sub(r'\n?```$', '', text)
                         parsed = json.loads(text)
+                        results = parsed.get('results', {})
+                        if mark_convention == 'mistake':
+                            results = {k: not v for k, v in results.items()}
                         yield sse({'type': 'page', 'page_num': page_num + 1,
                                    'total': n_pages, 'name': parsed.get('name', ''),
-                                   'results': parsed.get('results', {})})
+                                   'results': results})
                     else:
                         yield sse({'type': 'error', 'page_num': page_num + 1,
                                    'total': n_pages, 'message': f'API {resp.status_code}'})

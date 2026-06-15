@@ -66,14 +66,25 @@
   <div class="wa-upload-row" id="upload-row">
     <input type="file" id="pdf-upload" accept="application/pdf" class="wa-file-input">
     <button class="btn btn-primary" onclick="startImport()">🔍 Process PDF</button>
-    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;color:#64748b;font-weight:600">Sheet format:</span>
-      <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
-        <input type="radio" name="wa-mark-format" value="circle" checked> New (filled circle ●)
-      </label>
-      <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
-        <input type="radio" name="wa-mark-format" value="diagonal"> Old (diagonal line /)
-      </label>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:#64748b;font-weight:600">Sheet format:</span>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="radio" name="wa-mark-format" value="circle" checked> New (filled circle ●)
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="radio" name="wa-mark-format" value="diagonal"> Old (diagonal line /)
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:#64748b;font-weight:600">Marking convention:</span>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="radio" name="wa-mark-convention" value="correct" checked> Marked = correct ✓
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="radio" name="wa-mark-convention" value="mistake"> Marked = mistake ✗ (invert)
+        </label>
+      </div>
     </div>
   </div>
 
@@ -199,11 +210,12 @@ async function startImport() {
       reader.readAsDataURL(file);
     });
 
-    const markFormat = document.querySelector('input[name="wa-mark-format"]:checked')?.value || 'circle';
+    const markFormat     = document.querySelector('input[name="wa-mark-format"]:checked')?.value || 'circle';
+    const markConvention = document.querySelector('input[name="wa-mark-convention"]:checked')?.value || 'correct';
     const resp = await fetch('/api/word-assessment/import-upload', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS, sections, pdf: b64, mark_format: markFormat }),
+      body: JSON.stringify({ cls: CLS, sections, pdf: b64, mark_format: markFormat, mark_convention: markConvention }),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); resetImport(); return; }
