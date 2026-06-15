@@ -242,6 +242,22 @@ function removePupil(name) {
   if (card) card.remove();
 }
 
+function mergePupil(fromName) {
+  const otherNames = Object.values(_importResults).map(r => r.name).filter(n => n !== fromName);
+  if (!otherNames.length) return;
+  const target = otherNames.length === 1 ? otherNames[0] : prompt('Merge into which pupil?\n' + otherNames.map((n,i)=>`${i+1}. ${n}`).join('\n') + '\n\nType the name exactly:');
+  if (!target) return;
+  const fromKey   = Object.keys(_importResults).find(k => _importResults[k].name === fromName);
+  const targetKey = Object.keys(_importResults).find(k => _importResults[k].name === target);
+  if (!fromKey || !targetKey) { alert('Could not find pupil "' + target + '"'); return; }
+  // Merge fromName's words into target (target wins on conflict)
+  Object.assign(_importResults[targetKey].results, _importResults[fromKey].results);
+  delete _importResults[fromKey];
+  const card = document.getElementById(_rowKey(fromName));
+  if (card) card.remove();
+  renderRow(target, _importResults[targetKey].results);
+}
+
 function renderRow(name, results) {
   const words   = Object.keys(results);
   const correct = Object.values(results).filter(Boolean).length;
@@ -269,6 +285,7 @@ function renderRow(name, results) {
       <span style="font-weight:700;font-size:13px">${name}</span>
       <span style="display:flex;align-items:center;gap:10px">
         <span style="font-size:12px;color:#64748b">${correct}/${total} &nbsp;<strong>${pct}${typeof pct==='number'?'%':''}</strong></span>
+        <button onclick="mergePupil('${safeName}')" title="Merge this row into another pupil" style="background:none;border:1px solid #cbd5e1;border-radius:4px;color:#475569;font-size:11px;cursor:pointer;padding:1px 7px">Merge↑</button>
         <button onclick="removePupil('${safeName}')" title="Remove this pupil" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:0">✕</button>
       </span>
     </div>
