@@ -74,13 +74,9 @@
   </div>
 
   <div id="import-results" class="hidden">
-    <h4 class="wa-results-title">Results — review before saving</h4>
-    <table class="wa-results-table">
-      <thead>
-        <tr><th>Name</th><th>Total words</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
-      </thead>
-      <tbody id="results-body"></tbody>
-    </table>
+    <h4 class="wa-results-title">Results — review &amp; edit before saving</h4>
+    <p style="font-size:12px;color:#64748b;margin:0 0 10px">Click any word cell to toggle correct/incorrect. Click × to remove a pupil row.</p>
+    <div id="results-body"></div>
     <p id="errors-note" class="wa-flagged hidden"></p>
     <div class="print-card-footer" style="margin-top:12px">
       <button class="btn btn-primary"   id="confirm-btn" onclick="confirmImport()" disabled>✅ Save to records</button>
@@ -229,14 +225,54 @@ function setProgress(done,total,label) {
   document.getElementById('progress-bar').style.width = (total?Math.round(done/total*100):0)+'%';
   document.getElementById('progress-label').textContent = label;
 }
+function _rowKey(name) { return 'row-'+name.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); }
+
+function toggleWord(name, word) {
+  const key = Object.keys(_importResults).find(k => _importResults[k].name === name);
+  if (!key) return;
+  _importResults[key].results[word] = !_importResults[key].results[word];
+  renderRow(name, _importResults[key].results);
+}
+
+function removePupil(name) {
+  const key = Object.keys(_importResults).find(k => _importResults[k].name === name);
+  if (!key) return;
+  delete _importResults[key];
+  const card = document.getElementById(_rowKey(name));
+  if (card) card.remove();
+}
+
 function renderRow(name, results) {
+  const words   = Object.keys(results);
   const correct = Object.values(results).filter(Boolean).length;
-  const total   = _totalWords || Object.values(results).length;
+  const total   = _totalWords || words.length;
   const pct     = total ? Math.round(correct/total*100) : '—';
-  const rowId   = 'row-'+name.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-  let row = document.getElementById(rowId);
-  if (!row) { row=document.createElement('tr'); row.id=rowId; document.getElementById('results-body').appendChild(row); }
-  row.innerHTML=`<td>${name}</td><td>${total}</td><td>${correct}</td><td>${total-correct}</td><td>${pct}${typeof pct==='number'?'%':''}</td>`;
+  const rowId   = _rowKey(name);
+
+  let card = document.getElementById(rowId);
+  if (!card) {
+    card = document.createElement('div');
+    card.id = rowId;
+    card.style.cssText = 'border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:8px';
+    document.getElementById('results-body').appendChild(card);
+  }
+
+  const safeName = name.replace(/'/g, "\\'");
+  const pills = words.map(w => {
+    const ok = results[w];
+    const safeW = w.replace(/'/g, "\\'");
+    return `<span onclick="toggleWord('${safeName}','${safeW}')" title="Click to toggle" style="display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;background:${ok?'#dcfce7':'#fee2e2'};color:${ok?'#166534':'#991b1b'}">${w}</span>`;
+  }).join('');
+
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-weight:700;font-size:13px">${name}</span>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;color:#64748b">${correct}/${total} &nbsp;<strong>${pct}${typeof pct==='number'?'%':''}</strong></span>
+        <button onclick="removePupil('${safeName}')" title="Remove this pupil" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:0">✕</button>
+      </span>
+    </div>
+    <div>${pills}</div>`;
 }
 
 async function confirmImport() {
