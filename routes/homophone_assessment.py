@@ -220,6 +220,7 @@ def api_ha_import_upload():
                        'n_pages': n_pages}, f)
 
         # Compute total words for correct denominator on frontend
+        selected = [int(s) for s in body.get('stages', [])]
         cloze    = _load_rule_cloze()
         sections = _build_sections(selected, cloze)
         total_words = sum(len(rows) for _, _, rows in sections)
