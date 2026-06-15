@@ -53,11 +53,18 @@ def _word_list_text(sections):
 def _vision_prompt(word_list_text, mark_format='circle'):
     if mark_format == 'circle':
         marking = (
-            "MARKING RULES — read each small circle in the FAR RIGHT column carefully:\n"
-            "- CORRECT (return true): the circle is filled in (solid green, coloured, or heavily shaded).\n"
-            "- INCORRECT (return false): the circle is empty/unfilled, OR has been scribbled over in black "
-            "(crossed out), OR you are uncertain.\n"
-            "When in doubt, return false."
+            "MARKING RULES — read each small printed circle in the FAR RIGHT column carefully:\n"
+            "There are TWO types of mark a teacher may make:\n"
+            "  A) A neat coloured wash/fill INSIDE the circle (typically green or yellow-green highlighter). "
+            "The circle retains its shape but has a colour tint inside it. This means CORRECT → return true.\n"
+            "  B) A messy scribble or blob of colour that is LARGER than the circle and extends outside it "
+            "(often orange, red, or another colour). The original circle outline may be hidden under the blob. "
+            "This means INCORRECT → return false.\n"
+            "  C) A completely blank/white circle with no marking at all → return false.\n"
+            "Key distinction: if the mark is CONTAINED within the circle boundary → true. "
+            "If the mark OVERFLOWS well beyond the circle → false. "
+            "A faint green or yellow tint inside the circle still counts as a fill → true.\n"
+            "When genuinely uncertain, return false."
         )
     else:
         marking = (
