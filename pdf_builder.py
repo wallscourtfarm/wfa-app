@@ -159,7 +159,7 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
     row_h   = (H - 2*M) / ROWS
     GAP     = 6          # pt gap between cards (visible cut margin)
 
-    def draw_card(cx, cy, pupil, partner_name, words, colour_hex, pair_num=None):
+    def draw_card(cx, cy, pupil, partner_name, words, colour_hex):
         """cx/cy = top-left corner of card slot."""
         x = cx + GAP
         y = cy - row_h + GAP
@@ -209,18 +209,6 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
             c.setFillColorRGB(*NAVY)
             c.drawCentredString(badge_x + badge_w / 2, badge_y + PILL_H * 0.28, cls_lbl)
 
-        # ── Pair number badge ─────────────────────────────────────
-        if pair_num is not None:
-            pnum_label = f'P{pair_num}'
-            c.setFont('Helvetica-Bold', 9)
-            pnum_w = c.stringWidth(pnum_label, 'Helvetica-Bold', 9) + 4 * mm
-            pnum_x = x + w - pnum_w - 2 * mm if not cls_lbl else x + w - pnum_w - badge_w - 4 * mm
-            pnum_y = pill_y
-            c.setFillColorRGB(1, 1, 1)
-            c.roundRect(pnum_x, pnum_y, pnum_w, PILL_H, 3, fill=1, stroke=0)
-            c.setFillColorRGB(*NAVY)
-            c.drawCentredString(pnum_x + pnum_w / 2, pnum_y + PILL_H * 0.28, pnum_label)
-
         # ── Words ─────────────────────────────────────────────────
         GAP_AFTER_HDR = 14         # pt clearance between header and first word baseline
         word_h   = 20                  # fixed leading — tighter than auto-distributed
@@ -242,15 +230,6 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
 
     pupil_map = {p["id"]: p for p in pupils}
     drawn     = 0
-
-    # Assign sequential pair numbers in the order pairs first appear
-    _pair_num_map = {}
-    _next_pnum    = 1
-    for _p in pupils:
-        _pid = _p.get('pair_id', '')
-        if _pid and _pid not in _pair_num_map:
-            _pair_num_map[_pid] = _next_pnum
-            _next_pnum += 1
 
     def draw_cut_lines_bee():
         c.saveState()
@@ -286,8 +265,7 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
         cx = M + col_idx * col_w
         cy = H - M - row_idx * row_h
 
-        pnum = _pair_num_map.get(p.get('pair_id',''))
-        draw_card(cx, cy, p, partner_nm, words, colour, pair_num=pnum)
+        draw_card(cx, cy, p, partner_nm, words, colour)
         drawn += 1
 
     draw_cut_lines_bee()
