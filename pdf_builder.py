@@ -159,7 +159,7 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
     row_h   = (H - 2*M) / ROWS
     GAP     = 6          # pt gap between cards (visible cut margin)
 
-    def draw_card(cx, cy, pupil, partner_name, words, colour_hex):
+    def draw_card(cx, cy, pupil, partner_name, words, colour_hex, colour_name=""):
         """cx/cy = top-left corner of card slot."""
         x = cx + GAP
         y = cy - row_h + GAP
@@ -228,48 +228,86 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
             c.drawString(x + 2*mm, wy, f"{i+1}.  {word}")
             wy -= word_h
 
+        # Colour name label at bottom-right corner
+        if colour_name:
+            r, g, b = col_rgb
+            lum = 0.299*r + 0.587*g + 0.114*b
+            label_col = (1,1,1) if lum < 0.55 else (0.15, 0.15, 0.15)
+            c.setFillColorRGB(*col_rgb)
+            lbl_h = 5 * mm
+            c.rect(x, y, w, lbl_h, fill=1, stroke=0)
+            c.setFillColorRGB(*label_col)
+            c.setFont("Helvetica-Bold", 7)
+            c.drawRightString(x + w - 2*mm, y + lbl_h * 0.3, colour_name)
+
     pupil_map = {p["id"]: p for p in pupils}
-    drawn     = 0
 
     def draw_cut_lines_bee():
         c.saveState()
         c.setStrokeColorRGB(0.5, 0.5, 0.5)
         c.setLineWidth(0.6)
         c.setDash(5, 4)
-        # All vertical lines — including left and right outer edges
         for ci in range(0, COLS + 1):
             lx = M + ci * col_w
             c.line(lx, 0, lx, H)
-        # All horizontal lines — including top and bottom outer edges
         for ri in range(0, ROWS + 1):
             ly = H - M - ri * row_h
             c.line(0, ly, W, ly)
         c.restoreState()
 
+    # ── Separate into partner-A / partner-B / unpaired ────────────────
+    # Partners A and B are drawn in separate page runs so that same-slot
+    # positions on consecutive pages are auto-paired when stacked after printing.
+    partners_a, partners_b, unpaired = [], [], []
+    seen = set()
     for p in pupils:
-        partner    = pupil_map.get(p.get("pair_id",""), {})
-        partner_nm = partner.get("first","") if partner else ""
-        kw  = list(key_words_map.get(p["id"], []))[:5]
-        rw  = list(rev_rule_words if p.get("group")=="revision" else main_rule_words)[:5]
-        words  = kw + rw
-        colour = p.get("pair_colour","") or "#1798d3"
+        pid = p["id"]
+        if pid in seen:
+            continue
+        pair_id = p.get("pair_id", "")
+        if pair_id and pair_id in pupil_map:
+            partners_a.append(p)
+            partners_b.append(pupil_map[pair_id])
+            seen.add(pid)
+            seen.add(pair_id)
+        else:
+            unpaired.append(p)
 
-        page_pos = drawn % (COLS * ROWS)
-        if drawn > 0 and page_pos == 0:
+    def _draw_batch(batch):
+        drawn = 0
+        for p in batch:
+            page_pos = drawn % (COLS * ROWS)
+            if drawn > 0 and page_pos == 0:
+                draw_cut_lines_bee()
+                c.showPage()
+            partner    = pupil_map.get(p.get("pair_id",""), {})
+            partner_nm = partner.get("first","") if partner else ""
+            kw     = list(key_words_map.get(p["id"], []))[:5]
+            rw     = list(rev_rule_words if p.get("group")=="revision" else main_rule_words)[:5]
+            colour   = p.get("pair_colour","") or "#1798d3"
+            col_name = p.get("pair_colour_name","")
+            # Fallback: look up name from PAIR_COLOURS in class_manager if not stored
+            if not col_name and colour:
+                try:
+                    from routes.class_manager import PAIR_COLOURS as _PC
+                    col_name = next((pc['name'] for pc in _PC
+                                     if pc['hex'].upper() == colour.upper()), '')
+                except Exception:
+                    pass
+            col_idx = page_pos % COLS
+            row_idx = page_pos // COLS
+            cx = M + col_idx * col_w
+            cy = H - M - row_idx * row_h
+            draw_card(cx, cy, p, partner_nm, kw + rw, colour, col_name)
+            drawn += 1
+        if drawn:
             draw_cut_lines_bee()
             c.showPage()
 
-        col_idx = page_pos % COLS
-        row_idx = page_pos // COLS
+    _draw_batch(partners_a)
+    _draw_batch(partners_b)
+    _draw_batch(unpaired)
 
-        cx = M + col_idx * col_w
-        cy = H - M - row_idx * row_h
-
-        draw_card(cx, cy, p, partner_nm, words, colour)
-        drawn += 1
-
-    draw_cut_lines_bee()
-    c.showPage()
     c.save()
     buf.seek(0)
     return buf.read()

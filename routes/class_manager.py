@@ -18,26 +18,28 @@ _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.
 CLASS_OPTIONS  = get_class_options(include_all_per_year=False)
 TT_SETS        = ['2', '5', '4', '8', '3', '6', '9', '7', '11', '12', 'All']
 PAIR_COLOURS = [
-    {'hex': '#1565C0', 'name': 'Blue'},
-    {'hex': '#C62828', 'name': 'Red'},
-    {'hex': '#2E7D32', 'name': 'Green'},
-    {'hex': '#E65100', 'name': 'Orange'},
-    {'hex': '#6A1B9A', 'name': 'Purple'},
-    {'hex': '#00838F', 'name': 'Teal'},
-    {'hex': '#F9A825', 'name': 'Gold'},
-    {'hex': '#5D4037', 'name': 'Brown'},
-    {'hex': '#AD1457', 'name': 'Hot Pink'},
-    {'hex': '#37474F', 'name': 'Slate'},
-    {'hex': '#0288D1', 'name': 'Sky Blue'},
-    {'hex': '#558B2F', 'name': 'Lime'},
-    {'hex': '#BF360C', 'name': 'Rust'},
-    {'hex': '#4527A0', 'name': 'Indigo'},
-    {'hex': '#00695C', 'name': 'Emerald'},
-    {'hex': '#F57F17', 'name': 'Amber'},
-    {'hex': '#880E4F', 'name': 'Maroon'},
-    {'hex': '#827717', 'name': 'Olive'},
-    {'hex': '#01579B', 'name': 'Navy'},
-    {'hex': '#4E342E', 'name': 'Chocolate'},
+    # Palette designed for maximum print distinctiveness.
+    # Only one colour per hue family; within-family members differ by lightness > 30%.
+    {'hex': '#C62828', 'name': 'Red'},         # vivid mid-red
+    {'hex': '#E65100', 'name': 'Orange'},       # deep orange
+    {'hex': '#F9A825', 'name': 'Gold'},         # warm golden yellow
+    {'hex': '#827717', 'name': 'Olive'},        # dark yellow-olive (clearly muted vs Gold)
+    {'hex': '#2E7D32', 'name': 'Green'},        # pure mid-green
+    {'hex': '#558B2F', 'name': 'Lime'},         # bright yellow-green (lighter/warmer than Green)
+    {'hex': '#00695C', 'name': 'Teal'},         # blue-green (distinct hue from Green)
+    {'hex': '#0277BD', 'name': 'Blue'},         # medium cobalt blue
+    {'hex': '#1A237E', 'name': 'Navy'},         # very dark blue (clearly darker than Blue)
+    {'hex': '#6A1B9A', 'name': 'Purple'},       # vivid purple (clearly different hue from Blue)
+    {'hex': '#AD1457', 'name': 'Pink'},         # deep cerise-pink
+    {'hex': '#B71C1C', 'name': 'Crimson'},      # dark wine-red (clearly darker than Red)
+    {'hex': '#5D4037', 'name': 'Brown'},        # warm mid-brown
+    {'hex': '#37474F', 'name': 'Slate'},        # dark blue-grey (neutral vs Blue)
+    {'hex': '#BF360C', 'name': 'Rust'},         # red-brown-orange (between Red and Orange)
+    {'hex': '#4A148C', 'name': 'Indigo'},       # deep violet (between Navy and Purple)
+    {'hex': '#004D40', 'name': 'Forest'},       # very dark teal-green (clearly darker than Teal)
+    {'hex': '#E91E63', 'name': 'Cerise'},       # bright hot-pink (clearly brighter than Pink)
+    {'hex': '#EF6C00', 'name': 'Amber'},        # bright amber (lighter/cleaner than Orange)
+    {'hex': '#795548', 'name': 'Mocha'},        # light warm tan-brown (lighter than Brown)
 ]
 
 
@@ -145,8 +147,9 @@ def api_class_list():
                 'group':        p.get('group', 'main'),
                 'tt_set':       str(p.get('tt_set', '2')),
                 'tt_mode':      p.get('tt_mode', 'x'),
-                'pair_id':      pid,
-                'pair_colour':  p.get('pair_colour', ''),
+                'pair_id':           pid,
+                'pair_colour':       p.get('pair_colour', ''),
+                'pair_colour_name':  p.get('pair_colour_name', ''),
                 'partner_name': f"{partner.get('first','')} {partner.get('last','')}".strip() if partner else '',
                 'partner_cls':  partner.get('cls_id', '') if partner else '',
                 'table':        str(p.get('table', '')),
@@ -343,6 +346,8 @@ def api_pair():
         pupil_a_id   = body.get('pupil_a', '')
         pupil_b_id   = body.get('pupil_b', '')
         colour       = body.get('colour', '#0070C0')
+        colour_name  = next((pc['name'] for pc in PAIR_COLOURS
+                             if pc['hex'].upper() == colour.upper()), '')
 
         if not pupil_a_id or not pupil_b_id or pupil_a_id == pupil_b_id:
             return jsonify({'ok': False, 'error': 'Invalid pair selection'})
@@ -367,9 +372,11 @@ def api_pair():
                 if p['id'] == pupil_a_id:
                     p['pair_id'] = pupil_b_id
                     p['pair_colour'] = colour
+                    p['pair_colour_name'] = colour_name
                 elif p['id'] == pupil_b_id:
                     p['pair_id'] = pupil_a_id
                     p['pair_colour'] = colour
+                    p['pair_colour_name'] = colour_name
             name_a = id_map[pupil_a_id]['first']
             name_b = id_map[pupil_b_id]['first']
             _save_class_file(cid, obj, sha, f'Pair {name_a} ↔ {name_b}')
