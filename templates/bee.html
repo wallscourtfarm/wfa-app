@@ -88,7 +88,7 @@
 {% if pupils %}
 <div class="bee-list" id="bee-list">
   {% for p in pupils %}
-  <div class="bee-row {% if p.is_rev %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ cls }}">
+  <div class="bee-row {% if p.is_rev %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ p.cls }}">
     <div class="bee-name">
       <span>{{ p.first }}</span>
       {% if p.is_rev %}<span class="rev-badge">REV</span>{% endif %}
@@ -266,7 +266,7 @@ async function saveAll(manual = false) {
     const words = [...row.querySelectorAll('.word-pill--on')].map(b => b.dataset.word);
     const conf  = row.querySelector('.conf-check')?.checked || false;
     if (words.length > 0 || conf) {
-      assessments.push({pupil_id: row.dataset.pid, words, confident: conf});
+      assessments.push({pupil_id: row.dataset.pid, cls: row.dataset.cls, words, confident: conf});
     }
   });
 
