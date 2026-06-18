@@ -295,7 +295,7 @@ def load_bee_pupils(class_id='Y4_IM'):
         words    = get_active_words(p.get('word_pos',0), mastered, 5)
         is_rev   = p.get('group')=='revision'
         rule     = rev_rule if is_rev else main_rule
-        pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),
+        pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),'file_cls':class_id,
                        'group':p.get('group','main'),'is_rev':is_rev,
                        'rule_label': rule[2] if rule else ('Revision' if is_rev else 'Main'),
                        'words': words})

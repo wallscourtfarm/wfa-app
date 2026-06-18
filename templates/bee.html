@@ -88,7 +88,7 @@
 {% if pupils %}
 <div class="bee-list" id="bee-list">
   {% for p in pupils %}
-  <div class="bee-row {% if p.is_rev %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ p.cls }}">
+  <div class="bee-row {% if p.is_rev %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ p.file_cls }}">
     <div class="bee-name">
       <span>{{ p.first }}</span>
       {% if p.is_rev %}<span class="rev-badge">REV</span>{% endif %}
