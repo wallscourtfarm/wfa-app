@@ -40,10 +40,11 @@ def api_bee_save():
     if not assessments:
         return jsonify({'ok': False, 'error': 'Nothing to save'})
 
-    # Group assessments by class (pupil cls field)
+    # Group assessments by class — fall back to top-level cls if not on each assessment
+    cls_from_body = body.get('cls', '')
     by_class = {}
     for a in assessments:
-        c = a.get('cls', '')
+        c = a.get('cls', '') or cls_from_body
         by_class.setdefault(c, []).append(a)
 
     total_saved = 0
