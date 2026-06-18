@@ -225,6 +225,15 @@ async function ssApply() {
           <input id="edit-ss-pass" type="text" class="cm-input" placeholder="e.g. tinycar42">
         </div>
       </div>
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>Home language</label>
+          <select id="edit-home-language" class="cm-input">
+            <option value="">English (default)</option>
+            <option value="tr">Turkish</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="cm-modal-footer" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
@@ -750,6 +759,7 @@ function openEditModal(pid, e) {
   document.getElementById('edit-adapted-hl').checked = p.adapted_hl;
   document.getElementById('edit-ss-user').value = p.ss_user || '';
   document.getElementById('edit-ss-pass').value = p.ss_pass || '';
+  document.getElementById('edit-home-language').value = p.home_language || '';
 
   // Populate move-to select with all classes except current
   const sel = document.getElementById('move-to-cls');
@@ -778,9 +788,10 @@ async function saveEdit() {
           tt_set:     document.getElementById('edit-tt-set').value,
           tt_mode:    document.getElementById('edit-tt-mode').value,
           table:      document.getElementById('edit-table').value.trim(),
-          adapted_hl: document.getElementById('edit-adapted-hl').checked,
-          ss_user:    document.getElementById('edit-ss-user').value.trim(),
-          ss_pass:    document.getElementById('edit-ss-pass').value.trim(),
+          adapted_hl:     document.getElementById('edit-adapted-hl').checked,
+          ss_user:        document.getElementById('edit-ss-user').value.trim(),
+          ss_pass:        document.getElementById('edit-ss-pass').value.trim(),
+          home_language:  document.getElementById('edit-home-language').value,
         },
       }),
     });

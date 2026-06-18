@@ -153,7 +153,8 @@ def api_class_list():
                 'partner_name': f"{partner.get('first','')} {partner.get('last','')}".strip() if partner else '',
                 'partner_cls':  partner.get('cls_id', '') if partner else '',
                 'table':        str(p.get('table', '')),
-                'adapted_hl':   bool(p.get('adapted_hl', False)),
+                'adapted_hl':    bool(p.get('adapted_hl', False)),
+                'home_language': p.get('home_language', ''),
                 'cls':          p.get('cls', _cls_short(cls)),
                 'word_pos':     p.get('word_pos', 0),
             })
@@ -186,7 +187,7 @@ def api_pupil_update():
         changes   = body.get('changes', {})
 
         ALLOWED = {'first', 'last', 'group', 'tt_set', 'tt_mode',
-                   'table', 'adapted_hl', 'ss_user', 'ss_pass', 'language'}
+                   'table', 'adapted_hl', 'ss_user', 'ss_pass', 'language', 'home_language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
         obj, sha = _load_class_file(cls)
