@@ -186,7 +186,7 @@ def api_pupil_update():
         changes   = body.get('changes', {})
 
         ALLOWED = {'first', 'last', 'group', 'tt_set', 'tt_mode',
-                   'table', 'adapted_hl', 'ss_user', 'ss_pass'}
+                   'table', 'adapted_hl', 'ss_user', 'ss_pass', 'language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
         obj, sha = _load_class_file(cls)
@@ -245,6 +245,7 @@ def api_pupil_add():
             'tt_mode':         'x',
             'table':           body.get('table', ''),
             'adapted_hl':      bool(body.get('adapted_hl', False)),
+            'language':        body.get('language', ''),
             'pair_id':         '',
             'pair_colour':     '',
             'word_pos':        start_pos,
