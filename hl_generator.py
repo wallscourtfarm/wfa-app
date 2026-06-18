@@ -9,6 +9,20 @@ import re
 
 client = anthropic.Anthropic()
 
+
+def _latest_sonnet() -> str:
+    """Return the most recent claude-sonnet model available on the API."""
+    try:
+        models = [m.id for m in client.models.list() if "sonnet" in m.id.lower()]
+        if models:
+            return sorted(models)[-1]
+    except Exception:
+        pass
+    return "claude-sonnet-4-6"  # fallback if models endpoint unreachable
+
+
+_MODEL = _latest_sonnet()
+
 _GRID_SCHEMA = """
 Grid element types (JSON objects in grid_elements array):
   point:     {"type":"point",     "x":N,"y":N,"label":"A","color":"#1A3C6E"}
@@ -259,7 +273,7 @@ OUTPUT: Valid JSON only. No preamble. No markdown fences.
 
 def _call(system, user, max_tokens=3500):
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=_MODEL,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user}],
