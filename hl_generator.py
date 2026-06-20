@@ -6,6 +6,7 @@ Generates weekly home learning content via the Anthropic API.
 import anthropic
 import json
 import re
+from claude_api import create_message
 
 client = anthropic.Anthropic()
 
@@ -272,8 +273,7 @@ OUTPUT: Valid JSON only. No preamble. No markdown fences.
 
 
 def _call(system, user, max_tokens=3500):
-    response = client.messages.create(
-        model=_MODEL,
+    response = create_message(client,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user}],

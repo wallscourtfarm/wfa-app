@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from claude_api import create_message
 import base64
 import requests as http_req
 from datetime import date, datetime
@@ -142,8 +143,7 @@ def menu_extract():
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-sonnet-4-5",
+        response = create_message(client,
             max_tokens=4000,
             messages=[{
                 "role": "user",

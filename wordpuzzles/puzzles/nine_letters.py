@@ -10,6 +10,7 @@ import re
 from collections import Counter
 
 import anthropic
+from claude_api import create_message
 
 from .word_list import get_word_set
 
@@ -76,8 +77,7 @@ Also choose one letter from that word as the REQUIRED letter — it should be a 
 Return ONLY valid JSON, no markdown:
 {{"nine_letter_word": "SOMETHING", "required_letter": "E", "word_reason": "brief explanation"}}"""
 
-    r1 = client.messages.create(
-        model="claude-sonnet-4-5",
+    r1 = create_message(client,
         max_tokens=200,
         messages=[{"role": "user", "content": setup_prompt}],
     )
@@ -131,8 +131,7 @@ Return ONLY valid JSON, no markdown:
   ]
 }}"""
 
-    r2 = client.messages.create(
-        model="claude-sonnet-4-5",
+    r2 = create_message(client,
         max_tokens=800,
         messages=[{"role": "user", "content": clue_prompt}],
     )

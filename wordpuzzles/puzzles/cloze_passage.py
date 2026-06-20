@@ -7,6 +7,7 @@ import random
 import re
 
 import anthropic
+from claude_api import create_message
 
 
 def generate_cloze(topic: str, year_group: str, difficulty: str, api_key: str) -> dict:
@@ -48,8 +49,7 @@ Return ONLY valid JSON, no markdown:
 
 Make sure passage_with_blanks has exactly {num_gaps} numbered markers in order."""
 
-    resp = client.messages.create(
-        model="claude-sonnet-4-5",
+    resp = create_message(client,
         max_tokens=900,
         messages=[{"role": "user", "content": prompt}],
     )

@@ -7,6 +7,8 @@ import json
 import os
 import re
 
+from claude_api import create_message
+
 _VOCAB_PATH = os.path.join(os.path.dirname(__file__), "clf_vocabulary.json")
 
 
@@ -106,8 +108,7 @@ Rules:
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {{"words": ["word1", "word2", ...], "display_title": "Short human-readable topic name"}}"""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-5",
+    message = create_message(client,
         max_tokens=600,
         messages=[{"role": "user", "content": prompt}]
     )
