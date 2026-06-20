@@ -241,7 +241,7 @@ def api_ra_import_stream(job_id):
                         headers={'x-api-key': api_key,
                                  'anthropic-version': '2023-06-01',
                                  'content-type': 'application/json'},
-                        json={'model': 'claude-sonnet-4-20250514', 'max_tokens': 1000,
+                        json={'model': 'claude-sonnet-4-5', 'max_tokens': 1000,
                               'messages': [{'role': 'user', 'content': [
                                   {'type': 'image', 'source': {
                                       'type': 'base64', 'media_type': 'image/png', 'data': img_b64}},

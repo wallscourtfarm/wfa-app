@@ -46,7 +46,7 @@ def bfs_ladder(start: str, end: str, word_set: set) -> list[str] | None:
 def _get_hint_clue(word: str, year_num: str, client) -> str:
     """Ask Claude for a short definition clue for the hint word."""
     resp = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=80,
         messages=[{
             "role": "user",
@@ -95,7 +95,7 @@ Return ONLY valid JSON, no markdown:
 {{"pairs": [{{"start": "chair", "end": "table"}}, ...]}}"""
 
     resp = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=400,
         messages=[{"role": "user", "content": prompt}],
     )

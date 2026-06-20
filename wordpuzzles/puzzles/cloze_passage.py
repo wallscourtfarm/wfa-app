@@ -49,7 +49,7 @@ Return ONLY valid JSON, no markdown:
 Make sure passage_with_blanks has exactly {num_gaps} numbered markers in order."""
 
     resp = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=900,
         messages=[{"role": "user", "content": prompt}],
     )

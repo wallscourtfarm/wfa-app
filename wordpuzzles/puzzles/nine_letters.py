@@ -77,7 +77,7 @@ Return ONLY valid JSON, no markdown:
 {{"nine_letter_word": "SOMETHING", "required_letter": "E", "word_reason": "brief explanation"}}"""
 
     r1 = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=200,
         messages=[{"role": "user", "content": setup_prompt}],
     )
@@ -132,7 +132,7 @@ Return ONLY valid JSON, no markdown:
 }}"""
 
     r2 = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=800,
         messages=[{"role": "user", "content": clue_prompt}],
     )
