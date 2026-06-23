@@ -382,7 +382,7 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
     PER_PG  = COLS * ROWS          # 8 cards per page
     col_w   = (W - 2 * M) / COLS
     row_h   = (H - 2 * M) / ROWS
-    CGAP    = 2                    # pt gap between card content and cell edge
+    CGAP    = 5 * mm               # white padding between cut line and card edge
 
     # ── Card drawing ──────────────────────────────────────────────────────
     def draw_card_ds(cx, cy, pupil, words, colour_hex, colour_name=''):
@@ -458,8 +458,8 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
         # Draw words: left col = key words (1-5), right col = rule words (1-5)
         key_words_list  = words[:5]
         rule_words_list = words[5:10]
-        NUM_FONT_SZ  = 8
-        WORD_FONT_SZ = 14
+        NUM_FONT_SZ  = 9
+        WORD_FONT_SZ = 16
 
         for col_i, (col_x_base, word_list, num_offset) in enumerate(
                 [(x + 3 * mm, key_words_list, 0),
@@ -537,7 +537,7 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
     # Horizontal nudge applied to back (mirrored) pages to compensate for
     # printer duplex registration drift.  Positive = shift right, negative = left.
     # Tune this after a test print — typical range is ±1–4 mm.
-    BACK_OFFSET_X = -1.5 * mm
+    BACK_OFFSET_X = 0 * mm
 
     # ── Page renderer ─────────────────────────────────────────────────────
     def draw_page(chunk, mirror_cols=False):
