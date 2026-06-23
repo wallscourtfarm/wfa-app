@@ -1,4 +1,4 @@
-import os, io, base64, json, traceback, uuid, re
+import os, io, base64, json, traceback, uuid, re, unicodedata
 from datetime import date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
@@ -25,6 +25,13 @@ def _auth():
 
 def _err(e):
     return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+
+def _norm_name(s):
+    """Normalise a name for fuzzy matching: lowercase, strip hyphens/punctuation, collapse spaces."""
+    s = unicodedata.normalize('NFC', s or '')
+    s = re.sub(r"[-–—_']", ' ', s)          # hyphens/dashes/apostrophes → space
+    s = re.sub(r'[^a-z0-9 ]', '', s.lower()) # strip anything else
+    return re.sub(r' +', ' ', s).strip()
 
 def _load_pupils(cls):
     pupils = []
@@ -293,7 +300,9 @@ def api_ra_confirm():
         selected_ids = body.get('rules', [])
         week_ref     = body.get('week_ref', '')
         # pupil_results: {name_lower: {name, results: {word: bool}}}
-        pupil_results = body.get('results', {})
+        # Normalise keys so hyphens/punctuation variations still match
+        raw_results   = body.get('results', {})
+        pupil_results = {_norm_name(k): v for k, v in raw_results.items()}
 
         cloze    = _load_rule_cloze()
         sections = _rule_sections(selected_ids, cloze)
@@ -322,7 +331,7 @@ def api_ra_confirm():
             changed   = False
 
             for p in pupils:
-                name_key = (p.get('first','') + ' ' + (p.get('last') or '')).strip().lower()
+                name_key = _norm_name(p.get('first','') + ' ' + (p.get('last') or ''))
                 if name_key not in pupil_results:
                     unmatched.append((p.get('first','') + ' ' + (p.get('last') or '')).strip())
                     continue
@@ -365,12 +374,15 @@ def api_ra_confirm():
             if changed:
                 content = base64.b64encode(
                     json.dumps(class_obj, indent=2, ensure_ascii=False).encode()).decode()
-                _req.put(
+                put_r = _req.put(
                     f'https://api.github.com/repos/{DATA_REPO}/contents/data/classes/{cid}.json',
                     headers=_HDR,
                     json={'message': 'Rule Assessment import', 'content': content,
                           'sha': sha, 'branch': 'main'},
                     timeout=15)
+                if put_r.status_code not in (200, 201):
+                    return jsonify({'ok': False,
+                                    'error': f'GitHub save failed for {cid}: {put_r.status_code} {put_r.text[:200]}'}), 500
 
         return jsonify({'ok': True, 'saved': saved, 'unmatched': unmatched})
     except Exception as e:
