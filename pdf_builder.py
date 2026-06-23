@@ -458,8 +458,8 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
         # Draw words: left col = key words (1-5), right col = rule words (1-5)
         key_words_list  = words[:5]
         rule_words_list = words[5:10]
-        NUM_FONT_SZ  = 7
-        WORD_FONT_SZ = 10
+        NUM_FONT_SZ  = 8
+        WORD_FONT_SZ = 14
 
         for col_i, (col_x_base, word_list) in enumerate(
                 [(x + 3 * mm, key_words_list),
@@ -534,6 +534,11 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
                 pass
         return colour, col_name
 
+    # Horizontal nudge applied to back (mirrored) pages to compensate for
+    # printer duplex registration drift.  Positive = shift right, negative = left.
+    # Tune this after a test print — typical range is ±1–4 mm.
+    BACK_OFFSET_X = 0 * mm
+
     # ── Page renderer ─────────────────────────────────────────────────────
     def draw_page(chunk, mirror_cols=False):
         """Render up to PER_PG cards. mirror_cols swaps left↔right within each row."""
@@ -550,6 +555,10 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
             else:
                 display.extend(row_cards)
 
+        if mirror_cols and BACK_OFFSET_X:
+            c.saveState()
+            c.translate(BACK_OFFSET_X, 0)
+
         for pos, pupil in enumerate(display):
             if pupil is None:
                 continue
@@ -561,6 +570,10 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
             draw_card_ds(cx, cy, pupil, _get_words(pupil), colour, col_name)
 
         draw_cut_lines_ds()
+
+        if mirror_cols and BACK_OFFSET_X:
+            c.restoreState()
+
         c.showPage()
 
     # ── Emit pages: front then back for each sheet ────────────────────────
