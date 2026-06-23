@@ -356,6 +356,229 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
     buf.seek(0)
     return buf.read()
 
+
+# ── Double-sided bee cards ─────────────────────────────────────────────────
+
+def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
+                                key_words_map, week_ref):
+    """
+    A4 portrait. 2 columns × 4 rows = 8 cards per side.
+
+    Front pages: partner-A cards.
+    Back pages:  partner-B cards with columns mirrored left↔right so that,
+                 when the sheet is flipped on its long edge (standard duplex),
+                 every card lands directly behind its partner.
+
+    Page order: front-1, back-1, front-2, back-2, … so the printer
+    just needs "print both sides" selected.
+    """
+    buf = io.BytesIO()
+    W, H = A4
+    M = 6 * mm
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    COLS    = 2
+    ROWS    = 4
+    PER_PG  = COLS * ROWS          # 8 cards per page
+    col_w   = (W - 2 * M) / COLS
+    row_h   = (H - 2 * M) / ROWS
+    CGAP    = 2                    # pt gap between card content and cell edge
+
+    # ── Card drawing ──────────────────────────────────────────────────────
+    def draw_card_ds(cx, cy, pupil, words, colour_hex, colour_name=''):
+        """cx/cy = top-left corner of the cell slot on the page."""
+        x = cx + CGAP
+        y = cy - row_h + CGAP
+        w = col_w - 2 * CGAP
+        h = row_h - 2 * CGAP
+
+        col_rgb = _hex_to_rgb(colour_hex) if colour_hex else BLUE
+        cls_lbl = (pupil.get('cls') or '').split('_')[-1]   # 'IM' or 'WU'
+        name    = pupil.get('first', '')
+
+        # Card border
+        c.setStrokeColorRGB(*col_rgb)
+        c.setLineWidth(2.0)
+        c.rect(x, y, w, h, fill=0, stroke=1)
+
+        # Coloured header bar
+        HDR = 9 * mm
+        c.setFillColorRGB(*col_rgb)
+        c.rect(x, y + h - HDR, w, HDR, fill=1, stroke=0)
+        # Redraw border on top
+        c.setStrokeColorRGB(*col_rgb)
+        c.setLineWidth(2.0)
+        c.rect(x, y, w, h, fill=0, stroke=1)
+
+        # Name pill
+        PILL_H   = 6.5 * mm
+        PILL_PAD = 2.5 * mm
+        c.setFont('Helvetica-Bold', 11)
+        name_w = c.stringWidth(name, 'Helvetica-Bold', 11)
+        pill_w = name_w + 2 * PILL_PAD
+        pill_x = x + 2 * mm
+        pill_y = y + h - HDR + (HDR - PILL_H) / 2
+        c.setFillColorRGB(1, 1, 1)
+        c.roundRect(pill_x, pill_y, pill_w, PILL_H, 3, fill=1, stroke=0)
+        c.setFillColorRGB(*NAVY)
+        c.drawString(pill_x + PILL_PAD, pill_y + PILL_H * 0.28, name)
+
+        # Class badge pill
+        if cls_lbl:
+            c.setFont('Helvetica-Bold', 9)
+            badge_w = c.stringWidth(cls_lbl, 'Helvetica-Bold', 9) + 2 * PILL_PAD
+            badge_x = x + w - badge_w - 2 * mm
+            c.setFillColorRGB(1, 1, 1)
+            c.roundRect(badge_x, pill_y, badge_w, PILL_H, 3, fill=1, stroke=0)
+            c.setFillColorRGB(*NAVY)
+            c.drawCentredString(badge_x + badge_w / 2, pill_y + PILL_H * 0.28, cls_lbl)
+
+        # ── Words area ────────────────────────────────────────────────────
+        FOOTER_H    = 7 * mm
+        TOP_PAD     = 3 * mm
+        words_top   = y + h - HDR - TOP_PAD
+        words_bot   = y + FOOTER_H + 2 * mm
+        words_h     = words_top - words_bot
+        word_row_h  = words_h / 5
+
+        half_w = w / 2
+
+        # Horizontal ruled lines between word rows
+        c.setStrokeColorRGB(0.82, 0.82, 0.82)
+        c.setLineWidth(0.4)
+        for ri in range(1, 5):
+            ly = words_bot + ri * word_row_h
+            c.line(x + 2 * mm, ly, x + w - 2 * mm, ly)
+
+        # Vertical separator between word columns
+        c.setStrokeColorRGB(0.75, 0.75, 0.75)
+        c.setLineWidth(0.5)
+        c.line(x + half_w, words_bot + mm, x + half_w, words_top - mm)
+
+        # Draw words: left col = key words (1-5), right col = rule words (1-5)
+        key_words_list  = words[:5]
+        rule_words_list = words[5:10]
+        NUM_FONT_SZ  = 7
+        WORD_FONT_SZ = 10
+
+        for col_i, (col_x_base, word_list) in enumerate(
+                [(x + 3 * mm, key_words_list),
+                 (x + half_w + 3 * mm, rule_words_list)]):
+            for wi, word in enumerate(word_list):
+                # Baseline: centre of the word row
+                wy = words_bot + (4 - wi) * word_row_h + word_row_h * 0.3
+                # Number in small grey
+                c.setFont('Helvetica', NUM_FONT_SZ)
+                c.setFillColorRGB(0.5, 0.5, 0.5)
+                num_str = f'{wi + 1}.'
+                num_w   = c.stringWidth(num_str, 'Helvetica', NUM_FONT_SZ)
+                c.drawString(col_x_base, wy, num_str)
+                # Word in Sassoon
+                c.setFont(SASSOON, WORD_FONT_SZ)
+                c.setFillColorRGB(*NAVY)
+                c.drawString(col_x_base + num_w + 2, wy, word)
+
+        # Footer text
+        c.setFont('Helvetica-Oblique', 6.5)
+        c.setFillColorRGB(0.5, 0.5, 0.5)
+        c.drawCentredString(x + half_w, y + 2.2 * mm,
+                            "Your partner's words are on the other side")
+
+    # ── Cut lines ─────────────────────────────────────────────────────────
+    def draw_cut_lines_ds():
+        c.saveState()
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)
+        c.setLineWidth(0.6)
+        c.setDash(5, 4)
+        for ci in range(COLS + 1):
+            lx = M + ci * col_w
+            c.line(lx, 0, lx, H)
+        for ri in range(ROWS + 1):
+            ly = H - M - ri * row_h
+            c.line(0, ly, W, ly)
+        c.restoreState()
+
+    # ── Build partner lists (same pairing logic as build_paired_word_lists) ─
+    pupil_map = {p['id']: p for p in pupils}
+    seen = set()
+    partners_a, partners_b, unpaired = [], [], []
+    for p in pupils:
+        pid = p['id']
+        if pid in seen:
+            continue
+        pair_id = p.get('pair_id', '')
+        if pair_id and pair_id in pupil_map:
+            partners_a.append(p)
+            partners_b.append(pupil_map[pair_id])
+            seen.add(pid)
+            seen.add(pair_id)
+        else:
+            unpaired.append(p)
+
+    def _get_words(p):
+        kw = list(key_words_map.get(p['id'], []))[:5]
+        rw = list(rev_rule_words if p.get('group') == 'revision'
+                  else main_rule_words)[:5]
+        return kw + rw
+
+    def _get_colour(p):
+        colour = p.get('pair_colour', '') or '#1798d3'
+        col_name = p.get('pair_colour_name', '')
+        if not col_name and colour:
+            try:
+                from routes.class_manager import PAIR_COLOURS as _PC
+                col_name = next(
+                    (pc['name'] for pc in _PC
+                     if pc['hex'].upper() == colour.upper()), '')
+            except Exception:
+                pass
+        return colour, col_name
+
+    # ── Page renderer ─────────────────────────────────────────────────────
+    def draw_page(chunk, mirror_cols=False):
+        """Render up to PER_PG cards. mirror_cols swaps left↔right within each row."""
+        if not chunk:
+            return
+        # Build display order: optionally mirror columns within each row
+        display = []
+        for row in range(ROWS):
+            row_cards = chunk[row * COLS:(row + 1) * COLS]
+            if mirror_cols:
+                # Pad to COLS width so empty slots stay correct after reversing
+                padded = row_cards + [None] * (COLS - len(row_cards))
+                display.extend(reversed(padded))
+            else:
+                display.extend(row_cards)
+
+        for pos, pupil in enumerate(display):
+            if pupil is None:
+                continue
+            col_idx = pos % COLS
+            row_idx = pos // COLS
+            cx = M + col_idx * col_w
+            cy = H - M - row_idx * row_h
+            colour, col_name = _get_colour(pupil)
+            draw_card_ds(cx, cy, pupil, _get_words(pupil), colour, col_name)
+
+        draw_cut_lines_ds()
+        c.showPage()
+
+    # ── Emit pages: front then back for each sheet ────────────────────────
+    for i in range(0, max(len(partners_a), 1), PER_PG):
+        chunk_a = partners_a[i:i + PER_PG]
+        chunk_b = partners_b[i:i + PER_PG]
+        draw_page(chunk_a, mirror_cols=False)   # front: partner A
+        draw_page(chunk_b, mirror_cols=True)    # back:  partner B, columns mirrored
+
+    if unpaired:
+        for i in range(0, len(unpaired), PER_PG):
+            draw_page(unpaired[i:i + PER_PG], mirror_cols=False)
+
+    c.save()
+    buf.seek(0)
+    return buf.read()
+
+
 # ── Recording sheet ────────────────────────────────────────────────────────
 
 def build_recording_sheet(pupils, week_ref):

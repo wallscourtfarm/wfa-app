@@ -114,8 +114,12 @@ def api_paired_lists():
         main_words    = list(main_rule[3]) if main_rule else []
         rev_words     = list(rev_rule[3])  if rev_rule  else []
         key_words_map = _build_key_words_map(pupils)
-        from pdf_builder import build_paired_word_lists
-        data = build_paired_word_lists(pupils, main_words, rev_words, key_words_map, week_ref, print_order)
+        if print_order == 'double_sided':
+            from pdf_builder import build_double_sided_bee_pdf
+            data = build_double_sided_bee_pdf(pupils, main_words, rev_words, key_words_map, week_ref)
+        else:
+            from pdf_builder import build_paired_word_lists
+            data = build_paired_word_lists(pupils, main_words, rev_words, key_words_map, week_ref, print_order)
         return jsonify({
             'ok': True, 'data': base64.b64encode(data).decode(),
             'mime': 'application/pdf',
