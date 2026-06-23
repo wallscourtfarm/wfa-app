@@ -498,22 +498,18 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
             c.line(0, ly, W, ly)
         c.restoreState()
 
-    # ── Build partner lists (same pairing logic as build_paired_word_lists) ─
+    # ── Build lookup and group pupils by class ────────────────────────────
     pupil_map = {p['id']: p for p in pupils}
-    seen = set()
-    partners_a, partners_b, unpaired = [], [], []
+
+    # Preserve class order as encountered (IM before WU in typical load order)
+    by_class = {}
+    class_order = []
     for p in pupils:
-        pid = p['id']
-        if pid in seen:
-            continue
-        pair_id = p.get('pair_id', '')
-        if pair_id and pair_id in pupil_map:
-            partners_a.append(p)
-            partners_b.append(pupil_map[pair_id])
-            seen.add(pid)
-            seen.add(pair_id)
-        else:
-            unpaired.append(p)
+        cls_key = p.get('cls') or p.get('file_cls') or ''
+        if cls_key not in by_class:
+            by_class[cls_key] = []
+            class_order.append(cls_key)
+        by_class[cls_key].append(p)
 
     def _get_words(p):
         kw = list(key_words_map.get(p['id'], []))[:5]
@@ -577,16 +573,33 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
 
         c.showPage()
 
-    # ── Emit pages: front then back for each sheet ────────────────────────
-    for i in range(0, max(len(partners_a), 1), PER_PG):
-        chunk_a = partners_a[i:i + PER_PG]
-        chunk_b = partners_b[i:i + PER_PG]
-        draw_page(chunk_a, mirror_cols=False, cut_lines=True)   # front: cut lines shown
-        draw_page(chunk_b, mirror_cols=True,  cut_lines=False)  # back:  no cut lines
+    # ── Emit pages per class so each class starts on a fresh sheet ───────
+    for cls_key in class_order:
+        cls_pupils = by_class[cls_key]
+        seen = set()
+        pa, pb, unpaired = [], [], []
+        for p in cls_pupils:
+            pid = p['id']
+            if pid in seen:
+                continue
+            pair_id = p.get('pair_id', '')
+            if pair_id and pair_id in pupil_map:
+                pa.append(p)
+                pb.append(pupil_map[pair_id])
+                seen.add(pid)
+                seen.add(pair_id)
+            else:
+                unpaired.append(p)
 
-    if unpaired:
+        # Paired pupils — each chunk of PER_PG gets its own front+back sheet.
+        # Partial last chunk leaves empty slots at the bottom (class-safe gap).
+        for i in range(0, len(pa), PER_PG):
+            draw_page(pa[i:i + PER_PG], mirror_cols=False, cut_lines=True)
+            draw_page(pb[i:i + PER_PG], mirror_cols=True,  cut_lines=False)
+
+        # Unpaired pupils from this class (front only)
         for i in range(0, len(unpaired), PER_PG):
-            draw_page(unpaired[i:i + PER_PG], mirror_cols=False)
+            draw_page(unpaired[i:i + PER_PG], mirror_cols=False, cut_lines=True)
 
     c.save()
     buf.seek(0)
