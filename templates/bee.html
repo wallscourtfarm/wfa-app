@@ -59,7 +59,7 @@
     {% for val, label in [('partner_pairs','Partner pairs'), ('double_sided','Double sided'), ('by_class','By class'), ('all','All')] %}
     <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#64748b;cursor:pointer;user-select:none">
       <input type="radio" name="print-order" value="{{ val }}"
-             {% if val == 'partner_pairs' %}checked{% endif %}
+             {% if val == 'double_sided' %}checked{% endif %}
              style="accent-color:#1798d3">
       {{ label }}
     </label>
