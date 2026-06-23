@@ -461,16 +461,16 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
         NUM_FONT_SZ  = 8
         WORD_FONT_SZ = 14
 
-        for col_i, (col_x_base, word_list) in enumerate(
-                [(x + 3 * mm, key_words_list),
-                 (x + half_w + 3 * mm, rule_words_list)]):
+        for col_i, (col_x_base, word_list, num_offset) in enumerate(
+                [(x + 3 * mm, key_words_list, 0),
+                 (x + half_w + 3 * mm, rule_words_list, 5)]):
             for wi, word in enumerate(word_list):
                 # Baseline: centre of the word row
                 wy = words_bot + (4 - wi) * word_row_h + word_row_h * 0.3
                 # Number in small grey
                 c.setFont('Helvetica', NUM_FONT_SZ)
                 c.setFillColorRGB(0.5, 0.5, 0.5)
-                num_str = f'{wi + 1}.'
+                num_str = f'{wi + 1 + num_offset}.'
                 num_w   = c.stringWidth(num_str, 'Helvetica', NUM_FONT_SZ)
                 c.drawString(col_x_base, wy, num_str)
                 # Word in Sassoon
@@ -537,7 +537,7 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
     # Horizontal nudge applied to back (mirrored) pages to compensate for
     # printer duplex registration drift.  Positive = shift right, negative = left.
     # Tune this after a test print — typical range is ±1–4 mm.
-    BACK_OFFSET_X = 0 * mm
+    BACK_OFFSET_X = -1.5 * mm
 
     # ── Page renderer ─────────────────────────────────────────────────────
     def draw_page(chunk, mirror_cols=False):
