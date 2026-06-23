@@ -142,11 +142,17 @@ def build_all_spelling_pages(pupils, rule_title, rule_words, key_words_map, week
 # ── Paired word lists ──────────────────────────────────────────────────────
 
 def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
-                             key_words_map, week_ref):
+                             key_words_map, week_ref, print_order='partner_pairs'):
     """
-    A4 portrait. 4 columns × 4 rows = 16 cards per page.
+    A4 portrait. 4 columns × 3 rows = 12 cards per page.
     Coloured header = pair colour + IM/WU class badge.
     Words 1–5: key spellings. Words 6–10: rule words, separated by a line.
+
+    print_order:
+      'partner_pairs' – interleaved A/B pages so same-position cards on
+                        consecutive pages are partners (page 1 & 2, 3 & 4 …)
+      'by_class'      – IM pupils first then WU, alphabetical by first name
+      'all'           – all pupils alphabetical by first name
     """
     buf = io.BytesIO()
     W, H = A4
@@ -304,9 +310,47 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
             draw_cut_lines_bee()
             c.showPage()
 
-    _draw_batch(partners_a)
-    _draw_batch(partners_b)
-    _draw_batch(unpaired)
+    if print_order in ('by_class', 'all'):
+        # Re-sort all pupils and print in one flat run (A then B still, but sorted)
+        if print_order == 'by_class':
+            # Sort by class abbreviation (IM before WU lexicographically), then first name
+            def _cls_sort(p):
+                cls_abbr = (p.get('cls') or p.get('file_cls') or '').split('_')[-1]
+                return (cls_abbr, (p.get('first') or '').lower())
+            sorted_pupils = sorted(pupils, key=_cls_sort)
+        else:
+            sorted_pupils = sorted(pupils, key=lambda p: (p.get('first') or '').lower())
+
+        # Rebuild A/B split preserving pair structure but in the new order
+        seen2 = set()
+        pa2, pb2, up2 = [], [], []
+        for p in sorted_pupils:
+            pid = p['id']
+            if pid in seen2:
+                continue
+            pair_id = p.get('pair_id', '')
+            if pair_id and pair_id in pupil_map:
+                pa2.append(p)
+                pb2.append(pupil_map[pair_id])
+                seen2.add(pid)
+                seen2.add(pair_id)
+            else:
+                up2.append(p)
+        _draw_batch(pa2)
+        _draw_batch(pb2)
+        _draw_batch(up2)
+    else:
+        # 'partner_pairs': interleave A and B pages so page N and page N+1
+        # have the same pairs in the same grid positions — cut and match instantly.
+        PER_PAGE = COLS * ROWS
+        a_chunks = [partners_a[i:i+PER_PAGE] for i in range(0, len(partners_a), PER_PAGE)] if partners_a else []
+        b_chunks = [partners_b[i:i+PER_PAGE] for i in range(0, len(partners_b), PER_PAGE)] if partners_b else []
+        for i in range(max(len(a_chunks), len(b_chunks))):
+            if i < len(a_chunks):
+                _draw_batch(a_chunks[i])
+            if i < len(b_chunks):
+                _draw_batch(b_chunks[i])
+        _draw_batch(unpaired)
 
     c.save()
     buf.seek(0)

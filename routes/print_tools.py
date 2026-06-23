@@ -104,7 +104,9 @@ def api_paired_lists():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
-        cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
+        body  = request.get_json(force=True)
+        cls   = body.get('cls', DEFAULT_CLASS)
+        print_order = body.get('print_order', 'partner_pairs')
         pupils = _load_pupils(cls)
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
@@ -113,7 +115,7 @@ def api_paired_lists():
         rev_words     = list(rev_rule[3])  if rev_rule  else []
         key_words_map = _build_key_words_map(pupils)
         from pdf_builder import build_paired_word_lists
-        data = build_paired_word_lists(pupils, main_words, rev_words, key_words_map, week_ref)
+        data = build_paired_word_lists(pupils, main_words, rev_words, key_words_map, week_ref, print_order)
         return jsonify({
             'ok': True, 'data': base64.b64encode(data).decode(),
             'mime': 'application/pdf',

@@ -55,6 +55,16 @@
       Include recording sheet
     </label>
     <div class="filter-sep" style="height:24px;width:1px;background:#e2e8f0;margin:0 2px"></div>
+    <span style="font-size:13px;color:#64748b">Print order:</span>
+    {% for val, label in [('partner_pairs','Partner pairs'), ('by_class','By class'), ('all','All')] %}
+    <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#64748b;cursor:pointer;user-select:none">
+      <input type="radio" name="print-order" value="{{ val }}"
+             {% if val == 'partner_pairs' %}checked{% endif %}
+             style="accent-color:#1798d3">
+      {{ label }}
+    </label>
+    {% endfor %}
+    <div class="filter-sep" style="height:24px;width:1px;background:#e2e8f0;margin:0 2px"></div>
     <button class="btn btn-secondary" id="create-btn" onclick="createSession()">🐝 Create session</button>
     <span class="print-spinner hidden" id="spin-paired-lists"></span>
     <span class="print-spinner hidden" id="spin-create"></span>
@@ -151,11 +161,12 @@ function triggerDownload(b64, mime, filename) {
 async function generateWordListMaterials() {
   showSpin('paired-lists', true);
   try {
-    const includeRec = document.getElementById('include-recording').checked;
+    const includeRec  = document.getElementById('include-recording').checked;
+    const printOrder  = document.querySelector('input[name="print-order"]:checked')?.value || 'partner_pairs';
     const fetches = [
       fetch('/api/print/paired-lists', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS}),
+        body: JSON.stringify({cls: CLS, print_order: printOrder}),
       }),
     ];
     if (includeRec) {
