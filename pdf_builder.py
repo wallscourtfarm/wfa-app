@@ -540,7 +540,7 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
     BACK_OFFSET_X = 0 * mm
 
     # ── Page renderer ─────────────────────────────────────────────────────
-    def draw_page(chunk, mirror_cols=False):
+    def draw_page(chunk, mirror_cols=False, cut_lines=True):
         """Render up to PER_PG cards. mirror_cols swaps left↔right within each row."""
         if not chunk:
             return
@@ -569,7 +569,8 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
             colour, col_name = _get_colour(pupil)
             draw_card_ds(cx, cy, pupil, _get_words(pupil), colour, col_name)
 
-        draw_cut_lines_ds()
+        if cut_lines:
+            draw_cut_lines_ds()
 
         if mirror_cols and BACK_OFFSET_X:
             c.restoreState()
@@ -580,8 +581,8 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
     for i in range(0, max(len(partners_a), 1), PER_PG):
         chunk_a = partners_a[i:i + PER_PG]
         chunk_b = partners_b[i:i + PER_PG]
-        draw_page(chunk_a, mirror_cols=False)   # front: partner A
-        draw_page(chunk_b, mirror_cols=True)    # back:  partner B, columns mirrored
+        draw_page(chunk_a, mirror_cols=False, cut_lines=True)   # front: cut lines shown
+        draw_page(chunk_b, mirror_cols=True,  cut_lines=False)  # back:  no cut lines
 
     if unpaired:
         for i in range(0, len(unpaired), PER_PG):
