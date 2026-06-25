@@ -3,6 +3,7 @@ data_manager.py — WFA Flask app data layer
 Data lives in wallscourtfarm/spelling-homelearning GitHub repo.
 """
 import os, json, base64, requests, time
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from word_bank import WORD_BANK, get_active_words, mastery_stats
 
@@ -298,7 +299,8 @@ def load_bee_pupils(class_id='Y4_IM'):
         pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),'file_cls':class_id,
                        'group':p.get('group','main'),'is_rev':is_rev,
                        'rule_label': rule[2] if rule else ('Revision' if is_rev else 'Main'),
-                       'words': words})
+                       'words': words,
+                       'words_updated_at': p.get('words_updated_at','')})
     rules_info = {
         'main':     main_rule[2] if main_rule else '—',
         'revision': rev_rule[2]  if rev_rule  else '—',
@@ -323,7 +325,9 @@ def save_bee_assessment(class_id, assessments):
         if not entry: continue
         words = entry.get('words',[])
         if words:
-            data['pupils'][i] = _apply_assessment(p, words); saved+=1
+            updated = _apply_assessment(p, words)
+            updated['words_updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            data['pupils'][i] = updated; saved+=1
     if saved and not _put_file(path,data,sha,f'Spelling Bee: {class_id} ({saved} pupils)'):
         return {'ok':False,'error':'GitHub write failed'}
     return {'ok':True,'saved':saved}

@@ -416,6 +416,8 @@ body {
 .word-pill--on { background:#059669; border-color:#059669; color:#fff; font-weight:700; }
 .word-pill:hover:not(.word-pill--on) { background:#e8f4fb; border-color:var(--brand); }
 .no-words { font-size:12px; color:var(--muted); font-style:italic; }
+.words-updated { font-size:11px; color:#059669; font-style:italic; align-self:center; white-space:nowrap; }
+.words-updated--never { color:#e07b00; }
 
 .bee-rule { padding:6px 10px; }
 .conf-label { display:flex; align-items:center; gap:6px; font-size:12px;

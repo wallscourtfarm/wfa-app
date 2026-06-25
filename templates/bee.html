@@ -111,6 +111,11 @@
       {% else %}
         <span class="no-words">No words</span>
       {% endif %}
+      {% if p.words_updated_at %}
+        <span class="words-updated" title="Words last updated">Updated {{ p.words_updated_at[:10] }}</span>
+      {% else %}
+        <span class="words-updated words-updated--never">Not yet updated</span>
+      {% endif %}
     </div>
     <div class="bee-rule">
       <label class="conf-label">
