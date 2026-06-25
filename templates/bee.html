@@ -112,7 +112,7 @@
         <span class="no-words">No words</span>
       {% endif %}
       {% if p.words_updated_at %}
-        <span class="words-updated" title="Words last updated">Updated {{ p.words_updated_at[:10] }}</span>
+        <span class="words-updated" title="Words last updated">{{ p.words_updated_at[5:10] }} {{ p.words_updated_at[11:16] }}</span>
       {% else %}
         <span class="words-updated words-updated--never">Not yet updated</span>
       {% endif %}
