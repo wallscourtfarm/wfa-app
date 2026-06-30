@@ -9990,19 +9990,19 @@ MM       = 72 / 25.4
 XCCW_FS      = 26
 XCCW_ASCEND  = 8.07 * MM
 XCCW_DESCEND = 3.55 * MM
-XCCW_XHEIGHT = 4.0  * MM
+XCCW_XHEIGHT = 4.8  * MM
 
 # Sassoon Infant Dotted: 31.8pt gives ascenders of 8.00mm, descenders 3.33mm
 SASS_FS      = 31.8
 SASS_ASCEND  = 8.00 * MM
 SASS_DESCEND = 3.33 * MM
-SASS_XHEIGHT = 4.0  * MM
+SASS_XHEIGHT = 5.0  * MM
 
 # Linkpen Pre-cursive Dotted: 21pt gives ascenders of 9.04mm, descenders 3.26mm
 LINK_FS      = 21
 LINK_ASCEND  = 9.0434 * MM
 LINK_DESCEND = 3.2556 * MM
-LINK_XHEIGHT = 4.5   * MM
+LINK_XHEIGHT = 5.5   * MM
 
 ROW_GAP  = 2.5 * MM   # gap between descender of one row and top line of next
 WORD_GAP = 2.0 * MM   # extra space between word blocks
