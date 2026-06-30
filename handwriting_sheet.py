@@ -9999,7 +9999,7 @@ SASS_DESCEND = 3.33 * MM
 SASS_XHEIGHT = 5.0  * MM
 
 # Linkpen Pre-cursive Dotted: 21pt gives ascenders of 9.04mm, descenders 3.26mm
-LINK_FS      = 24
+LINK_FS      = 26
 LINK_ASCEND  = 9.0434 * MM
 LINK_DESCEND = 3.2556 * MM
 LINK_XHEIGHT = 5.5   * MM
