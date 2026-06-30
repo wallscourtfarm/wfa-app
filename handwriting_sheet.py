@@ -9990,16 +9990,19 @@ MM       = 72 / 25.4
 XCCW_FS      = 26
 XCCW_ASCEND  = 8.07 * MM
 XCCW_DESCEND = 3.55 * MM
+XCCW_XHEIGHT = 4.0  * MM
 
 # Sassoon Infant Dotted: 31.8pt gives ascenders of 8.00mm, descenders 3.33mm
 SASS_FS      = 31.8
 SASS_ASCEND  = 8.00 * MM
 SASS_DESCEND = 3.33 * MM
+SASS_XHEIGHT = 4.0  * MM
 
 # Linkpen Pre-cursive Dotted: 21pt gives ascenders of 9.04mm, descenders 3.26mm
 LINK_FS      = 21
 LINK_ASCEND  = 9.0434 * MM
 LINK_DESCEND = 3.2556 * MM
+LINK_XHEIGHT = 4.5   * MM
 
 ROW_GAP  = 2.5 * MM   # gap between descender of one row and top line of next
 WORD_GAP = 2.0 * MM   # extra space between word blocks
@@ -10044,8 +10047,8 @@ def _draw_linkpen(c, x, y, text, size):
     c.setFillColorRGB(*NAVY)
     c.drawString(x, y, text)
 
-def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False):
-    """Draw top line + baseline. Optional amber tint for join pair rows."""
+def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None):
+    """Draw top line + baseline. Optional amber tint for join pair rows. Optional dashed x-height mid-line."""
     if tint:
         c.setFillColorRGB(*AMBER)
         c.rect(MARGIN, baseline_y - descend, LINE_W, ascend + descend + 2, fill=1, stroke=0)
@@ -10054,6 +10057,13 @@ def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False):
     c.setLineWidth(0.5)
     c.setDash()
     c.line(MARGIN, top_y, MARGIN + LINE_W, top_y)
+    if xheight:
+        mid_y = baseline_y + xheight
+        c.setStrokeColorRGB(0.80, 0.80, 0.80)
+        c.setLineWidth(0.4)
+        c.setDash(3, 3)
+        c.line(MARGIN, mid_y, MARGIN + LINE_W, mid_y)
+        c.setDash()
     c.setStrokeColorRGB(*LGREY)
     c.setLineWidth(0.8)
     c.line(MARGIN, baseline_y, MARGIN + LINE_W, baseline_y)
@@ -10126,11 +10136,12 @@ def check_widths(items, solid=False):
 
 # ── Core sheet generators ─────────────────────────────────────────────────────
 
-def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0):
+def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None):
     """
     Internal: generate a PDF from a list of row dicts.
     Each row: {'type': 'word'|'pairs', 'text': str}
     practice_lines: blank ruled lines to draw after each content row.
+    xheight: if set, draws a dashed mid-line at this height above baseline.
     """
     row_h = ascend + descend + ROW_GAP
     c     = canvas.Canvas(output_path, pagesize=A4)
@@ -10147,12 +10158,12 @@ def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, 
     for row in rows:
         is_pairs = row['type'] == 'pairs'
         y = _check_page(y)
-        _draw_ruled_row(c, y, ascend, descend, tint=is_pairs)
+        _draw_ruled_row(c, y, ascend, descend, tint=is_pairs, xheight=xheight)
         draw_fn(c, MARGIN, y, row['text'], font_size)
         y -= row_h
         for _ in range(practice_lines):
             y = _check_page(y)
-            _draw_ruled_row(c, y, ascend, descend)
+            _draw_ruled_row(c, y, ascend, descend, xheight=xheight)
             y -= row_h
         y -= WORD_GAP
 
