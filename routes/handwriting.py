@@ -35,7 +35,8 @@ def handwriting_generate():
     raw_content = request.form.get("content", "")
     font_key    = request.form.get("font", "sassoon")
     practice    = int(request.form.get("practice_lines", "0") or "0")
-    show_midline = request.form.get("show_midline") == "1"
+    show_midline  = request.form.get("show_midline") == "1"
+    show_descline = request.form.get("show_descline") == "1"
 
     lines = [l.strip() for l in raw_content.splitlines() if l.strip()]
     if not lines:
@@ -64,7 +65,7 @@ def handwriting_generate():
 
     try:
         hs._generate_pdf(tmp, rows, title, None, ascend, descend, draw_fn, fs,
-                         practice_lines=practice, xheight=xheight)
+                         practice_lines=practice, xheight=xheight, show_descline=show_descline)
         safe = title.replace(" ", "_").lower()
         return send_file(tmp, mimetype="application/pdf",
                          as_attachment=True, download_name=f"{safe}.pdf")

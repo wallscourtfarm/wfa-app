@@ -10047,8 +10047,8 @@ def _draw_linkpen(c, x, y, text, size):
     c.setFillColorRGB(*NAVY)
     c.drawString(x, y, text)
 
-def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None):
-    """Draw top line + baseline. Optional amber tint for join pair rows. Optional dashed x-height mid-line."""
+def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None, show_descline=False):
+    """Draw top line + baseline. Optional amber tint, dashed x-height mid-line, dashed descender line."""
     if tint:
         c.setFillColorRGB(*AMBER)
         c.rect(MARGIN, baseline_y - descend, LINE_W, ascend + descend + 2, fill=1, stroke=0)
@@ -10067,6 +10067,13 @@ def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None):
     c.setStrokeColorRGB(*LGREY)
     c.setLineWidth(0.8)
     c.line(MARGIN, baseline_y, MARGIN + LINE_W, baseline_y)
+    if show_descline:
+        desc_y = baseline_y - descend
+        c.setStrokeColorRGB(0.80, 0.80, 0.80)
+        c.setLineWidth(0.4)
+        c.setDash(3, 3)
+        c.line(MARGIN, desc_y, MARGIN + LINE_W, desc_y)
+        c.setDash()
 
 def _draw_header(c, title, subtitle=None):
     header_h = 60 if subtitle else 50
@@ -10136,7 +10143,7 @@ def check_widths(items, solid=False):
 
 # ── Core sheet generators ─────────────────────────────────────────────────────
 
-def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None):
+def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None, show_descline=False):
     """
     Internal: generate a PDF from a list of row dicts.
     Each row: {'type': 'word'|'pairs', 'text': str}
@@ -10158,12 +10165,12 @@ def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, 
     for row in rows:
         is_pairs = row['type'] == 'pairs'
         y = _check_page(y)
-        _draw_ruled_row(c, y, ascend, descend, tint=is_pairs, xheight=xheight)
+        _draw_ruled_row(c, y, ascend, descend, tint=is_pairs, xheight=xheight, show_descline=show_descline)
         draw_fn(c, MARGIN, y, row['text'], font_size)
         y -= row_h
         for _ in range(practice_lines):
             y = _check_page(y)
-            _draw_ruled_row(c, y, ascend, descend, xheight=xheight)
+            _draw_ruled_row(c, y, ascend, descend, xheight=xheight, show_descline=show_descline)
             y -= row_h
         y -= WORD_GAP
 
