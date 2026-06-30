@@ -10001,8 +10001,8 @@ SASS_XHEIGHT = 5.0  * MM
 # Linkpen Pre-cursive Dotted: 21pt gives ascenders of 9.04mm, descenders 3.26mm
 LINK_FS      = 26
 LINK_ASCEND  = 9.0434 * MM
-LINK_DESCEND = 3.2556 * MM
-LINK_XHEIGHT = 5.5   * MM
+LINK_DESCEND = 4.0    * MM
+LINK_XHEIGHT = 5.0    * MM
 
 ROW_GAP  = 2.5 * MM   # gap between descender of one row and top line of next
 WORD_GAP = 2.0 * MM   # extra space between word blocks
