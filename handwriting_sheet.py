@@ -10012,6 +10012,7 @@ TEAL  = (21/255,  96/255, 130/255)
 LGREY = (0.78, 0.78, 0.78)
 MGREY = (0.60, 0.60, 0.60)
 BG    = (0.87, 0.93, 0.97)
+LBLUE = (0.65, 0.82, 0.93)
 AMBER = (1.0, 0.98, 0.92)
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -10053,7 +10054,7 @@ def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None, sh
         c.setFillColorRGB(*AMBER)
         c.rect(MARGIN, baseline_y - descend, LINE_W, ascend + descend + 2, fill=1, stroke=0)
     top_y = baseline_y + ascend
-    c.setStrokeColorRGB(0.80, 0.80, 0.80)
+    c.setStrokeColorRGB(*LBLUE)
     c.setLineWidth(0.5)
     c.setDash()
     c.line(MARGIN, top_y, MARGIN + LINE_W, top_y)
@@ -10064,7 +10065,7 @@ def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None, sh
         c.setDash(3, 3)
         c.line(MARGIN, mid_y, MARGIN + LINE_W, mid_y)
         c.setDash()
-    c.setStrokeColorRGB(*LGREY)
+    c.setStrokeColorRGB(*LBLUE)
     c.setLineWidth(0.8)
     c.line(MARGIN, baseline_y, MARGIN + LINE_W, baseline_y)
     if show_descline:
