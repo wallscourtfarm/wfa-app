@@ -50,22 +50,26 @@ def handwriting_generate():
         ascend, descend = hs.SASS_ASCEND, hs.SASS_DESCEND
         draw_fn, fs     = hs._draw_sassoon, hs.SASS_FS
         xheight         = hs.SASS_XHEIGHT if show_midline else None
+        measure_fn      = lambda t: hs._sass_text_width(t, fs)
     elif font_key == "linkpen":
         ascend, descend = hs.LINK_ASCEND, hs.LINK_DESCEND
         draw_fn, fs     = hs._draw_linkpen, hs.LINK_FS
         xheight         = hs.LINK_XHEIGHT if show_midline else None
+        measure_fn      = lambda t: hs._link_text_width(t, fs)
     else:  # xccw
         ascend, descend = hs.XCCW_ASCEND, hs.XCCW_DESCEND
         draw_fn = lambda c, x, y, text, size: hs._draw_xccw(c, x, y, text, size, solid=False)
         fs      = hs.XCCW_FS
         xheight = hs.XCCW_XHEIGHT if show_midline else None
+        measure_fn = lambda t: hs._xccw_text_width(t, solid=False, size=fs)
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         tmp = f.name
 
     try:
         hs._generate_pdf(tmp, rows, title, None, ascend, descend, draw_fn, fs,
-                         practice_lines=practice, xheight=xheight, show_descline=show_descline)
+                         practice_lines=practice, xheight=xheight, show_descline=show_descline,
+                         measure_fn=measure_fn)
         safe = title.replace(" ", "_").lower()
         return send_file(tmp, mimetype="application/pdf",
                          as_attachment=True, download_name=f"{safe}.pdf")

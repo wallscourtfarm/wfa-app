@@ -10121,6 +10121,31 @@ def _sass_text_width(text, size=None):
     tmp.setFont('SassoInfDotB', size)
     return tmp.stringWidth(text, 'SassoInfDotB', size)
 
+def _link_text_width(text, size=None):
+    if size is None:
+        size = LINK_FS
+    _ensure_fonts()
+    tmp = canvas.Canvas('/dev/null', pagesize=A4)
+    tmp.setFont('LinkpenDot', size)
+    return tmp.stringWidth(text, 'LinkpenDot', size)
+
+def _wrap_text(text, measure_fn, max_width):
+    """Split text into lines that each fit within max_width, breaking at word boundaries."""
+    words = text.split()
+    if not words:
+        return [text]
+    lines = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = current + ' ' + word
+        if measure_fn(candidate) <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
 # ── Public helpers ────────────────────────────────────────────────────────────
 
 def check_widths(items, solid=False):
@@ -10143,12 +10168,13 @@ def check_widths(items, solid=False):
 
 # ── Core sheet generators ─────────────────────────────────────────────────────
 
-def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None, show_descline=False):
+def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None, show_descline=False, measure_fn=None):
     """
     Internal: generate a PDF from a list of row dicts.
     Each row: {'type': 'word'|'pairs', 'text': str}
     practice_lines: blank ruled lines to draw after each content row.
     xheight: if set, draws a dashed mid-line at this height above baseline.
+    measure_fn: if set, long text is word-wrapped across multiple ruled lines.
     """
     row_h = ascend + descend + ROW_GAP
     c     = canvas.Canvas(output_path, pagesize=A4)
@@ -10164,10 +10190,12 @@ def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, 
 
     for row in rows:
         is_pairs = row['type'] == 'pairs'
-        y = _check_page(y)
-        _draw_ruled_row(c, y, ascend, descend, tint=is_pairs, xheight=xheight, show_descline=show_descline)
-        draw_fn(c, MARGIN, y, row['text'], font_size)
-        y -= row_h
+        text_lines = _wrap_text(row['text'], measure_fn, LINE_W) if measure_fn else [row['text']]
+        for i, line in enumerate(text_lines):
+            y = _check_page(y)
+            _draw_ruled_row(c, y, ascend, descend, tint=is_pairs and i == 0, xheight=xheight, show_descline=show_descline)
+            draw_fn(c, MARGIN, y, line, font_size)
+            y -= row_h
         for _ in range(practice_lines):
             y = _check_page(y)
             _draw_ruled_row(c, y, ascend, descend, xheight=xheight, show_descline=show_descline)
