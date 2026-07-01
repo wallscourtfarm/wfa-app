@@ -31,8 +31,9 @@ def handwriting_home():
 def handwriting_generate():
     import handwriting_sheet as hs
 
-    title       = request.form.get("title", "Handwriting Practice")[:80]
-    raw_content = request.form.get("content", "")
+    title        = request.form.get("title", "Handwriting Practice")[:80]
+    instructions = request.form.get("instructions", "Trace each item, then continue writing it on the rest of the line.")[:120]
+    raw_content  = request.form.get("content", "")
     font_key    = request.form.get("font", "sassoon")
     practice    = int(request.form.get("practice_lines", "0") or "0")
     show_midline  = request.form.get("show_midline") == "1"
@@ -69,7 +70,7 @@ def handwriting_generate():
     try:
         hs._generate_pdf(tmp, rows, title, None, ascend, descend, draw_fn, fs,
                          practice_lines=practice, xheight=xheight, show_descline=show_descline,
-                         measure_fn=measure_fn)
+                         measure_fn=measure_fn, instructions=instructions)
         safe = title.replace(" ", "_").lower()
         return send_file(tmp, mimetype="application/pdf",
                          as_attachment=True, download_name=f"{safe}.pdf")

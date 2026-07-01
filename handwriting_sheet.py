@@ -10075,7 +10075,7 @@ def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None, sh
         c.line(MARGIN, desc_y, MARGIN + LINE_W, desc_y)
         c.setDash()
 
-def _draw_header(c, title, subtitle=None):
+def _draw_header(c, title, subtitle=None, instructions='Trace each item, then continue writing it on the rest of the line.'):
     header_h = 60 if subtitle else 50
     c.setFillColorRGB(*BG)
     c.rect(0, H - header_h, W, header_h, fill=1, stroke=0)
@@ -10086,9 +10086,9 @@ def _draw_header(c, title, subtitle=None):
     c.setFont('Helvetica', 9)
     if subtitle:
         c.drawString(MARGIN, H - 35, subtitle)
-        c.drawString(MARGIN, H - 52, 'Trace each item, then continue writing it on the rest of the line.')
+        c.drawString(MARGIN, H - 52, instructions)
     else:
-        c.drawString(MARGIN, H - 37, 'Trace each item, then continue writing it on the rest of the line.')
+        c.drawString(MARGIN, H - 37, instructions)
     c.setFillColorRGB(*NAVY)
     c.setFont('Helvetica', 9)
     c.drawRightString(W - MARGIN - 124, H - 21, 'Name:')
@@ -10168,7 +10168,7 @@ def check_widths(items, solid=False):
 
 # ── Core sheet generators ─────────────────────────────────────────────────────
 
-def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None, show_descline=False, measure_fn=None):
+def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, font_size, practice_lines=0, xheight=None, show_descline=False, measure_fn=None, instructions='Trace each item, then continue writing it on the rest of the line.'):
     """
     Internal: generate a PDF from a list of row dicts.
     Each row: {'type': 'word'|'pairs', 'text': str}
@@ -10178,13 +10178,13 @@ def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, 
     """
     row_h = ascend + descend + ROW_GAP
     c     = canvas.Canvas(output_path, pagesize=A4)
-    hdr_h = _draw_header(c, title, subtitle)
+    hdr_h = _draw_header(c, title, subtitle, instructions=instructions)
     y     = H - hdr_h - 10 - ascend
 
     def _check_page(cur_y):
         if cur_y - descend < MARGIN:
             c.showPage()
-            new_hdr = _draw_header(c, title, subtitle)
+            new_hdr = _draw_header(c, title, subtitle, instructions=instructions)
             return H - new_hdr - 10 - ascend
         return cur_y
 
