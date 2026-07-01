@@ -10202,6 +10202,11 @@ def _generate_pdf(output_path, rows, title, subtitle, ascend, descend, draw_fn, 
             y -= row_h
         y -= WORD_GAP
 
+    # Fill remainder of page with blank ruled lines
+    while y - descend >= MARGIN:
+        _draw_ruled_row(c, y, ascend, descend, xheight=xheight, show_descline=show_descline)
+        y -= row_h
+
     c.save()
     print(f'Saved: {output_path}')
 
