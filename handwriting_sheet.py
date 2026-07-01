@@ -10066,7 +10066,7 @@ def _draw_ruled_row(c, baseline_y, ascend, descend, tint=False, xheight=None, sh
         c.line(MARGIN, mid_y, MARGIN + LINE_W, mid_y)
         c.setDash()
     c.setStrokeColorRGB(*LBLUE)
-    c.setLineWidth(0.8)
+    c.setLineWidth(1.4)
     c.line(MARGIN, baseline_y, MARGIN + LINE_W, baseline_y)
     if show_descline:
         desc_y = baseline_y - descend
