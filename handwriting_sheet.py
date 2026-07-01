@@ -10086,6 +10086,9 @@ def _draw_header(c, title, subtitle=None, instructions='Trace each item, then co
     c.setFont('Helvetica', 9)
     if subtitle:
         c.drawString(MARGIN, H - 35, subtitle)
+    c.setFillColorRGB(*TEAL)
+    c.setFont('Helvetica-Bold', 9)
+    if subtitle:
         c.drawString(MARGIN, H - 52, instructions)
     else:
         c.drawString(MARGIN, H - 37, instructions)
