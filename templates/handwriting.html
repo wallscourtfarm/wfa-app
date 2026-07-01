@@ -50,42 +50,42 @@
     <div class="card">
       <div class="field">
         <label for="title">Sheet title</label>
-        <input class="inp" type="text" id="title" name="title" value="Handwriting Practice" maxlength="80">
+        <input class="inp" type="text" id="title" name="title" value="{{ title or 'Handwriting Practice' }}" maxlength="80">
       </div>
       <div class="field">
         <label for="instructions">Instructions (shown on sheet)</label>
-        <input class="inp" type="text" id="instructions" name="instructions" value="Trace each item, then continue writing it on the rest of the line." maxlength="120">
+        <input class="inp" type="text" id="instructions" name="instructions" value="{{ instructions or 'Trace each item, then continue writing it on the rest of the line.' }}" maxlength="120">
       </div>
       <div class="field">
         <label for="content">Words or sentences — one per line</label>
         <textarea class="ta" id="content" name="content"
-          placeholder="The cat sat on the mat.&#10;She ran quickly down the hill.&#10;big brave brilliant"></textarea>
+          placeholder="The cat sat on the mat.&#10;She ran quickly down the hill.&#10;big brave brilliant">{{ content or '' }}</textarea>
       </div>
       <div class="row2">
         <div class="field">
           <label for="font">Font style</label>
           <select class="sel" id="font" name="font">
-            <option value="sassoon">Print — Sassoon Dotted</option>
-            <option value="linkpen">Pre-cursive — Linkpen Dotted</option>
-            <option value="xccw" selected>Cursive — XCCW Dotted</option>
+            <option value="sassoon" {{ 'selected' if font == 'sassoon' }}>Print — Sassoon Dotted</option>
+            <option value="linkpen" {{ 'selected' if font == 'linkpen' }}>Pre-cursive — Linkpen Dotted</option>
+            <option value="xccw" {{ 'selected' if not font or font == 'xccw' }}>Cursive — XCCW Dotted</option>
           </select>
         </div>
         <div class="field">
           <label for="practice_lines">Practice lines after each item</label>
           <select class="sel" id="practice_lines" name="practice_lines">
-            <option value="0">0 lines</option>
-            <option value="1">1 line</option>
-            <option value="2">2 lines</option>
-            <option value="3">3 lines</option>
+            <option value="0" {{ 'selected' if practice_lines == '0' or not practice_lines }}>0 lines</option>
+            <option value="1" {{ 'selected' if practice_lines == '1' }}>1 line</option>
+            <option value="2" {{ 'selected' if practice_lines == '2' }}>2 lines</option>
+            <option value="3" {{ 'selected' if practice_lines == '3' }}>3 lines</option>
           </select>
         </div>
       </div>
       <div class="field" style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <input type="checkbox" id="show_midline" name="show_midline" value="1" style="width:18px;height:18px;accent-color:#1798d3;cursor:pointer;flex-shrink:0">
+        <input type="checkbox" id="show_midline" name="show_midline" value="1" {{ 'checked' if show_midline }} style="width:18px;height:18px;accent-color:#1798d3;cursor:pointer;flex-shrink:0">
         <label for="show_midline" style="margin:0;font-size:0.88rem;font-weight:800;cursor:pointer">Show x-height line (dashed mid-line at top of letters without ascenders)</label>
       </div>
       <div class="field" style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
-        <input type="checkbox" id="show_descline" name="show_descline" value="1" style="width:18px;height:18px;accent-color:#1798d3;cursor:pointer;flex-shrink:0">
+        <input type="checkbox" id="show_descline" name="show_descline" value="1" {{ 'checked' if show_descline }} style="width:18px;height:18px;accent-color:#1798d3;cursor:pointer;flex-shrink:0">
         <label for="show_descline" style="margin:0;font-size:0.88rem;font-weight:800;cursor:pointer">Show descender line (dashed line at bottom of letters like g, p, y)</label>
       </div>
       <button class="btn" type="submit">⬇ Generate &amp; Download PDF</button>
@@ -93,6 +93,6 @@
     </div>
   </form>
 </div>
-<div style="position:fixed;bottom:6px;right:8px;font-size:10px;font-weight:600;opacity:0.5;pointer-events:none;z-index:9999">01.07.26f</div>
+<div style="position:fixed;bottom:6px;right:8px;font-size:10px;font-weight:600;opacity:0.5;pointer-events:none;z-index:9999">01.07.26g</div>
 </body>
 </html>

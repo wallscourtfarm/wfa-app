@@ -39,9 +39,14 @@ def handwriting_generate():
     show_midline  = request.form.get("show_midline") == "1"
     show_descline = request.form.get("show_descline") == "1"
 
+    def _form_vals():
+        return dict(title=title, instructions=instructions, content=raw_content,
+                    font=font_key, practice_lines=str(practice),
+                    show_midline=show_midline, show_descline=show_descline)
+
     lines = [l.strip() for l in raw_content.splitlines() if l.strip()]
     if not lines:
-        return render_template("handwriting.html", error="Please enter at least one word or sentence."), 400
+        return render_template("handwriting.html", error="Please enter at least one word or sentence.", **_form_vals()), 400
 
     rows = [{"type": "word", "text": line} for line in lines]
 
@@ -75,4 +80,4 @@ def handwriting_generate():
         return send_file(tmp, mimetype="application/pdf",
                          as_attachment=True, download_name=f"{safe}.pdf")
     except Exception as e:
-        return render_template("handwriting.html", error=f"Generation failed: {e}"), 500
+        return render_template("handwriting.html", error=f"Generation failed: {e}", **_form_vals()), 500
