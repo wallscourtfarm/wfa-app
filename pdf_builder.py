@@ -249,17 +249,16 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
     pupil_map = {p["id"]: p for p in pupils}
 
     def draw_cut_lines_bee():
-        c.saveState()
-        c.setStrokeColorRGB(0.5, 0.5, 0.5)
-        c.setLineWidth(0.6)
-        c.setDash(5, 4)
+        c.setStrokeColorRGB(0.35, 0.35, 0.35)
+        c.setLineWidth(0.75)
+        c.setDash(6, 4)
         for ci in range(0, COLS + 1):
             lx = M + ci * col_w
             c.line(lx, 0, lx, H)
         for ri in range(0, ROWS + 1):
             ly = H - M - ri * row_h
             c.line(0, ly, W, ly)
-        c.restoreState()
+        c.setDash()
 
     # ── Separate into partner-A / partner-B / unpaired ────────────────
     # Partners A and B are drawn in separate page runs so that same-slot
@@ -486,17 +485,16 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
 
     # ── Cut lines ─────────────────────────────────────────────────────────
     def draw_cut_lines_ds():
-        c.saveState()
-        c.setStrokeColorRGB(0.5, 0.5, 0.5)
-        c.setLineWidth(0.6)
-        c.setDash(5, 4)
+        c.setStrokeColorRGB(0.35, 0.35, 0.35)
+        c.setLineWidth(0.75)
+        c.setDash(6, 4)
         for ci in range(COLS + 1):
             lx = M + ci * col_w
             c.line(lx, 0, lx, H)
         for ri in range(ROWS + 1):
             ly = H - M - ri * row_h
             c.line(0, ly, W, ly)
-        c.restoreState()
+        c.setDash()
 
     # ── Build lookup and group pupils by class ────────────────────────────
     pupil_map = {p['id']: p for p in pupils}
