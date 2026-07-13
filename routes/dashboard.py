@@ -20,7 +20,7 @@ def dashboard():
         return render_template('dashboard.html', error=True, cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")))
     tt_labels = [f'×{t}' if t!='All' else 'All' for t in TT_ORDER]
     tt_values = [data['tt_dist'].get(t,0) for t in TT_ORDER]
-    yr_for_lc = yr if yr in ('3','4','5','6') else None
+    yr_for_lc = yr
     lc_words = lowest_confidence_key_spellings(cls, year=yr_for_lc, top_n=10)
     raw_pupils = load_learners(cls)
     hw_by_stage = _homophone_words_by_stage()
