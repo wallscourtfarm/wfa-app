@@ -551,7 +551,7 @@ def bulk_import_pupils(class_id, csv_text):
 
     yr        = get_year_group(class_id) or '4'
     start_pos = YEAR_WORD_ZONE.get(yr, 185)
-    suffix    = class_id.split('_')[1]
+    suffix    = class_id.lstrip('0123456789')
 
     existing_ids = {p['id'] for p in data.get('pupils', [])}
     max_n = 0
@@ -712,7 +712,7 @@ def get_year_counts():
             yr_pending += pending
             cls_info.append({
                 'id':      cid,
-                'display': d.get('class_display', cid.split('_')[1]) if d else cid.split('_')[1],
+                'display': d.get('class_display', cid.lstrip('0123456789')) if d else cid.lstrip('0123456789'),
                 'teacher': d.get('teacher_name', d.get('teacher', '')) if d else '',
                 'count':   count,
                 'pending': pending,
@@ -736,7 +736,7 @@ def get_class_options_for_year(yr, include_all=True):
     if include_all:
         options.append((f'Y{yr}_all', f'Y{yr} \u2014 All'))
     for cid in classes:
-        suffix = cid.split('_')[1]
+        suffix = cid.lstrip('0123456789')
         options.append((cid, f'Y{yr} \u2014 {suffix}'))
     return options
 
@@ -763,7 +763,7 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
 
     yr      = str(year_group)
     classes = YEAR_GROUP_CLASSES.get(yr, [])
-    cls_map = {cid.split('_')[1].upper(): cid for cid in classes}
+    cls_map = {cid.lstrip('0123456789').upper(): cid for cid in classes}
     bank_words = {w[0] for w in WORD_BANK}
 
     # Strip BOM if present
@@ -865,7 +865,7 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
             key = (p.get('first','').strip().lower(), p.get('last','').strip().lower())
             name_map[key] = idx
 
-        suffix_short = class_id.split('_')[1]
+        suffix_short = class_id.lstrip('0123456789')
 
         for first, last, incoming in class_rows:
             incoming = incoming & bank_words  # ensure only valid words

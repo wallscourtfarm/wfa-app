@@ -524,7 +524,7 @@ def api_mastery_template():
     from flask import Response
     yr      = session.get('year_group', '4')
     classes = YEAR_GROUP_CLASSES.get(yr, [])
-    example_cls = classes[0].split('_')[1] if classes else 'IM'
+    example_cls = classes[0].lstrip('0123456789') if classes else 'IM'
     lines = [
         'First,Last,Class,Mastered',
         f'Example,Pupil,{example_cls},"about accident address after again"',
