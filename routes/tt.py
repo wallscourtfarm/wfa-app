@@ -12,8 +12,8 @@ def require_auth():
 def _default_cls():
     """Return the first class for the current session's year group."""
     yr = session.get('year_group', '4')
-    classes = YEAR_GROUP_CLASSES.get(yr, ['Y4_IM'])
-    return classes[0] if classes else 'Y4_IM'
+    classes = YEAR_GROUP_CLASSES.get(yr, ['4CK'])
+    return classes[0] if classes else '4CK'
 
 
 @tt_bp.route('/tt')

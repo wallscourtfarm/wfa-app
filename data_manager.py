@@ -16,16 +16,15 @@ BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
 TT_ORDER   = ['2','5','4','8','3','6','9','7','11','12','All']
 
 # ── Class registry ─────────────────────────────────────────────────────────────
-# Single source of truth. Class IDs are permanent stable identifiers — teacher
-# labels are stored in the JSON and can be changed without renaming anything.
+# Single source of truth for 2026-27. Class IDs use the format NXX (e.g. 4CK).
 
 YEAR_GROUP_CLASSES = {
-    '1': ['Y1_ET', 'Y1_ER'],
-    '2': ['Y2_JH', 'Y2_MY'],
-    '3': ['Y3_RB', 'Y3_JW'],
-    '4': ['Y4_IM', 'Y4_WU'],
-    '5': ['Y5_CK', 'Y5_LE'],
-    '6': ['Y6_JM', 'Y6_SD'],
+    '1': ['1ER', '1JS'],
+    '2': ['2MY', '2JH'],
+    '3': ['3JW', '3WU'],
+    '4': ['4CK', '4RB'],
+    '5': ['5LS', '5IM'],
+    '6': ['6JM', '6SD'],
 }
 
 ALL_CLASSES = [c for classes in YEAR_GROUP_CLASSES.values() for c in classes]
@@ -46,9 +45,9 @@ def get_year_group(class_id):
 def _resolve_classes(class_id):
     """
     Return list of real class IDs to load.
-      'Y4_all' -> ['Y4_IM', 'Y4_WU']
-      'Y4_IM'  -> ['Y4_IM']
-      'all'    -> ['Y4_IM', 'Y4_WU']  (legacy Y4 fallback)
+      'Y4_all' -> ['4CK', '4RB']
+      '4CK'    -> ['4CK']
+      'all'    -> ['4CK', '4RB']  (legacy Y4 fallback)
     """
     if class_id == 'all':
         return list(YEAR_GROUP_CLASSES.get('4', []))
@@ -60,7 +59,7 @@ def _resolve_classes(class_id):
 def get_ref_class(class_id):
     """Single real class ID for config lookups when an _all selector is used."""
     classes = _resolve_classes(class_id)
-    return classes[0] if classes else 'Y4_IM'
+    return classes[0] if classes else '4CK'
 
 def get_class_options(include_all_per_year=True):
     """
@@ -72,7 +71,7 @@ def get_class_options(include_all_per_year=True):
         if include_all_per_year:
             options.append((f'Y{yr}_all', f'Y{yr} \u2014 All'))
         for cid in classes:
-            suffix = cid.split('_')[1]
+            suffix = cid.lstrip('0123456789')
             options.append((cid, f'Y{yr} \u2014 {suffix}'))
     return options
 
@@ -252,7 +251,7 @@ def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
 
 # ── TT Check ─────────────────────────────────────────────────────────────────
 
-def load_tt_pupils(class_id='Y4_IM'):
+def load_tt_pupils(class_id='4CK'):
     data = load_class(class_id)
     if not data: return []
     result = []
@@ -283,7 +282,7 @@ def advance_tt_pupils(class_id, pupil_ids):
 
 # ── Spelling Bee ──────────────────────────────────────────────────────────────
 
-def load_bee_pupils(class_id='Y4_IM'):
+def load_bee_pupils(class_id='4CK'):
     data = load_class(class_id)
     wc   = load_weekly_config()
     cfg  = wc.get('classes',{}).get(class_id,{})
