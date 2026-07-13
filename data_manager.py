@@ -251,11 +251,14 @@ def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
     if not candidate_words:
         return []
     total = len(all_pupils)
+    # Build list preserving WORD_BANK order (index = tiebreaker: lower index = earlier/lower year)
+    word_index = {w.lower(): i for i, w in enumerate(candidate_words)}
     counts = {}
     for word in candidate_words:
         wl = word.lower()
         counts[wl] = sum(1 for p in all_pupils if wl not in {m.lower() for m in p.get('mastered', [])})
-    sorted_words = sorted(counts.items(), key=lambda x: -x[1])[:top_n]
+    # Primary: most unmastered first; tiebreaker: lower year group word (earlier in WORD_BANK) first
+    sorted_words = sorted(counts.items(), key=lambda x: (-x[1], word_index[x[0]]))[:top_n]
     return [{'word': w, 'unmastered': c, 'total': total,
              'pct': round(c / total * 100) if total else 0}
             for w, c in sorted_words]
