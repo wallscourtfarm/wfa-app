@@ -1,18 +1,24 @@
 {% extends 'base.html' %}
-{% block title %}Spelling Rules — WFA{% endblock %}
+{% block title %}Spelling Lessons — WFA{% endblock %}
 
 {% block content %}
 <div class="rules-page">
 
-  <!-- Header bar -->
   <div class="rules-header">
-    <h1 class="page-title">📚 Spelling Rules</h1>
+    <h1 class="page-title">📚 Unlocking Spelling</h1>
     <div class="rules-header-right">
-      <input type="text" id="ruleSearch" placeholder="Search rules or words…"
-             class="rules-search" oninput="filterRules(this.value)">
-      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="collapseAllStages()">Collapse all</button>
-      <button class="btn btn-primary" onclick="openAddModal()">+ Add custom rule</button>
+      <input type="text" id="ruleSearch" placeholder="Search lessons or words…"
+             class="rules-search" oninput="filterLessons(this.value)">
+      <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="collapseAll()">Collapse all</button>
     </div>
+  </div>
+
+  <!-- Year group tabs -->
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    {% for yr in all_years %}
+    <button class="btn {% if yr == year_group %}btn-primary{% else %}btn-secondary{% endif %}"
+            onclick="switchYear('{{ yr }}')" style="min-width:60px">{{ yr }}</button>
+    {% endfor %}
   </div>
 
   <!-- Confidence legend -->
@@ -22,440 +28,119 @@
     <span class="conf-badge conf-1">●○○ Low</span>
     <span class="conf-badge conf-2">●●○ Medium</span>
     <span class="conf-badge conf-3">●●● High</span>
-    <span class="legend-hint">Click the dots on any rule to update</span>
+    <span class="legend-hint">Click dots on any lesson to update</span>
   </div>
 
-  <!-- Stage 1–6 sections -->
-  {% for stage_num in range(1, 7) %}
-    {% set stage_rules = stages.get(stage_num, []) %}
-    <div class="stage-section {% if stage_num != active_year|int %}collapsed{% endif %}"
-         id="stage{{ stage_num }}Section">
-      <div class="stage-header" onclick="toggleSection('stage{{ stage_num }}Section')">
-        <span class="stage-title">Stage {{ stage_num }}</span>
-        <span class="stage-count">{{ stage_rules|length }} rules</span>
-        <span class="stage-chevron">{% if stage_num != active_year|int %}▶{% else %}▼{% endif %}</span>
+  <!-- Term sections -->
+  {% for term, weeks in tree.items() | sort %}
+    <div class="stage-section" id="term{{ term }}Section">
+      <div class="stage-header" onclick="toggleSection('term{{ term }}Section')">
+        <span class="stage-title">{{ term_labels.get(term, term) }}</span>
+        <span class="stage-count">{{ weeks.values() | sum(attribute='__len__') }} lessons</span>
+        <span class="stage-chevron">▼</span>
       </div>
-      <div class="stage-body"
-           {% if stage_num != active_year|int %}style="display:none"{% endif %}
-           id="stage{{ stage_num }}Section-body">
-        <div class="rules-grid">
-          {% for rule in stage_rules %}
-            {% set conf_dots = ['○○○','●○○','●●○','●●●'][rule.confidence] %}
-            {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][rule.confidence] %}
-            <div class="rule-card" data-id="{{ rule.id }}"
-                 data-search="{{ (rule.title ~ ' ' ~ rule.words|join(' '))|lower }}">
-              <div class="rule-card-header" onclick="toggleDetail(this)">
-                <span class="rule-ref">S{{ stage_num }}·{{ rule.step }}</span>
-                <span class="rule-title-text">{{ rule.title }}</span>
-                <span class="rule-card-right">
-                  <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rule.id }}"
-                        data-level="{{ rule.confidence }}"
-                        onclick="event.stopPropagation(); cycleConfidence(this)"
-                        title="Click to update confidence">{{ conf_dots }}</span>
-                  <span class="rule-chevron">▸</span>
-                </span>
-              </div>
-              <div class="rule-detail hidden">
-                {% if rule.rtype == 2 %}
-                  <span class="rule-type-badge">Revision</span>
-                {% endif %}
-                {% if rule.explanation %}
-                  <p class="rule-explanation">{{ rule.explanation }}</p>
-                {% endif %}
-                <div class="rule-words">
-                  {% for w in rule.words %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
+      <div class="stage-body" id="term{{ term }}Section-body">
+
+        {% for week_num, lessons in weeks.items() | sort %}
+          <div class="week-block" id="{{ year_group }}-{{ term }}-w{{ week_num }}">
+            <div class="week-label">Week {{ week_num }}</div>
+            <div class="rules-grid">
+              {% for lesson in lessons %}
+                {% set conf_dots = ['○○○','●○○','●●○','●●●'][lesson.confidence] %}
+                {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][lesson.confidence] %}
+                <div class="rule-card" data-id="{{ lesson.id }}"
+                     data-search="{{ (lesson.focus ~ ' ' ~ lesson.hlWords|join(' '))|lower }}">
+                  <div class="rule-card-header" onclick="toggleDetail(this)">
+                    <span class="rule-ref">L{{ lesson.weekLesson }}</span>
+                    <span class="rule-title-text">{{ lesson.focus or lesson.sequence }}</span>
+                    <span class="rule-card-right">
+                      <span class="conf-dots {{ conf_cls }}"
+                            data-lesson-id="{{ lesson.id }}"
+                            data-level="{{ lesson.confidence }}"
+                            onclick="event.stopPropagation(); cycleConfidence(this)"
+                            title="Click to update confidence">{{ conf_dots }}</span>
+                      <span class="rule-chevron">▸</span>
+                    </span>
+                  </div>
+                  <div class="rule-detail hidden">
+                    <span class="rule-type-badge" style="background:#e0f2fe;color:#0369a1">{{ lesson.sequence }}</span>
+                    {% if lesson.explanation %}
+                      <p class="rule-explanation">{{ lesson.explanation }}</p>
+                    {% endif %}
+                    <div style="margin-top:8px">
+                      <span style="font-size:12px;color:#64748b;font-weight:600">Home learning words:</span>
+                      <div class="rule-words" style="margin-top:4px">
+                        {% for w in lesson.hlWords %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              {% endfor %}
             </div>
-          {% endfor %}
-        </div>
+          </div>
+        {% endfor %}
+
       </div>
     </div>
   {% endfor %}
 
-  <!-- Custom rules section — moved to bottom, collapsed by default -->
-  <div class="stage-section collapsed" id="customSection">
-    <div class="stage-header" onclick="toggleSection('customSection')">
-      <span class="stage-title">✏️ Custom Rules</span>
-      <span class="stage-count" id="customCount">{{ customs|length }} rule{{ 's' if customs|length != 1 else '' }}</span>
-      <span class="stage-chevron">▶</span>
-    </div>
-    <div class="stage-body" id="customSection-body" style="display:none">
-      {% if customs %}
-        <div class="rules-grid" id="customGrid">
-          {% for cr in customs %}
-            {% set conf = cr.confidence %}
-            {% set rid = '0-' ~ cr.id %}
-            {% set conf_dots = ['○○○','●○○','●●○','●●●'][conf] %}
-            {% set conf_cls  = ['conf-0','conf-1','conf-2','conf-3'][conf] %}
-            <div class="custom-card" data-id="{{ cr.id }}"
-                 data-search="{{ (cr.title ~ ' ' ~ cr.words|join(' '))|lower }}">
-              <div class="rule-card-header" onclick="toggleDetail(this)">
-                <span class="rule-ref custom-ref">✏</span>
-                <span class="rule-title-text">{{ cr.title }}</span>
-                <span class="custom-actions">
-                  <span class="conf-dots {{ conf_cls }}" data-rule-id="{{ rid }}"
-                        data-level="{{ conf }}"
-                        onclick="event.stopPropagation(); cycleConfidence(this)"
-                        title="Click to update confidence">{{ conf_dots }}</span>
-                  <button class="btn-icon"
-                    onclick='event.stopPropagation(); openEditModal({{ cr.id }},{{ cr.title|tojson }},{{ (cr.explanation or "")|tojson }},{{ cr.words|tojson }})'
-                    title="Edit">✎</button>
-                  <button class="btn-icon btn-icon-del"
-                    onclick="event.stopPropagation(); deleteCustomRule({{ cr.id }}, this)" title="Delete">✕</button>
-                  <span class="rule-chevron">▸</span>
-                </span>
-              </div>
-              <div class="rule-detail hidden">
-                {% if cr.explanation %}
-                  <p class="rule-explanation">{{ cr.explanation }}</p>
-                {% endif %}
-                <div class="rule-words">
-                  {% for w in cr.words %}<span class="rule-word-pill">{{ w }}</span>{% endfor %}
-                </div>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="empty-msg" id="customEmpty">No custom rules yet. Add one above.</p>
-      {% endif %}
-    </div>
-  </div>
-
-
-</div>
-
-<!-- Add/Edit custom rule modal -->
-<div class="modal-overlay hidden" id="ruleModal" onclick="closeModalIfBg(event)">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h2 id="modalTitle">Add custom rule</h2>
-      <button class="modal-close" onclick="closeModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editingId" value="">
-
-      <label class="form-label">Rule title <span class="required">*</span></label>
-      <input type="text" id="ruleTitle" class="form-input"
-             placeholder="e.g. Words ending '-tion'">
-
-      <label class="form-label">Explanation <span class="label-hint">(optional)</span></label>
-      <textarea id="ruleExplanation" class="form-input form-textarea"
-                placeholder="Explain when or why this rule applies"></textarea>
-
-      <label class="form-label">Words <span class="required">*</span>
-        <span class="label-hint">(comma-separated)</span>
-      </label>
-      <div class="words-row">
-        <input type="text" id="ruleWords" class="form-input"
-               placeholder="station, fiction, motion, action, fraction">
-        <button class="btn btn-secondary btn-sm" id="suggestBtn"
-                onclick="suggestWords()">✨ Suggest</button>
-      </div>
-      <p class="suggest-status hidden" id="suggestStatus"></p>
-      <p class="modal-error hidden" id="modalError"></p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" id="saveRuleBtn" onclick="saveRule()">Save rule</button>
-    </div>
-  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const CONF_LABELS  = ['○○○','●○○','●●○','●●●'];
-const CONF_CLASSES = ['conf-0','conf-1','conf-2','conf-3'];
-const CONF_TITLES  = ['Not set','Low','Medium','High'];
-
-function collapseAllStages() {
-  // Collapse every open stage section properly (hides body, updates chevron)
-  document.querySelectorAll('.stage-section:not(.collapsed)').forEach(sec => {
-    toggleSection(sec.id);
-  });
-  // Close all rule detail cards too
-  document.querySelectorAll('.rule-detail:not(.hidden)').forEach(d => {
-    d.classList.add('hidden');
-  });
+function switchYear(yr) {
+  window.location.href = `/set-year/${yr.replace('Y','')}`;
 }
 
-// Section toggle (saves state to localStorage)
 function toggleSection(id) {
   const sec  = document.getElementById(id);
   const body = document.getElementById(id + '-body');
   const chev = sec.querySelector('.stage-chevron');
-  const isNowCollapsed = sec.classList.toggle('collapsed');
-  body.style.display   = isNowCollapsed ? 'none' : '';
-  chev.textContent     = isNowCollapsed ? '▶' : '▼';
-  saveStageState(id, !isNowCollapsed);
+  const collapsed = sec.classList.toggle('collapsed');
+  body.style.display = collapsed ? 'none' : '';
+  chev.textContent = collapsed ? '▶' : '▼';
 }
 
-// Restore saved stage state on page load
-(function restoreStages() {
-  const saved = getSavedStages();
-  // All sections start in template default (custom open, stages 2-6 closed).
-  // Apply saved overrides.
-  document.querySelectorAll('.stage-section').forEach(sec => {
-    const id   = sec.id;
-    const body = document.getElementById(id + '-body');
-    const chev = sec.querySelector('.stage-chevron');
-    if (!body || !chev) return;
-    const shouldBeOpen = saved.includes(id);
-    if (shouldBeOpen) {
-      sec.classList.remove('collapsed');
-      body.style.display = '';
-      chev.textContent   = '▼';
-    } else {
-      sec.classList.add('collapsed');
-      body.style.display = 'none';
-      chev.textContent   = '▶';
-    }
-  });
-})();
+function toggleDetail(header) {
+  const detail = header.nextElementSibling;
+  const chev   = header.querySelector('.rule-chevron');
+  detail.classList.toggle('hidden');
+  chev.textContent = detail.classList.contains('hidden') ? '▸' : '▾';
+}
 
-// Search
-function filterRules(q) {
-  const term = q.toLowerCase().trim();
-  document.querySelectorAll('.rule-card, .custom-card').forEach(card => {
-    const match = !term || (card.dataset.search || '').includes(term);
+async function cycleConfidence(el) {
+  const cur   = parseInt(el.dataset.level || '0');
+  const next  = (cur + 1) % 4;
+  const lid   = el.dataset.lessonId;
+  const dots  = ['○○○','●○○','●●○','●●●'];
+  const cls   = ['conf-0','conf-1','conf-2','conf-3'];
+  el.textContent  = dots[next];
+  el.className    = `conf-dots ${cls[next]}`;
+  el.dataset.level = next;
+  await fetch('/api/rules/confidence', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({lesson_id: lid, level: next}),
+  });
+}
+
+function collapseAll() {
+  document.querySelectorAll('.stage-section').forEach(sec => {
+    const body = sec.querySelector('.stage-body, [id$="-body"]');
+    const chev = sec.querySelector('.stage-chevron');
+    sec.classList.add('collapsed');
+    if (body) body.style.display = 'none';
+    if (chev) chev.textContent = '▶';
+  });
+}
+
+function filterLessons(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.rule-card').forEach(card => {
+    const match = !q || card.dataset.search.includes(q);
     card.style.display = match ? '' : 'none';
   });
-  if (term) {
-    document.querySelectorAll('.stage-section').forEach(sec => {
-      const hasVisible = sec.querySelectorAll('.rule-card:not([style*="none"]), .custom-card:not([style*="none"])').length > 0;
-      if (hasVisible && sec.classList.contains('collapsed')) toggleSection(sec.id);
-    });
-  }
-}
-
-// Confidence dots
-function cycleConfidence(el) {
-  const ruleId  = el.dataset.ruleId;
-  const current = parseInt(el.dataset.level || '0');
-  const next    = (current + 1) % 4;
-  el.dataset.level = next;
-  el.textContent   = CONF_LABELS[next];
-  el.className     = 'conf-dots ' + CONF_CLASSES[next];
-  el.title         = 'Click to update confidence — ' + CONF_TITLES[next];
-  fetch('/api/rules/confidence', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({rule_id: ruleId, level: next})
-  }).then(r => r.json()).then(d => {
-    if (!d.ok) {
-      el.dataset.level = current;
-      el.textContent   = CONF_LABELS[current];
-      el.className     = 'conf-dots ' + CONF_CLASSES[current];
-      alert('Could not save. Try again.');
-    }
-  });
-}
-
-// Modal
-function openAddModal() {
-  document.getElementById('modalTitle').textContent = 'Add custom rule';
-  document.getElementById('editingId').value = '';
-  document.getElementById('ruleTitle').value = '';
-  document.getElementById('ruleExplanation').value = '';
-  document.getElementById('ruleWords').value = '';
-  document.getElementById('modalError').classList.add('hidden');
-  document.getElementById('suggestStatus').classList.add('hidden');
-  document.getElementById('ruleModal').classList.remove('hidden');
-  setTimeout(() => document.getElementById('ruleTitle').focus(), 50);
-}
-
-function openEditModal(id, title, explanation, words) {
-  document.getElementById('modalTitle').textContent = 'Edit custom rule';
-  document.getElementById('editingId').value = id;
-  document.getElementById('ruleTitle').value = title;
-  document.getElementById('ruleExplanation').value = explanation;
-  document.getElementById('ruleWords').value = words.join(', ');
-  document.getElementById('modalError').classList.add('hidden');
-  document.getElementById('suggestStatus').classList.add('hidden');
-  document.getElementById('ruleModal').classList.remove('hidden');
-  setTimeout(() => document.getElementById('ruleTitle').focus(), 50);
-}
-
-function closeModal() { document.getElementById('ruleModal').classList.add('hidden'); }
-function closeModalIfBg(e) { if (e.target.id === 'ruleModal') closeModal(); }
-
-// Save
-function saveRule() {
-  const editingId   = document.getElementById('editingId').value;
-  const title       = document.getElementById('ruleTitle').value.trim();
-  const explanation = document.getElementById('ruleExplanation').value.trim();
-  const words       = document.getElementById('ruleWords').value.trim();
-  const saveBtn     = document.getElementById('saveRuleBtn');
-  if (!title)  { showModalError('Rule title is required.');      return; }
-  if (!words)  { showModalError('At least one word is required.'); return; }
-  const isEdit = editingId !== '';
-  const url    = isEdit ? '/api/rules/custom/edit' : '/api/rules/custom/add';
-  const body   = isEdit
-    ? {id: parseInt(editingId), title, explanation, words}
-    : {title, explanation, words};
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving…';
-  fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
-    .then(r => r.json()).then(d => {
-      saveBtn.disabled = false; saveBtn.textContent = 'Save rule';
-      if (!d.ok) { showModalError(d.error || 'Save failed.'); return; }
-      closeModal();
-      if (isEdit) {
-        updateCustomCard(parseInt(editingId), title, explanation,
-                         words.split(',').map(w => w.trim()).filter(Boolean));
-      } else {
-        addCustomCard(d.rule);
-      }
-    }).catch(() => { saveBtn.disabled=false; saveBtn.textContent='Save rule'; showModalError('Network error.'); });
-}
-
-function showModalError(msg) {
-  const el = document.getElementById('modalError');
-  el.textContent = msg;
-  el.classList.remove('hidden');
-}
-
-// Suggest words
-function suggestWords() {
-  const title       = document.getElementById('ruleTitle').value.trim();
-  const explanation = document.getElementById('ruleExplanation').value.trim();
-  const statusEl    = document.getElementById('suggestStatus');
-  const btn         = document.getElementById('suggestBtn');
-  if (!title) { showModalError('Enter a rule title first.'); return; }
-  btn.disabled = true; btn.textContent = '✨ Suggesting…';
-  statusEl.className = 'suggest-status'; statusEl.textContent = '';
-  statusEl.classList.remove('hidden');
-  fetch('/api/rules/suggest-words', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({title, explanation})})
-    .then(r => r.json()).then(d => {
-      btn.disabled = false; btn.textContent = '✨ Suggest';
-      if (!d.ok) { statusEl.textContent = 'Could not suggest words.'; return; }
-      document.getElementById('ruleWords').value = d.words.join(', ');
-      statusEl.textContent = 'Words suggested — edit as needed.';
-      statusEl.classList.add('suggest-ok');
-    }).catch(() => { btn.disabled=false; btn.textContent='✨ Suggest'; statusEl.textContent='Network error.'; });
-}
-
-// DOM helpers for custom cards
-// ── localStorage helpers ──────────────────────────────────────────────────
-const ACTIVE_YEAR = '{{ active_year }}';
-const LS_STAGES = 'wfa_rules_expanded_stages_y' + ACTIVE_YEAR;
-
-function migrateSavedStages() {
-  // One-time migration: if stored value only contains customSection, reset to stage4
-  try {
-    var stored = localStorage.getItem(LS_STAGES);
-    if (stored) {
-      var parsed = JSON.parse(stored);
-      if (parsed.length === 1 && parsed[0] === 'customSection') {
-        localStorage.setItem(LS_STAGES, '["stage' + ACTIVE_YEAR + 'Section"]');
-      }
-    }
-  } catch(e) {}
-}
-migrateSavedStages();
-
-function getSavedStages() {
-  try { return JSON.parse(localStorage.getItem(LS_STAGES) || '["stage' + ACTIVE_YEAR + 'Section"]'); }
-  catch { return ['stage' + ACTIVE_YEAR + 'Section']; }
-}
-function saveStageState(id, open) {
-  const saved = getSavedStages();
-  const idx   = saved.indexOf(id);
-  if (open && idx === -1) saved.push(id);
-  if (!open && idx !== -1) saved.splice(idx, 1);
-  localStorage.setItem(LS_STAGES, JSON.stringify(saved));
-}
-
-
-// ── Detail toggle with lazy explanation loading ────────────────────────────
-function toggleDetail(headerEl) {
-  const card   = headerEl.closest('.rule-card, .custom-card');
-  const detail = card.querySelector('.rule-detail');
-  if (!detail) return;
-  const isHidden = detail.classList.toggle('hidden');
-  const chev = headerEl.querySelector('.rule-chevron');
-  if (chev) chev.textContent = isHidden ? '▸' : '▾';
-
-  // Explanation is rendered server-side — nothing to load.
-}
-
-function buildCustomCardHTML(cr) {
-  const rid      = '0-' + cr.id;
-  const conf     = cr.confidence || 0;
-  const confDots = CONF_LABELS[conf];
-  const confCls  = CONF_CLASSES[conf];
-  const titleE   = String(cr.title).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const expl     = cr.explanation ? `<p class="rule-explanation">${String(cr.explanation).replace(/</g,'&lt;')}</p>` : '';
-  const pills    = (cr.words||[]).map(w => `<span class="rule-word-pill">${w}</span>`).join('');
-  const editArgs = JSON.stringify([cr.id, cr.title, cr.explanation||'', cr.words||[]]);
-  return `<div class="custom-card" data-id="${cr.id}"
-       data-search="${(cr.title+' '+(cr.words||[]).join(' ')).toLowerCase()}">
-    <div class="rule-card-header" onclick="toggleDetail(this)">
-      <span class="rule-ref custom-ref">✏</span>
-      <span class="rule-title-text">${titleE}</span>
-      <span class="custom-actions">
-        <span class="conf-dots ${confCls}" data-rule-id="${rid}" data-level="${conf}"
-              onclick="event.stopPropagation(); cycleConfidence(this)"
-              title="Click to update confidence">${confDots}</span>
-        <button class="btn-icon" title="Edit"
-          onclick="event.stopPropagation(); openEditModal(...${editArgs.replace(/</g,'&lt;')})">✎</button>
-        <button class="btn-icon btn-icon-del"
-          onclick="event.stopPropagation(); deleteCustomRule(${cr.id},this)" title="Delete">✕</button>
-        <span class="rule-chevron">▸</span>
-      </span>
-    </div>
-    <div class="rule-detail hidden">
-      ${expl}
-      <div class="rule-words">${pills}</div>
-    </div>
-  </div>`;
-}
-
-function addCustomCard(cr) {
-  let grid = document.getElementById('customGrid');
-  const countEl = document.getElementById('customCount');
-  if (!grid) {
-    const body = document.getElementById('customSection-body');
-    body.innerHTML = `<div class="rules-grid" id="customGrid"></div>`;
-    grid = document.getElementById('customGrid');
-  }
-  const empty = document.getElementById('customEmpty');
-  if (empty) empty.remove();
-  const div = document.createElement('div');
-  div.innerHTML = buildCustomCardHTML(cr);
-  grid.appendChild(div.firstElementChild);
-  const n = grid.children.length;
-  countEl.textContent = n + ' rule' + (n !== 1 ? 's' : '');
-}
-
-function updateCustomCard(id, title, explanation, words) {
-  const card = document.querySelector(`.custom-card[data-id="${id}"]`);
-  if (!card) return;
-  const conf = parseInt(card.querySelector('.conf-dots').dataset.level || '0');
-  const div = document.createElement('div');
-  div.innerHTML = buildCustomCardHTML({id, title, explanation, words, confidence: conf});
-  card.replaceWith(div.firstElementChild);
-}
-
-function deleteCustomRule(id, btn) {
-  if (!confirm('Delete this custom rule?')) return;
-  btn.disabled = true;
-  fetch('/api/rules/custom/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})})
-    .then(r => r.json()).then(d => {
-      if (!d.ok) { alert(d.error || 'Delete failed.'); btn.disabled=false; return; }
-      const card  = document.querySelector(`.custom-card[data-id="${id}"]`);
-      const grid  = document.getElementById('customGrid');
-      const countEl = document.getElementById('customCount');
-      if (card) card.remove();
-      const n = grid ? grid.children.length : 0;
-      countEl.textContent = n + ' rule' + (n !== 1 ? 's' : '');
-      if (n === 0 && grid) {
-        grid.insertAdjacentHTML('afterend','<p class="empty-msg" id="customEmpty">No custom rules yet. Add one above.</p>');
-      }
-    }).catch(() => { btn.disabled=false; alert('Network error.'); });
 }
 </script>
 {% endblock %}

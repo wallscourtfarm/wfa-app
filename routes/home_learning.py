@@ -1,6 +1,6 @@
 import base64
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
@@ -145,11 +145,20 @@ def api_hl_generate():
 
     wc         = load_weekly_config() or {}
     week_ref   = wc.get('week_ref', 'TxWy')
-    ref_cls    = get_ref_class(cls)
-    cls_cfg    = wc.get('classes', {}).get(ref_cls, {})
-    main_rule  = get_rule(cls_cfg.get('main_rule_id', ''))
-    rule_title = main_rule[2] if main_rule else ''
-    rule_words = main_rule[3] if main_rule else []
+    # ULS: get HL words and focus from weekly config
+    rule_words = wc.get('selected_words', [])
+    hl_lesson  = get_uls_lesson(wc.get('hl_lesson_id', ''))
+    rule_title = hl_lesson['focus'] if hl_lesson else wc.get('year_group','')
+    if not rule_words and hl_lesson:
+        rule_words = hl_lesson.get('hlWords', [])
+    # Fall back to old Spelling Shed rule if no ULS config
+    if not rule_words:
+        ref_cls   = get_ref_class(cls)
+        cls_cfg   = wc.get('classes', {}).get(ref_cls, {})
+        main_rule = get_rule(cls_cfg.get('main_rule_id', ''))
+        if main_rule:
+            rule_title = main_rule[2]
+            rule_words = main_rule[3]
 
     pupils     = _load_class_pupils(cls)
     if not pupils:

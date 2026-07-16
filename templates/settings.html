@@ -10,11 +10,75 @@
 
 <div class="settings-wrap">
 
-  <!-- Week reference -->
+  <!-- ULS Weekly setup -->
   <div class="settings-section">
-    <h3 class="settings-heading">Week</h3>
+    <h3 class="settings-heading">Unlocking Spelling — Weekly Setup</h3>
+
     <div class="settings-row">
-      <label class="settings-label">Current week reference</label>
+      <label class="settings-label">Year group</label>
+      <select id="uls_year" class="hl-input" style="max-width:120px" onchange="loadULSWeeks()">
+        {% for yr in ['Y2','Y3','Y4','Y5','Y6'] %}
+        <option value="{{ yr }}" {% if wc.get('year_group','Y'+active_year) == yr %}selected{% endif %}>{{ yr }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="settings-row">
+      <label class="settings-label">Week</label>
+      <select id="uls_week" class="hl-input" style="max-width:280px" onchange="onWeekChange()">
+        <option value="">Loading…</option>
+      </select>
+    </div>
+
+    <div id="lesson_summary" style="margin:10px 0 0 160px;display:none">
+      <div style="font-size:13px;color:#475569;margin-bottom:8px">This week's lessons:</div>
+      <div id="lesson_list" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
+    <div class="settings-row" style="margin-top:16px">
+      <label class="settings-label">Home learning</label>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="hl_mode" value="single" id="hl_single"
+            {% if wc.get('hl_mode','single') == 'single' %}checked{% endif %}
+            onchange="onHLModeChange()">
+          <span>Single focus</span>
+          <span style="font-size:12px;color:#94a3b8">(5 words from one lesson)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="hl_mode" value="mix" id="hl_mix"
+            {% if wc.get('hl_mode') == 'mix' %}checked{% endif %}
+            onchange="onHLModeChange()">
+          <span>Mix</span>
+          <span style="font-size:12px;color:#94a3b8">(choose from all lessons)</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="hl_single_row" class="settings-row" style="{% if wc.get('hl_mode') == 'mix' %}display:none{% endif %}">
+      <label class="settings-label">HL lesson</label>
+      <select id="hl_lesson" class="hl-input" style="max-width:380px" onchange="onHLLessonChange()">
+        <option value="">— select week first —</option>
+      </select>
+    </div>
+
+    <div id="hl_mix_row" class="settings-row" style="{% if wc.get('hl_mode','single') != 'mix' %}display:none{% endif %}">
+      <label class="settings-label">Select 5 words</label>
+      <div id="mix_word_picker" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+
+    <div id="selected_words_preview" class="settings-row" style="display:none">
+      <label class="settings-label">HL words</label>
+      <div id="hl_words_list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    </div>
+
+  </div>
+
+  <!-- Legacy week reference (calendar date) -->
+  <div class="settings-section">
+    <h3 class="settings-heading">Calendar week</h3>
+    <div class="settings-row">
+      <label class="settings-label">Week reference</label>
       <select id="week_ref" class="hl-input" style="max-width:220px">
         <option value="">— select —</option>
         {% if term_dates %}
@@ -32,50 +96,12 @@
           <option disabled>No term dates configured</option>
         {% endif %}
       </select>
-    </div>
-  </div>
-
-  <!-- Spelling rules — single set for all classes -->
-  {% set ref_cls = yr_classes[0] if yr_classes else '' %}
-  {% set cls_cfg = wc.get('classes', {}).get(ref_cls, {}) %}
-  <div class="settings-section">
-    <h3 class="settings-heading">Spelling rules &mdash; Y{{ active_year }}</h3>
-    <div class="settings-row">
-      <label class="settings-label">Main rule</label>
-      <select id="main_rule" class="cls-select" style="max-width:420px">
-        <option value="">— None —</option>
-        {% for rid, label in rules %}
-        <option value="{{ rid }}" {% if rid == cls_cfg.get('main_rule_id') %}selected{% endif %}>
-          {{ label }}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="settings-row">
-      <label class="settings-label">Revision rule</label>
-      <select id="revision_rule" class="cls-select" style="max-width:420px">
-        <option value="">— None —</option>
-        {% for rid, label in rules %}
-        <option value="{{ rid }}" {% if rid == cls_cfg.get('revision_rule_id') %}selected{% endif %}>
-          {{ label }}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="settings-row">
-      <label class="settings-label">Rule explanation</label>
-      <input id="rule_explanation" type="text" class="cm-input"
-             style="max-width:420px"
-             value="{{ cls_cfg.get('rule_explanation', '') }}"
-             placeholder="e.g. Adding -tion changes a verb to a noun (action, revision)">
-      <span style="font-size:12px;color:#94a3b8;margin-left:8px">
-        Auto-fills the Home Learning generator — saves re-typing each week.
-      </span>
+      <span style="font-size:12px;color:#94a3b8;margin-left:8px">Used on printed materials and bee records.</span>
     </div>
   </div>
 
   <div class="settings-save-row">
-    <button class="btn btn-primary btn-lg" onclick="saveSettings()">💾 Save settings</button>
+    <button class="btn btn-primary btn-lg" onclick="saveSettings(event)">💾 Save settings</button>
   </div>
 
 </div>
@@ -83,28 +109,184 @@
 
 {% block scripts %}
 <script>
-async function saveSettings() {
-  const week_ref       = document.getElementById('week_ref').value.trim();
-  const main_rule_id     = document.getElementById('main_rule').value || null;
-  const rev_rule_id      = document.getElementById('revision_rule').value || null;
-  const rule_explanation = document.getElementById('rule_explanation').value.trim();
+// State
+let allWeeks = [];        // [{code, label, focuses, lessonIds}]
+let currentLessons = [];  // lesson dicts for selected week
+let selectedWords = {{ wc.get('selected_words', []) | tojson }};
+let currentHLLesson = null;
+const savedWeekCode = {{ (wc.get('term','') + 'W' + wc.get('week','').__str__()) | tojson }};
+const savedHLLessonId = {{ wc.get('hl_lesson_id', '') | tojson }};
 
-  // Apply same rules to both classes
-  const classes = {};
-  {{ yr_classes | tojson }}.forEach(cls => {
-    classes[cls] = { main_rule_id: main_rule_id, revision_rule_id: rev_rule_id,
-                     rule_explanation: rule_explanation };
+async function loadULSWeeks() {
+  const yr = document.getElementById('uls_year').value;
+  const sel = document.getElementById('uls_week');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  const r = await fetch(`/api/settings/uls-weeks?year=${yr}`);
+  const d = await r.json();
+  if (!d.ok) return;
+  allWeeks = d.weeks;
+  sel.innerHTML = '<option value="">— select week —</option>';
+  allWeeks.forEach(w => {
+    const opt = document.createElement('option');
+    opt.value = w.code;
+    opt.textContent = `${w.code} — ${w.focuses.slice(0,2).join(' / ')}`;
+    if (w.code === savedWeekCode) opt.selected = true;
+    sel.appendChild(opt);
   });
+  // Trigger week change if a saved value was found
+  if (savedWeekCode && allWeeks.find(w => w.code === savedWeekCode)) {
+    onWeekChange();
+  }
+}
 
-  const btn = event.target;
+async function onWeekChange() {
+  const code = document.getElementById('uls_week').value;
+  if (!code) {
+    document.getElementById('lesson_summary').style.display = 'none';
+    return;
+  }
+  const wk = allWeeks.find(w => w.code === code);
+  if (!wk) return;
+
+  // Fetch full lesson details
+  currentLessons = [];
+  for (const lid of wk.lessonIds) {
+    const r = await fetch(`/api/settings/uls-lesson?id=${lid}`);
+    const d = await r.json();
+    if (d.ok) currentLessons.push(d.lesson);
+  }
+
+  // Render lesson list
+  const list = document.getElementById('lesson_list');
+  list.innerHTML = '';
+  currentLessons.forEach((l, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0';
+    div.innerHTML = `<span style="font-weight:600;color:#1798d3">L${i+1}</span>
+      <span style="margin-left:8px;color:#1e293b">${l.focus || l.sequence}</span>
+      <span style="margin-left:8px;font-size:12px;color:#64748b">${l.hlWords.join(', ')}</span>`;
+    list.appendChild(div);
+  });
+  document.getElementById('lesson_summary').style.display = 'block';
+
+  // Update HL lesson dropdown
+  refreshHLLessonDropdown();
+  updateMixPicker();
+  showSelectedWords();
+}
+
+function refreshHLLessonDropdown() {
+  const sel = document.getElementById('hl_lesson');
+  sel.innerHTML = '<option value="">— select lesson —</option>';
+  currentLessons.forEach((l, i) => {
+    const opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = `L${i+1}: ${l.focus || l.sequence}`;
+    if (l.id === savedHLLessonId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (savedHLLessonId) onHLLessonChange();
+}
+
+function onHLModeChange() {
+  const mode = document.querySelector('input[name="hl_mode"]:checked').value;
+  document.getElementById('hl_single_row').style.display = mode === 'single' ? '' : 'none';
+  document.getElementById('hl_mix_row').style.display    = mode === 'mix'    ? '' : 'none';
+  showSelectedWords();
+}
+
+function onHLLessonChange() {
+  const lid = document.getElementById('hl_lesson').value;
+  const lesson = currentLessons.find(l => l.id === lid);
+  currentHLLesson = lesson || null;
+  if (lesson) selectedWords = [...lesson.hlWords];
+  showSelectedWords();
+}
+
+function updateMixPicker() {
+  const picker = document.getElementById('mix_word_picker');
+  picker.innerHTML = '';
+  currentLessons.forEach((l, li) => {
+    l.hlWords.forEach(w => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = w;
+      btn.dataset.word = w;
+      const active = selectedWords.includes(w);
+      btn.style.cssText = `padding:4px 10px;border-radius:20px;border:1px solid;cursor:pointer;font-size:13px;
+        background:${active ? '#1798d3' : '#fff'};color:${active ? '#fff' : '#1e293b'};
+        border-color:${active ? '#1798d3' : '#cbd5e1'}`;
+      btn.onclick = () => toggleMixWord(w, btn);
+      picker.appendChild(btn);
+    });
+    // Divider between lessons
+    if (li < currentLessons.length - 1) {
+      const sep = document.createElement('span');
+      sep.style.cssText = 'width:1px;height:24px;background:#e2e8f0;display:inline-block';
+      picker.appendChild(sep);
+    }
+  });
+}
+
+function toggleMixWord(word, btn) {
+  const idx = selectedWords.indexOf(word);
+  if (idx >= 0) {
+    selectedWords.splice(idx, 1);
+    btn.style.background = '#fff';
+    btn.style.color = '#1e293b';
+    btn.style.borderColor = '#cbd5e1';
+  } else {
+    if (selectedWords.length >= 5) { showStatus('Maximum 5 words', 'error'); return; }
+    selectedWords.push(word);
+    btn.style.background = '#1798d3';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#1798d3';
+  }
+  showSelectedWords();
+}
+
+function showSelectedWords() {
+  const preview = document.getElementById('selected_words_preview');
+  const list    = document.getElementById('hl_words_list');
+  if (!selectedWords.length) { preview.style.display = 'none'; return; }
+  list.innerHTML = selectedWords.map(w =>
+    `<span style="padding:3px 10px;background:#e0f2fe;border-radius:12px;font-size:13px;color:#0369a1">${w}</span>`
+  ).join('');
+  preview.style.display = '';
+}
+
+async function saveSettings(evt) {
+  const btn = evt.target;
   btn.disabled = true;
   btn.textContent = 'Saving…';
+
+  const ulsWeekCode = document.getElementById('uls_week').value;
+  const wk = allWeeks.find(w => w.code === ulsWeekCode) || {};
+  const hlMode = document.querySelector('input[name="hl_mode"]:checked')?.value || 'single';
+  const hlLessonId = document.getElementById('hl_lesson').value || '';
+  const week_ref = document.getElementById('week_ref').value.trim();
+
+  // Parse term + week from code e.g. "T1W3"
+  const m = ulsWeekCode.match(/^(T\d)W(\d+)$/);
+  const term = m ? m[1] : '';
+  const week = m ? parseInt(m[2]) : null;
+
+  const payload = {
+    year_group:     document.getElementById('uls_year').value,
+    term,
+    week,
+    lesson_ids:     wk.lessonIds || [],
+    hl_mode:        hlMode,
+    hl_lesson_id:   hlLessonId,
+    selected_words: selectedWords,
+    week_ref,
+  };
 
   try {
     const res  = await fetch('/api/settings/save', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({week_ref, classes})
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     btn.disabled = false;
@@ -127,5 +309,8 @@ function showStatus(msg, type) {
   statusBar.className = `status-bar status-${type}`;
   if (type !== 'error') setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3500);
 }
+
+// Init on load
+loadULSWeeks();
 </script>
 {% endblock %}

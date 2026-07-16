@@ -165,6 +165,11 @@ def get_rule(rule_id_str):
     except Exception: pass
     return None
 
+def get_uls_lesson(lesson_id):
+    """Return a ULS lesson dict by ID like 'y4-t1-w2-l1', or None."""
+    from uls_lessons import get_lesson
+    return get_lesson(lesson_id)
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 def _pupil_row(p):
@@ -299,27 +304,38 @@ def advance_tt_pupils(class_id, pupil_ids):
 def load_bee_pupils(class_id='4CK'):
     data = load_class(class_id)
     wc   = load_weekly_config()
-    cfg  = wc.get('classes',{}).get(class_id,{})
-    main_rule = get_rule(cfg.get('main_rule_id',''))
-    rev_rule  = get_rule(cfg.get('revision_rule_id',''))
     if not data: return [], {}, ''
+    # ULS: get this week's lesson focuses
+    from uls_lessons import get_lesson, TERM_LABELS
+    lesson_ids = wc.get('lesson_ids', [])
+    lessons    = [get_lesson(lid) for lid in lesson_ids if get_lesson(lid)]
+    week_focuses = [l['focus'] for l in lessons] if lessons else []
+    hl_words   = wc.get('selected_words', [])
+    # Build week label e.g. "T1 W2 · Spring 1"
+    term_label = TERM_LABELS.get(wc.get('term',''), wc.get('term',''))
+    week_label = f"{wc.get('term','')} W{wc.get('week','')} · {term_label}" if wc.get('term') else wc.get('week_ref','')
+
     pupils = []
     for p in data.get('pupils',[]):
         mastered = set(p.get('mastered',[]))
         words    = get_active_words(p.get('word_pos',0), mastered, 5)
         is_rev   = p.get('group')=='revision'
-        rule     = rev_rule if is_rev else main_rule
         pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),'file_cls':class_id,
                        'group':p.get('group','main'),'is_rev':is_rev,
-                       'rule_label': rule[2] if rule else ('Revision' if is_rev else 'Main'),
+                       'rule_label': wc.get('year_group','') + ' ' + week_label,
                        'words': words,
                        'words_updated_at': p.get('words_updated_at','')})
+    # Build rules_info for template display
+    focuses_str = ' · '.join(week_focuses[:2]) if week_focuses else '—'
     rules_info = {
-        'main':     main_rule[2] if main_rule else '—',
-        'revision': rev_rule[2]  if rev_rule  else '—',
-        'week':     wc.get('week_ref',''),
+        'main':      focuses_str,
+        'revision':  '—',
+        'week':      wc.get('week_ref', week_label),
+        'hl_words':  hl_words,
+        'lessons':   lessons,
+        'year_group': wc.get('year_group', ''),
     }
-    return pupils, rules_info, wc.get('week_ref','')
+    return pupils, rules_info, wc.get('week_ref', week_label)
 
 def _apply_assessment(pupil, correct_words):
     p = dict(pupil)
@@ -389,6 +405,16 @@ def list_plannable_rules():
                 for r in SPELLING_RULES if r[4] == 0]
     return custom + standard
 
+def list_uls_weeks(year_group):
+    """Return list of (week_code, label) tuples for a given year group, e.g. 'T1W1'."""
+    from uls_lessons import get_all_weeks, TERM_LABELS
+    result = []
+    for term, week in get_all_weeks(year_group):
+        code  = f'{term}W{week}'
+        label = f'{term} W{week} — {TERM_LABELS.get(term, term)}'
+        result.append((code, label))
+    return result
+
 # ── Custom Rules ──────────────────────────────────────────────────────────────
 
 def _put_file_create(path, data, message):
@@ -452,26 +478,26 @@ def update_rule_confidence_from_bee(assessments):
                 pupil_group[p['id']] = p.get('group', 'main')
 
     wc = load_weekly_config()
+    # ULS: key confidence by lesson IDs for this week
+    lesson_ids = wc.get('lesson_ids', [])
+    # Fall back to old main_rule_id if no ULS config yet
     cls_cfg = wc.get('classes', {})
-    # All classes share the same rules, so just take the first
     any_cfg = next(iter(cls_cfg.values()), {}) if cls_cfg else {}
-    main_rule_id = any_cfg.get('main_rule_id', '')
-    rev_rule_id  = any_cfg.get('revision_rule_id', '')
+    fallback_id = any_cfg.get('main_rule_id', '')
+    week_id = lesson_ids[0] if lesson_ids else fallback_id
 
-    # Tally per rule: {rule_id: [total, confident_count]}
+    # Tally per lesson: {lesson_id: [total, confident_count]}
     tally = {}
     for a in assessments:
-        pid       = a.get('pupil_id', '')
         confident = bool(a.get('confident', False))
-        group     = pupil_group.get(pid, 'main')
-        rule_id   = rev_rule_id if group == 'revision' else main_rule_id
-        if not rule_id:
+        lid = week_id
+        if not lid:
             continue
-        if rule_id not in tally:
-            tally[rule_id] = [0, 0]
-        tally[rule_id][0] += 1
+        if lid not in tally:
+            tally[lid] = [0, 0]
+        tally[lid][0] += 1
         if confident:
-            tally[rule_id][1] += 1
+            tally[lid][1] += 1
 
     if not tally:
         return False

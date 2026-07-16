@@ -55,15 +55,20 @@ def _pupil_active_words(p, n=5):
 
 def _rule_words(wc, cls):
     """Get up to 5 rule words for the current week from weekly config."""
+    # ULS: use selected_words from weekly config
+    words = wc.get('selected_words', [])
+    if words:
+        return words[:5]
+    # Fallback: old Spelling Shed rule
     from data_manager import get_ref_class as _grc, get_rule
     cfg  = wc.get('classes', {}).get(_grc(cls), {})
-    words = []
+    old_words = []
     for key in ('main_rule_id', 'revision_rule_id'):
         rid = cfg.get(key, '')
         if rid:
             rule = get_rule(rid)
-            if rule: words.extend(rule[3])
-    return list(dict.fromkeys(words))[:5]   # dedupe, max 5
+            if rule: old_words.extend(rule[3])
+    return list(dict.fromkeys(old_words))[:5]
 
 def _save_session(session_id, data):
     path    = f'data/sessions/{session_id}.json'
