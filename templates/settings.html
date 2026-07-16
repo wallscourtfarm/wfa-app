@@ -14,6 +14,16 @@
   <div class="settings-section">
     <h3 class="settings-heading">Unlocking Spelling — Weekly Setup</h3>
 
+    {% if this_week %}
+    <div style="margin-bottom:14px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:13px;color:#0369a1">
+        📅 This week is <strong>{{ this_week }}</strong> — click to load the correct ULS lessons automatically.
+      </span>
+      <button class="btn btn-primary" style="font-size:12px;padding:4px 12px;white-space:nowrap"
+              onclick="loadThisWeek('{{ this_week }}')">Load {{ this_week }}</button>
+    </div>
+    {% endif %}
+
     <div class="settings-row">
       <label class="settings-label">Year group</label>
       <select id="uls_year" class="hl-input" style="max-width:120px" onchange="loadULSWeeks()">
@@ -116,6 +126,21 @@ let selectedWords = {{ wc.get('selected_words', []) | tojson }};
 let currentHLLesson = null;
 const savedWeekCode = {{ (wc.get('term','') + 'W' + wc.get('week','').__str__()) | tojson }};
 const savedHLLessonId = {{ wc.get('hl_lesson_id', '') | tojson }};
+
+async function loadThisWeek(weekCode) {
+  // Select the week in the dropdown and trigger load
+  const sel = document.getElementById('uls_week');
+  // Weeks may not be loaded yet — load them first
+  if (allWeeks.length === 0) await loadULSWeeks();
+  sel.value = weekCode;
+  if (sel.value !== weekCode) {
+    // Week not in list for this year (e.g. Y6 has no T6) — just notify
+    showStatus(`${weekCode} is not in this year group's programme.`, 'error');
+    return;
+  }
+  await onWeekChange();
+  showStatus(`✓ Loaded lessons for ${weekCode} — choose HL mode and save.`, 'success');
+}
 
 async function loadULSWeeks() {
   const yr = document.getElementById('uls_year').value;
@@ -310,7 +335,15 @@ function showStatus(msg, type) {
   if (type !== 'error') setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3500);
 }
 
-// Init on load
-loadULSWeeks();
+// Init on load — load weeks, then auto-select this week if nothing is saved
+const AUTO_WEEK = {{ this_week | tojson }};
+(async () => {
+  await loadULSWeeks();
+  // If no week saved yet and we know the current week, auto-select it
+  if (!savedWeekCode && AUTO_WEEK) {
+    document.getElementById('uls_week').value = AUTO_WEEK;
+    await onWeekChange();
+  }
+})();
 </script>
 {% endblock %}

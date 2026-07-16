@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_weekly_config, save_weekly_config, ALL_CLASSES, get_class_options, load_term_dates, term_dates_by_term
+from data_manager import load_weekly_config, save_weekly_config, ALL_CLASSES, get_class_options, load_term_dates, term_dates_by_term, current_week_ref
 
 settings_bp = Blueprint('settings', __name__)
 CLASS_OPTIONS = get_class_options(include_all_per_year=False)
@@ -61,11 +61,14 @@ def settings():
     yr         = session.get('year_group', '4')
     yr_classes = YEAR_GROUP_CLASSES.get(yr, [])
     wc         = load_weekly_config()
-    term_dates = term_dates_by_term(load_term_dates())
+    td         = load_term_dates()
+    term_dates = term_dates_by_term(td)
+    this_week  = current_week_ref(td)
     return render_template('settings.html',
         wc=wc, yr_classes=yr_classes, active_year=yr,
         class_options=get_class_options_for_year(yr, include_all=False),
-        term_dates=term_dates)
+        term_dates=term_dates,
+        this_week=this_week)
 
 
 @settings_bp.route('/api/settings/save', methods=['POST'])

@@ -527,6 +527,33 @@ def load_term_dates():
     return content or []
 
 
+def current_week_ref(term_dates=None):
+    """Return the TxWy label for today's date, or None if outside term time.
+    Each term_dates entry has {label, iso, term, week}. Weeks run Mon–Sun."""
+    import datetime
+    if term_dates is None:
+        term_dates = load_term_dates()
+    if not term_dates:
+        return None
+    today = datetime.date.today().isoformat()
+    # Sort by iso date ascending
+    dated = sorted([w for w in term_dates if w.get('iso')], key=lambda w: w['iso'])
+    current = None
+    for w in dated:
+        if w['iso'] <= today:
+            current = w
+        else:
+            break
+    if not current:
+        return None
+    # Check we're within 7 days of that week's start (Mon–Sun)
+    import datetime as dt
+    start = dt.date.fromisoformat(current['iso'])
+    end   = start + dt.timedelta(days=6)
+    if dt.date.today() <= end:
+        return current.get('label')
+    return None  # date is after the last known week
+
 def term_dates_by_term(term_dates):
     """Group term_dates list into OrderedDict keyed by term number string.
     e.g. {'1': [{label:'T1W1', ...}, ...], '2': [...], ...}"""
