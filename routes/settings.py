@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import load_weekly_config, save_weekly_config, ALL_CLASSES, get_class_options, load_term_dates, term_dates_by_term, current_week_ref
 
@@ -15,6 +16,83 @@ def api_debug_learners():
                'pair_id': p.get('pair_id'), 'partner_name': p.get('partner_name')}
               for p in pupils[:3]]
     return jsonify({'ok': True, 'sample': sample})
+
+
+@settings_bp.route('/api/settings/sync-term-dates', methods=['POST'])
+def api_sync_term_dates():
+    """Pull term dates from the school planning Google Sheet and save to term_dates.json."""
+    if not session.get('authenticated'):
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+
+    PLANNING_SHEET_ID = '1XsP5yEGnf8sJyXk8iEXqHEtw-NtCsMUFZLaHW4TWNhw'
+    SCOPES = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive',
+    ]
+
+    raw_creds = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')
+    if not raw_creds:
+        return jsonify({'ok': False, 'error': 'GOOGLE_CREDENTIALS_JSON not set on server'})
+
+    try:
+        import json as _json
+        import gspread
+        from google.oauth2.service_account import Credentials
+        from datetime import datetime, timedelta
+
+        info   = _json.loads(raw_creds)
+        creds  = Credentials.from_service_account_info(info, scopes=SCOPES)
+        client = gspread.authorize(creds)
+        sh     = client.open_by_key(PLANNING_SHEET_ID)
+        ws     = sh.worksheet('TermDates')
+        rows   = ws.get_all_records(default_blank='')
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'Sheet read failed: {e}'})
+
+    # Expected columns: Term, Week, StartDate (dd/mm/yy)
+    # Build term_dates list: [{label, iso, display, term, week}]
+    term_dates = []
+    for row in rows:
+        try:
+            term = int(str(row.get('Term', '')).strip())
+            week = int(str(row.get('Week', '')).strip())
+            raw  = str(row.get('StartDate', '')).strip()
+            if not raw:
+                continue
+            # Try dd/mm/yy then dd/mm/yyyy
+            for fmt in ('%d/%m/%y', '%d/%m/%Y'):
+                try:
+                    dt = datetime.strptime(raw, fmt)
+                    break
+                except ValueError:
+                    continue
+            else:
+                continue
+            iso     = dt.strftime('%Y-%m-%d')
+            display = dt.strftime('%-d %b')        # e.g. "1 Sep"
+            label   = f'T{term}W{week}'
+            term_dates.append({'label': label, 'iso': iso, 'display': display,
+                               'term': term, 'week': week})
+        except (ValueError, TypeError):
+            continue
+
+    if not term_dates:
+        return jsonify({'ok': False, 'error': 'No valid rows found in TermDates sheet'})
+
+    term_dates.sort(key=lambda w: w['iso'])
+
+    from data_manager import _get_file, _put_file, _put_file_create
+    path = 'data/term_dates.json'
+    _, sha = _get_file(path)
+    if sha is None:
+        ok = _put_file_create(path, term_dates, 'Sync term dates from planning sheet')
+    else:
+        ok = _put_file(path, term_dates, sha, 'Sync term dates from planning sheet')
+
+    if ok:
+        return jsonify({'ok': True, 'count': len(term_dates),
+                        'sample': [w['label'] for w in term_dates[:6]]})
+    return jsonify({'ok': False, 'error': 'GitHub write failed'})
 
 
 @settings_bp.route('/api/settings/uls-weeks')

@@ -108,6 +108,14 @@
       </select>
       <span style="font-size:12px;color:#94a3b8;margin-left:8px">Used on printed materials and bee records.</span>
     </div>
+    <div class="settings-row" style="margin-top:8px">
+      <label class="settings-label">Term dates</label>
+      <button class="btn btn-secondary" style="font-size:12px;padding:5px 14px"
+              onclick="syncTermDates(event)">↻ Sync from planning sheet</button>
+      <span style="font-size:12px;color:#94a3b8;margin-left:8px">
+        Pulls dates from the Google Sheet — do this once at the start of each school year.
+      </span>
+    </div>
   </div>
 
   <div class="settings-save-row">
@@ -324,6 +332,27 @@ async function saveSettings(evt) {
   } catch (err) {
     btn.disabled = false;
     btn.textContent = '💾 Save settings';
+    showStatus('Network error.', 'error');
+  }
+}
+
+async function syncTermDates(evt) {
+  const btn = evt.target;
+  btn.disabled = true;
+  btn.textContent = '↻ Syncing…';
+  try {
+    const res  = await fetch('/api/settings/sync-term-dates', {method: 'POST'});
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = '↻ Sync from planning sheet';
+    if (data.ok) {
+      showStatus(`✓ Synced ${data.count} weeks (${data.sample.join(', ')}…) — reload to see updated dropdown.`, 'success');
+    } else {
+      showStatus('Sync failed: ' + (data.error || 'Unknown'), 'error');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '↻ Sync from planning sheet';
     showStatus('Network error.', 'error');
   }
 }

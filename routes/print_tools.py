@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import load_class, load_weekly_config, get_rule, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
+from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -24,12 +24,27 @@ def _load_pupils(cls):
 
 
 def _get_rules(cls):
+    """Return (main_rule_like, rev_rule_like, week_ref).
+    Now uses ULS selected_words from weekly config; falls back to old Spelling Shed rule_id."""
     wc      = load_weekly_config()
+    week_ref = wc.get('week_ref', 'TxWy')
+
+    # ULS path: build a pseudo-rule tuple from selected_words + lesson focus
+    selected_words = wc.get('selected_words', [])
+    hl_lesson = get_uls_lesson(wc.get('hl_lesson_id', ''))
+    if selected_words or hl_lesson:
+        focus = hl_lesson['focus'] if hl_lesson else wc.get('year_group', '')
+        words = selected_words or (hl_lesson['hlWords'] if hl_lesson else [])
+        # Return a tuple compatible with existing callers: (stage, step, title, words, rtype)
+        main = (0, 0, focus, words, 0)
+        return main, None, week_ref
+
+    # Fallback: old Spelling Shed rule
     ref_cls = get_ref_class(cls)
     cfg     = wc.get('classes', {}).get(ref_cls, {})
     main    = get_rule(cfg.get('main_rule_id', ''))
     rev     = get_rule(cfg.get('revision_rule_id', ''))
-    return main, rev, wc.get('week_ref', 'TxWy')
+    return main, rev, week_ref
 
 
 def _build_key_words_map(pupils):
