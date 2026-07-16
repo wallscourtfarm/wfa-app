@@ -26,8 +26,13 @@
 
 <div class="hl-meta">
   <span>Week: <strong>{{ week_ref or '—' }}</strong></span>
-  <span>Main rule: <em>{{ rules_info.main }}</em></span>
-  <span>Revision rule: <em>{{ rules_info.revision }}</em></span>
+  {% if rules_info.year_group %}
+    <span>Year: <strong>{{ rules_info.year_group }}</strong></span>
+  {% endif %}
+  <span>This week: <em>{{ rules_info.main }}</em></span>
+  {% if rules_info.hl_words %}
+    <span>HL words: <em>{{ rules_info.hl_words | join(', ') }}</em></span>
+  {% endif %}
 </div>
 
 <div id="status-bar" class="status-bar hidden"></div>
@@ -40,9 +45,9 @@
       <h3 class="print-card-title">Generate materials</h3>
       <p class="print-card-desc">
         Print per-pupil word list cards for a paper bee, or create a digital QR session for iPads.
-        Each card shows 5 key spellings and the group's rule words.
-        {% if rules_info.main and rules_info.main != '—' %}
-        Rule words: <em>{{ rules_info.main }}</em>.
+        Each card shows 5 key spellings and this week's home learning words.
+        {% if rules_info.hl_words %}
+        HL words: <em>{{ rules_info.hl_words | join(', ') }}</em>.
         {% endif %}
       </p>
     </div>
