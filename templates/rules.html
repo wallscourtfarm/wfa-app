@@ -36,7 +36,7 @@
     <div class="stage-section" id="term{{ term }}Section">
       <div class="stage-header" onclick="toggleSection('term{{ term }}Section')">
         <span class="stage-title">{{ term_labels.get(term, term) }}</span>
-        <span class="stage-count">{{ weeks.values() | sum(attribute='__len__') }} lessons</span>
+        <span class="stage-count">{{ weeks.values() | map('length') | sum }} lessons</span>
         <span class="stage-chevron">▼</span>
       </div>
       <div class="stage-body" id="term{{ term }}Section-body">
