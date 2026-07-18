@@ -448,3 +448,27 @@ ULS_LESSONS = [
 ]
 
 _LESSON_INDEX = {l['id']: l for l in ULS_LESSONS}
+
+def get_lesson(lesson_id):
+    return _LESSON_INDEX.get(lesson_id)
+
+def get_week_lessons(year_group, term_code, week_num):
+    return [l for l in ULS_LESSONS
+            if l['year'] == year_group and l['term'] == term_code and l['week'] == week_num]
+
+def get_all_weeks(year_group):
+    seen = set()
+    result = []
+    for l in ULS_LESSONS:
+        if l['year'] == year_group:
+            key = (l['term'], l['week'])
+            if key not in seen:
+                seen.add(key)
+                result.append(key)
+    return result
+
+TERM_LABELS = {
+    'T1': 'Autumn 1', 'T2': 'Autumn 2',
+    'T3': 'Spring 1', 'T4': 'Spring 2',
+    'T5': 'Summer 1', 'T6': 'Summer 2',
+}
