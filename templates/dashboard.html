@@ -52,7 +52,7 @@
           <td class="pupil-name">{{ r.first }}</td>
           <td>{{ r.last }}</td>
           {% if cls=='all' %}<td>{{ r.cls }}</td>{% endif %}
-          <td><span class="group-pill group-{{ r.group }}">{{ r.group|title }}</span></td>
+          <td><span class="group-pill group-{{ 'phonics' if r.group in ('phonics','revision') else r.group }}">{{ 'Phonics' if r.group in ('phonics','revision') else r.group|title }}</span></td>
           {% if active_year not in ("1", "2") %}<td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>{% endif %}
           {% set yr_pct = {'1':r.y1_pct,'2':r.y2_pct,'3':r.y3_pct,'4':r.y4_pct,'5':r.y5_pct,'6':r.y6_pct}.get(active_year, r.y4_pct) %}
           <td class="num-col"><div class="prog-cell"><div class="prog-fill" style="width:{{ yr_pct }}%"></div><span>{{ yr_pct }}%</span></div></td>
