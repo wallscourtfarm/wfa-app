@@ -10,14 +10,14 @@
 
 <div class="settings-wrap">
 
-  <!-- ULS Weekly setup -->
+  <!-- Unlocking Spelling Weekly setup -->
   <div class="settings-section">
     <h3 class="settings-heading">Unlocking Spelling — Weekly Setup</h3>
 
     {% if this_week %}
     <div style="margin-bottom:14px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:12px">
       <span style="font-size:13px;color:#0369a1">
-        📅 This week is <strong>{{ this_week }}</strong> — click to load the correct ULS lessons automatically.
+        📅 This week is <strong>{{ this_week }}</strong> — click to load the correct Unlocking Spelling lessons automatically.
       </span>
       <button class="btn btn-primary" style="font-size:12px;padding:4px 12px;white-space:nowrap"
               onclick="loadThisWeek('{{ this_week }}')">Load {{ this_week }}</button>
@@ -323,10 +323,13 @@ async function saveSettings(evt) {
     });
     const data = await res.json();
     btn.disabled = false;
-    btn.textContent = '💾 Save settings';
     if (data.ok) {
+      btn.textContent = '✓ Saved';
+      btn.style.background = '#166534';
       showStatus('✓ Settings saved.', 'success');
+      setTimeout(() => { btn.textContent = '💾 Save settings'; btn.style.background = ''; }, 2500);
     } else {
+      btn.textContent = '💾 Save settings';
       showStatus('Error: ' + (data.error || 'Unknown'), 'error');
     }
   } catch (err) {

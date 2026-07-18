@@ -16,15 +16,15 @@ BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
 TT_ORDER   = ['2','5','4','8','3','6','9','7','11','12','All']
 
 # ── Class registry ─────────────────────────────────────────────────────────────
-# Single source of truth for 2026-27. Class IDs use the format NXX (e.g. 4CK).
+# Single source of truth for 2026-27. Class IDs use the format YN_XX.
 
 YEAR_GROUP_CLASSES = {
-    '1': ['1ER', '1JS'],
-    '2': ['2MY', '2JH'],
-    '3': ['3JW', '3WU'],
-    '4': ['4CK', '4RB'],
-    '5': ['5LS', '5IM'],
-    '6': ['6JM', '6SD'],
+    '1': ['Y1_ER', 'Y1_ET'],
+    '2': ['Y2_MY', 'Y2_JH'],
+    '3': ['Y3_JW', 'Y3_RB'],
+    '4': ['Y4_IM', 'Y4_WU'],
+    '5': ['Y5_CK', 'Y5_LE'],
+    '6': ['Y6_JM', 'Y6_SD'],
 }
 
 ALL_CLASSES = [c for classes in YEAR_GROUP_CLASSES.values() for c in classes]
@@ -35,24 +35,29 @@ YEAR_WORD_ZONE = {
 
 def get_year_group(class_id):
     """Return year group string ('1'–'6') for a class_id, or None."""
+    import re as _re
     for yr, classes in YEAR_GROUP_CLASSES.items():
         if class_id in classes:
             return yr
-    if class_id and '_all' in class_id:
-        return class_id[1]
+    # Handle Y4_all or Y4_IM style
+    m = _re.match(r'Y(\d+)', class_id or '')
+    if m:
+        return m.group(1)
     return None
 
 def _resolve_classes(class_id):
     """
     Return list of real class IDs to load.
-      'Y4_all' -> ['4CK', '4RB']
-      '4CK'    -> ['4CK']
-      'all'    -> ['4CK', '4RB']  (legacy Y4 fallback)
+      'Y4_all' -> ['Y4_IM', 'Y4_WU']
+      'Y4_IM'  -> ['Y4_IM']
+      'all'    -> ['Y4_IM', 'Y4_WU']  (Y4 fallback)
     """
     if class_id == 'all':
         return list(YEAR_GROUP_CLASSES.get('4', []))
     if class_id and class_id.endswith('_all'):
-        yr = class_id[1]
+        import re as _re
+        m = _re.match(r'Y(\d+)', class_id)
+        yr = m.group(1) if m else class_id[1]
         return list(YEAR_GROUP_CLASSES.get(yr, []))
     return [class_id] if class_id else []
 
