@@ -499,7 +499,7 @@ function render() {
 
     const groupBadge = isPending
       ? `<span class="group-badge pending-badge">Pending</span>`
-      : `<span class="group-badge group-${p.group === 'revision' ? 'phonics' : p.group}">${p.group === 'main' ? 'Main' : 'Phonics'}</span>`;
+      : `<span class="group-badge group-${p.group === 'main' ? 'main' : 'phonics'}">${p.group === 'main' ? 'Main' : 'Phonics'}</span>`;
 
     tr.innerHTML = `
       <td><strong>${p.first}</strong> ${p.last || ''}</td>
@@ -586,7 +586,7 @@ async function setPair(a, b, colour) {
 // ── GPC field visibility ──────────────────────────────────────────────────────
 function toggleGpcField(prefix) {
   const grp = document.getElementById(`${prefix}-group`).value;
-  const show = grp === 'phonics' || grp === 'revision';
+  const show = grp === 'phonics';
   document.getElementById(`${prefix}-gpc-field`).style.display = show ? '' : 'none';
 }
 
