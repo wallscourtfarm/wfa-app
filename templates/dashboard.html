@@ -24,13 +24,6 @@
   {% endfor %}
 </div>
 
-{% if active_year not in ("1", "2") %}
-<div class="section-block">
-  <h3 class="section-title">Times Table distribution</h3>
-  <div class="chart-wrap"><canvas id="ttChart"></canvas></div>
-</div>
-{% endif %}
-
 {% set lp_map = {} %}
 {% for lp in learner_pupils %}{% set _ = lp_map.update({lp.id: lp}) %}{% endfor %}
 
@@ -133,6 +126,13 @@
       </tbody>
     </table>
   </div>
+</div>
+{% endif %}
+
+{% if active_year not in ("1", "2") %}
+<div class="section-block">
+  <h3 class="section-title">Times Table distribution</h3>
+  <div class="chart-wrap"><canvas id="ttChart"></canvas></div>
 </div>
 {% endif %}
 
