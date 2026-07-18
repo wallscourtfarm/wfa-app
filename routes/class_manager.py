@@ -186,7 +186,7 @@ def api_pupil_update():
         pupil_id  = body.get('pupil_id', '')
         changes   = body.get('changes', {})
 
-        ALLOWED = {'first', 'last', 'group', 'tt_set', 'tt_mode',
+        ALLOWED = {'first', 'last', 'group', 'phonics_gpcs', 'tt_set', 'tt_mode',
                    'table', 'adapted_hl', 'ss_user', 'ss_pass', 'language', 'home_language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
@@ -242,6 +242,7 @@ def api_pupil_add():
             'last':            last,
             'cls':             _cls_short(cls),
             'group':           body.get('group', 'main'),
+            'phonics_gpcs':    body.get('phonics_gpcs', []),
             'tt_set':          body.get('tt_set', '2'),
             'tt_mode':         'x',
             'table':           body.get('table', ''),

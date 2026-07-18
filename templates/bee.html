@@ -19,7 +19,7 @@
       <span class="filter-label">Group</span>
       <a href="?cls={{ cls }}&group=all"      class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
       <a href="?cls={{ cls }}&group=main"     class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-ghost{% endif %}">Main</a>
-      <a href="?cls={{ cls }}&group=revision" class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-ghost{% endif %}">Revision</a>
+      <a href="?cls={{ cls }}&group=revision" class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-ghost{% endif %}">Phonics</a>
     </div>
   </div>
 </div>
@@ -103,15 +103,17 @@
 {% if pupils %}
 <div class="bee-list" id="bee-list">
   {% for p in pupils %}
-  <div class="bee-row {% if p.is_rev %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ p.file_cls }}">
+  <div class="bee-row {% if p.is_phonics %}bee-row--rev{% endif %}" data-pid="{{ p.id }}" data-cls="{{ p.file_cls }}">
     <div class="bee-name">
       <span>{{ p.first }}</span>
-      {% if p.is_rev %}<span class="rev-badge">REV</span>{% endif %}
+      {% if p.is_phonics %}<span class="rev-badge">{{ p.gpc_label or 'Phonics' }}</span>{% endif %}
     </div>
     <div class="bee-words">
-      {% if p.words %}
-        {% for w in p.words %}
-        <button type="button" class="word-pill" data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
+      {% set all_words = p.words + p.phonics_words %}
+      {% if all_words %}
+        {% for w in all_words %}
+        <button type="button" class="word-pill{% if loop.index0 >= p.words|length %} word-pill--phonics{% endif %}"
+                data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
         {% endfor %}
       {% else %}
         <span class="no-words">No words</span>

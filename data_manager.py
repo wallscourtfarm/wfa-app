@@ -213,7 +213,7 @@ def load_dashboard(class_id='Y4_all'):
     stats    = {
         'total':        len(all_pupils),
         'main':         sum(1 for p in all_pupils if p.get('group','main')=='main'),
-        'revision':     sum(1 for p in all_pupils if p.get('group')=='revision'),
+        'revision':     sum(1 for p in all_pupils if p.get('group') in ('revision','phonics')),
         'paired':       sum(1 for p in all_pupils if p.get('pair_id')),
         'avg_mastered': sum(len(p.get('mastered',[])) for p in all_pupils) // max(len(all_pupils),1),
     }
@@ -315,27 +315,58 @@ def load_bee_pupils(class_id='4CK'):
     term_label = TERM_LABELS.get(wc.get('term',''), wc.get('term',''))
     week_label = f"{wc.get('term','')} W{wc.get('week','')} · {term_label}" if wc.get('term') else wc.get('week_ref','')
 
+    from phonics_bank import PHONICS_BANK
     pupils = []
     for p in data.get('pupils',[]):
-        mastered = set(p.get('mastered',[]))
-        words    = get_active_words(p.get('word_pos',0), mastered, 5)
-        is_rev   = p.get('group')=='revision'
+        mastered   = set(p.get('mastered',[]))
+        key_words  = get_active_words(p.get('word_pos',0), mastered, 5)
+        group      = p.get('group','main')
+        is_phonics = group in ('phonics', 'revision')
+        gpcs       = p.get('phonics_gpcs', [])
+        if is_phonics and gpcs:
+            phonics_words = _get_phonics_words(gpcs, PHONICS_BANK)
+            gpc_label = ', '.join(gpcs)
+        else:
+            phonics_words = []
+            gpc_label = ''
         pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),'file_cls':class_id,
-                       'group':p.get('group','main'),'is_rev':is_rev,
+                       'group': group, 'is_phonics': is_phonics,
+                       'phonics_gpcs': gpcs, 'gpc_label': gpc_label,
+                       'phonics_words': phonics_words,
                        'rule_label': wc.get('year_group','') + ' ' + week_label,
-                       'words': words,
+                       'words': key_words,
                        'words_updated_at': p.get('words_updated_at','')})
     # Build rules_info for template display
     focuses_str = ' · '.join(week_focuses[:2]) if week_focuses else '—'
     rules_info = {
         'main':      focuses_str,
-        'revision':  '—',
+        'phonics':   'Phonics GPC words',
         'week':      wc.get('week_ref', week_label),
         'hl_words':  hl_words,
         'lessons':   lessons,
         'year_group': wc.get('year_group', ''),
     }
     return pupils, rules_info, wc.get('week_ref', week_label)
+
+def _get_phonics_words(gpcs, bank, count=5):
+    """Interleave words from each GPC bank to fill `count` slots."""
+    pools = [bank.get(g, []) for g in gpcs if g in bank]
+    if not pools:
+        return []
+    result, i = [], 0
+    while len(result) < count:
+        added = False
+        for pool in pools:
+            if i < len(pool):
+                result.append(pool[i])
+                added = True
+                if len(result) == count:
+                    break
+        if not added:
+            break
+        i += 1
+    return result
+
 
 def _apply_assessment(pupil, correct_words):
     p = dict(pupil)

@@ -401,11 +401,12 @@ body {
 .bee-row { display:grid; grid-template-columns:130px 1fr 140px;
   gap:0; align-items:center; background:var(--surface);
   border-left:4px solid var(--brand); min-height:44px; }
-.bee-row--rev { border-left-color:#c0157b; }
+.bee-row--rev { border-left-color:#d97706; }
 
 .bee-name { padding:6px 10px; font-weight:600; font-size:13px;
   display:flex; flex-direction:column; gap:2px; }
-.rev-badge { font-size:10px; font-weight:700; color:#c0157b; }
+.rev-badge { font-size:10px; font-weight:700; color:#d97706; }
+.word-pill--phonics { border-color:#d97706; background:#fefce8; color:#92400e; }
 
 .bee-words { padding:6px 8px; display:flex; flex-wrap:wrap; gap:5px; }
 

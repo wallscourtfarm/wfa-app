@@ -182,9 +182,10 @@ async function ssApply() {
       <div class="cm-field-row">
         <div class="cm-field">
           <label>Group</label>
-          <select id="edit-group" class="cm-input">
+          <select id="edit-group" class="cm-input" onchange="toggleGpcField('edit')">
             <option value="main">Main</option>
-            <option value="revision">Revision</option>
+            <option value="phonics">Phonics</option>
+            <option value="revision">Phonics (legacy)</option>
           </select>
         </div>
         <div class="cm-field">
@@ -208,6 +209,10 @@ async function ssApply() {
             <option value="xd">× and ÷</option>
           </select>
         </div>
+      </div>
+      <div class="cm-field" id="edit-gpc-field" style="display:none">
+        <label>Phonics GPCs this week <span style="font-size:11px;color:#64748b">(e.g. ai, ar)</span></label>
+        <input id="edit-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar">
       </div>
       <div class="cm-field">
         <label>
@@ -275,15 +280,19 @@ async function ssApply() {
       <div class="cm-field-row">
         <div class="cm-field">
           <label>Group</label>
-          <select id="add-group" class="cm-input">
+          <select id="add-group" class="cm-input" onchange="toggleGpcField('add')">
             <option value="main">Main</option>
-            <option value="revision">Revision</option>
+            <option value="phonics">Phonics</option>
           </select>
         </div>
         <div class="cm-field">
           <label>Table</label>
           <input id="add-table" type="text" class="cm-input" placeholder="e.g. 1">
         </div>
+      </div>
+      <div class="cm-field" id="add-gpc-field" style="display:none">
+        <label>Phonics GPCs this week <span style="font-size:11px;color:#64748b">(e.g. ai, ar)</span></label>
+        <input id="add-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar">
       </div>
       <div class="cm-field">
         <label>
@@ -424,7 +433,8 @@ async function ssApply() {
 
 .group-badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; }
 .group-main     { background:#dbeafe; color:#1d4ed8; }
-.group-revision { background:#fce7f3; color:#9d174d; }
+.group-phonics  { background:#fef9c3; color:#854d0e; }
+.group-revision { background:#fef9c3; color:#854d0e; }
 .pending-badge  { background:#fef3c7; color:#92400e; }
 .pair-num { display:inline-block; font-size:11px; font-weight:700; color:#374151;
   background:#f3f4f6; border:1px solid #d1d5db; border-radius:4px;
@@ -590,7 +600,7 @@ function render() {
 
     const groupBadge = isPending
       ? `<span class="group-badge pending-badge">Pending</span>`
-      : `<span class="group-badge group-${p.group}">${p.group === 'main' ? 'Main' : 'Revision'}</span>`;
+      : `<span class="group-badge group-${p.group === 'revision' ? 'phonics' : p.group}">${p.group === 'main' ? 'Main' : 'Phonics'}</span>`;
 
     tr.innerHTML = `
       <td><strong>${p.first}</strong> ${p.last || ''}</td>
@@ -674,6 +684,13 @@ async function setPair(a, b, colour) {
   } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 
+// ── GPC field visibility ──────────────────────────────────────────────────────
+function toggleGpcField(prefix) {
+  const grp = document.getElementById(`${prefix}-group`).value;
+  const show = grp === 'phonics' || grp === 'revision';
+  document.getElementById(`${prefix}-gpc-field`).style.display = show ? '' : 'none';
+}
+
 // ── Pair modal ────────────────────────────────────────────────────────────────
 function openPairModal(pid, e) {
   if (e) e.stopPropagation();
@@ -753,6 +770,8 @@ function openEditModal(pid, e) {
   document.getElementById('edit-first').value       = p.first;
   document.getElementById('edit-last').value        = p.last || '';
   document.getElementById('edit-group').value       = p.group || 'main';
+  document.getElementById('edit-phonics-gpcs').value = (p.phonics_gpcs || []).join(', ');
+  toggleGpcField('edit');
   document.getElementById('edit-tt-set').value      = p.tt_set;
   document.getElementById('edit-tt-mode').value     = p.tt_mode;
   document.getElementById('edit-table').value       = p.table || '';
@@ -785,6 +804,7 @@ async function saveEdit() {
           first:      document.getElementById('edit-first').value.trim(),
           last:       document.getElementById('edit-last').value.trim(),
           group:      document.getElementById('edit-group').value,
+          phonics_gpcs: document.getElementById('edit-phonics-gpcs').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
           tt_set:     document.getElementById('edit-tt-set').value,
           tt_mode:    document.getElementById('edit-tt-mode').value,
           table:      document.getElementById('edit-table').value.trim(),
@@ -875,7 +895,9 @@ function openAddModal() {
   document.getElementById('add-first').value = '';
   document.getElementById('add-last').value  = '';
   document.getElementById('add-group').value = 'main';
+  document.getElementById('add-phonics-gpcs').value = '';
   document.getElementById('add-table').value = '';
+  toggleGpcField('add');
   document.getElementById('add-adapted-hl').checked = false;
   document.getElementById('add-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('add-first').focus(), 50);
@@ -896,6 +918,7 @@ async function confirmAdd() {
         cls: CLS_ID, first,
         last:       document.getElementById('add-last').value.trim(),
         group:      document.getElementById('add-group').value,
+        phonics_gpcs: document.getElementById('add-phonics-gpcs').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
         table:      document.getElementById('add-table').value.trim(),
         adapted_hl: document.getElementById('add-adapted-hl').checked,
       }),
