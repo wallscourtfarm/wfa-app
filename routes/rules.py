@@ -45,6 +45,23 @@ def rules():
     )
 
 
+@rules_bp.route('/rules/overview')
+def rules_overview():
+    r = _auth()
+    if r: return r
+    year_group = request.args.get('year', 'Y3')
+    if not year_group.startswith('Y'):
+        year_group = f'Y{year_group}'
+    lessons = [l for l in ULS_LESSONS if l['year'] == year_group]
+    lessons.sort(key=lambda l: (l['term'], l['week'], l['weekLesson']))
+    return render_template('rules_overview.html',
+        lessons=lessons,
+        term_labels=TERM_LABELS,
+        year_group=year_group,
+        all_years=['Y2','Y3','Y4','Y5','Y6'],
+    )
+
+
 @rules_bp.route('/api/rules/confidence', methods=['POST'])
 def api_confidence():
     if not session.get('authenticated'):

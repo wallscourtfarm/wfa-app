@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ year_group }} Spelling Overview — WFA</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 12px;
+      color: #1a1a1a;
+      background: #fff;
+      padding: 16px 20px;
+    }
+
+    .screen-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .screen-header h1 { font-size: 20px; color: #1798d3; }
+    .year-tabs { display: flex; gap: 6px; }
+    .year-tab {
+      padding: 4px 14px;
+      border: 1px solid #1798d3;
+      border-radius: 4px;
+      background: #fff;
+      color: #1798d3;
+      cursor: pointer;
+      font-size: 12px;
+      text-decoration: none;
+    }
+    .year-tab.active { background: #1798d3; color: #fff; }
+    .btn-print {
+      margin-left: auto;
+      padding: 6px 18px;
+      background: #1798d3;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-print:hover { background: #1280b5; }
+
+    h2.term-heading {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      background: #1798d3;
+      padding: 5px 10px;
+      border-radius: 4px;
+      margin: 18px 0 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 4px;
+    }
+    thead th {
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 700;
+      text-align: left;
+      padding: 5px 8px;
+      border: 1px solid #bae6fd;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tbody tr:hover { background: #f0f9ff; }
+    td {
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    .col-ref    { width: 60px; white-space: nowrap; font-weight: 600; color: #64748b; }
+    .col-seq    { width: 110px; }
+    .col-focus  { width: 160px; font-weight: 600; color: #0a0101; }
+    .col-expl   { }
+    .col-words  { width: 220px; }
+
+    .seq-badge {
+      display: inline-block;
+      background: #e0f2fe;
+      color: #0369a1;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .word-pill {
+      display: inline-block;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 1px 7px;
+      margin: 1px 2px 1px 0;
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+
+    @media print {
+      .screen-header .btn-print,
+      .screen-header .year-tabs,
+      .screen-header a { display: none !important; }
+      body { padding: 8px 10px; font-size: 10.5px; }
+      h2.term-heading { font-size: 12px; margin: 12px 0 4px; }
+      thead th { font-size: 9.5px; padding: 3px 6px; }
+      td { padding: 4px 6px; }
+      .word-pill { font-size: 9.5px; padding: 1px 5px; }
+      .col-words { width: 180px; }
+      .col-focus { width: 130px; }
+      .col-seq   { width: 90px; }
+      .col-ref   { width: 44px; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      h2.term-heading { page-break-before: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="screen-header">
+  <h1>{{ year_group }} — Spelling Overview</h1>
+  <div class="year-tabs">
+    {% for yr in all_years %}
+      <a class="year-tab {% if yr == year_group %}active{% endif %}"
+         href="/rules/overview?year={{ yr }}">{{ yr }}</a>
+    {% endfor %}
+  </div>
+  <button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+
+{% set ns = namespace(current_term=None) %}
+{% for lesson in lessons %}
+  {% if lesson.term != ns.current_term %}
+    {% if ns.current_term is not none %}
+      </tbody></table>
+    {% endif %}
+    {% set ns.current_term = lesson.term %}
+    <h2 class="term-heading">{{ term_labels.get(lesson.term, lesson.term) }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-ref">Wk / L</th>
+          <th class="col-seq">Sequence</th>
+          <th class="col-focus">Focus</th>
+          <th class="col-expl">Rule / Explanation</th>
+          <th class="col-words">Home learning words</th>
+        </tr>
+      </thead>
+      <tbody>
+  {% endif %}
+      <tr>
+        <td class="col-ref">W{{ lesson.week }}&nbsp;L{{ lesson.weekLesson }}</td>
+        <td class="col-seq"><span class="seq-badge">{{ lesson.sequence }}</span></td>
+        <td class="col-focus">{{ lesson.focus }}</td>
+        <td class="col-expl">{{ lesson.explanation }}</td>
+        <td class="col-words">
+          {% for w in lesson.hlWords %}<span class="word-pill">{{ w }}</span>{% endfor %}
+        </td>
+      </tr>
+{% endfor %}
+{% if ns.current_term is not none %}
+      </tbody>
+    </table>
+{% endif %}
+
+</body>
+</html>
