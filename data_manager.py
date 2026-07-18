@@ -19,12 +19,12 @@ TT_ORDER   = ['2','5','4','8','3','6','9','7','11','12','All']
 # Single source of truth for 2026-27. Class IDs use the format YN_XX.
 
 YEAR_GROUP_CLASSES = {
-    '1': ['Y1_ER', 'Y1_ET'],
-    '2': ['Y2_MY', 'Y2_JH'],
-    '3': ['Y3_JW', 'Y3_RB'],
-    '4': ['Y4_IM', 'Y4_WU'],
-    '5': ['Y5_CK', 'Y5_LE'],
-    '6': ['Y6_JM', 'Y6_SD'],
+    '1': ['1ER', '1JS'],
+    '2': ['2MY', '2JH'],
+    '3': ['3JW', '3WU'],
+    '4': ['4CK', '4RB'],
+    '5': ['5LS', '5IM'],
+    '6': ['6JM', '6SD'],
 }
 
 ALL_CLASSES = [c for classes in YEAR_GROUP_CLASSES.values() for c in classes]
