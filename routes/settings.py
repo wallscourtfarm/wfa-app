@@ -182,6 +182,20 @@ def api_settings_save():
     if selected_words:
         wc['selected_words'] = selected_words
 
+    # Derive and save rule_title so Streamlit can display it without uls_lessons.py
+    from data_manager import get_uls_lesson
+    rule_title = ''
+    if hl_lesson_id:
+        lesson = get_uls_lesson(hl_lesson_id)
+        if lesson:
+            rule_title = lesson.get('focus', '')
+    if not rule_title and lesson_ids:
+        lesson = get_uls_lesson(lesson_ids[0])
+        if lesson:
+            rule_title = lesson.get('focus', '')
+    if rule_title:
+        wc['rule_title'] = rule_title
+
     # Legacy week_ref override
     week_ref = body.get('week_ref', '').strip()
     if week_ref and not week:
