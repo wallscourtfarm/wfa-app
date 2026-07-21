@@ -226,54 +226,72 @@ def api_ra_import_stream(job_id):
     def sse(data):
         return f"data: {json.dumps(data)}\n\n"
 
+    def _process_page(args):
+        """Process a single page: render + Claude Vision. Returns (page_num, result_dict)."""
+        import fitz as _fitz
+        page_num, pdf_bytes_inner = args
+        try:
+            doc_inner = _fitz.open(stream=pdf_bytes_inner, filetype='pdf')
+            page      = doc_inner[page_num]
+            mat       = _fitz.Matrix(150/72, 150/72)   # 150 DPI — faster, still readable
+            pix       = page.get_pixmap(matrix=mat)
+            img_b64   = base64.b64encode(pix.tobytes('png')).decode()
+            doc_inner.close()
+
+            resp = _req.post(
+                ANTHROPIC_URL,
+                headers={'x-api-key': api_key,
+                         'anthropic-version': '2023-06-01',
+                         'content-type': 'application/json'},
+                json={'model': 'claude-sonnet-4-5', 'max_tokens': 1000,
+                      'messages': [{'role': 'user', 'content': [
+                          {'type': 'image', 'source': {
+                              'type': 'base64', 'media_type': 'image/png', 'data': img_b64}},
+                          {'type': 'text', 'text': prompt},
+                      ]}]},
+                timeout=45,
+            )
+            if resp.status_code == 200:
+                text   = resp.json()['content'][0]['text'].strip()
+                text   = re.sub(r'^```[a-z]*\n?', '', text)
+                text   = re.sub(r'\n?```$', '', text)
+                parsed = json.loads(text)
+                return (page_num, {'type': 'page',
+                                   'name': parsed.get('name', ''),
+                                   'results': parsed.get('results', {})})
+            else:
+                return (page_num, {'type': 'error',
+                                   'message': f'API {resp.status_code}'})
+        except Exception as e:
+            return (page_num, {'type': 'error', 'message': str(e)})
+
     def generate():
         import fitz
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         try:
             with open(tmp_pdf, 'rb') as f:
                 pdf_bytes = f.read()
 
             doc     = fitz.open(stream=pdf_bytes, filetype='pdf')
             n_pages = len(doc)
-
-            for page_num in range(n_pages):
-                yield ": keepalive\n\n"
-                try:
-                    page    = doc[page_num]
-                    mat     = fitz.Matrix(200/72, 200/72)
-                    pix     = page.get_pixmap(matrix=mat)
-                    img_b64 = base64.b64encode(pix.tobytes('png')).decode()
-
-                    resp = _req.post(
-                        ANTHROPIC_URL,
-                        headers={'x-api-key': api_key,
-                                 'anthropic-version': '2023-06-01',
-                                 'content-type': 'application/json'},
-                        json={'model': 'claude-sonnet-4-5', 'max_tokens': 1000,
-                              'messages': [{'role': 'user', 'content': [
-                                  {'type': 'image', 'source': {
-                                      'type': 'base64', 'media_type': 'image/png', 'data': img_b64}},
-                                  {'type': 'text', 'text': prompt},
-                              ]}]},
-                        timeout=45,
-                    )
-
-                    if resp.status_code == 200:
-                        text   = resp.json()['content'][0]['text'].strip()
-                        text   = re.sub(r'^```[a-z]*\n?', '', text)
-                        text   = re.sub(r'\n?```$', '', text)
-                        parsed = json.loads(text)
-                        yield sse({'type': 'page', 'page_num': page_num + 1,
-                                   'total': n_pages,
-                                   'name': parsed.get('name', ''),
-                                   'results': parsed.get('results', {})})
-                    else:
-                        yield sse({'type': 'error', 'page_num': page_num + 1,
-                                   'total': n_pages, 'message': f'API {resp.status_code}'})
-                except Exception as e:
-                    yield sse({'type': 'error', 'page_num': page_num + 1,
-                               'total': n_pages, 'message': str(e)})
-
             doc.close()
+
+            yield sse({'type': 'total', 'total': n_pages})
+
+            BATCH = 5  # concurrent API calls
+            for batch_start in range(0, n_pages, BATCH):
+                yield ": keepalive\n\n"
+                batch = list(range(batch_start, min(batch_start + BATCH, n_pages)))
+                futures = {}
+                with ThreadPoolExecutor(max_workers=BATCH) as ex:
+                    for pn in batch:
+                        futures[ex.submit(_process_page, (pn, pdf_bytes))] = pn
+                    for fut in as_completed(futures):
+                        page_num, result = fut.result()
+                        result['page_num'] = page_num + 1
+                        result['total']    = n_pages
+                        yield sse(result)
+
             yield sse({'type': 'done', 'total': n_pages})
 
         except Exception as e:

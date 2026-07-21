@@ -194,10 +194,12 @@ async function generate() {
 }
 
 // ── Import: streaming ─────────────────────────────────────────────
-let _importResults = {};
-let _errorPages    = [];
-let _activeSource  = null;
-let _totalWords    = 0;
+let _importResults  = {};
+let _errorPages     = [];
+let _activeSource   = null;
+let _totalWords     = 0;
+let _pagesProcessed = 0;
+let _pagesTotal     = 0;
 
 // Results: {name_lower: {name, results: {word: bool}}}
 // Displayed as per-pupil rule scores derived from accumulated word results
@@ -215,9 +217,11 @@ async function startImport() {
   if (!file)  { showStatus('Choose a PDF file first.', 'error'); return; }
   if (!rules.length) { showStatus('Select the same rules used when generating the sheet.', 'error'); return; }
 
-  _importResults = {};
-  _errorPages    = [];
-  _totalWords    = 0;
+  _importResults  = {};
+  _errorPages     = [];
+  _totalWords     = 0;
+  _pagesProcessed = 0;
+  _pagesTotal     = 0;
 
   document.getElementById('results-body').innerHTML = '';
   document.getElementById('import-results').classList.add('hidden');
@@ -244,7 +248,8 @@ async function startImport() {
     jobId       = d.job_id;
     nPages      = d.n_pages;
     _totalWords = d.total_words || 0;
-    setProgress(0, nPages, `Processing page 1 of ${nPages}…`);
+    _pagesTotal = nPages;
+    setProgress(0, nPages, `Processing 0 of ${nPages} pages…`);
   } catch(e) {
     showStatus('Upload failed: ' + e.message, 'error');
     resetImport();
@@ -260,21 +265,23 @@ async function startImport() {
   source.onmessage = (e) => {
     const ev = JSON.parse(e.data);
 
-    if (ev.type === 'page') {
-      const nameKey = ev.name.trim().toLowerCase();
-      if (nameKey) {
-        if (!_importResults[nameKey])
-          _importResults[nameKey] = { name: ev.name, results: {} };
-        Object.assign(_importResults[nameKey].results, ev.results);
-        renderRow(ev.name, _importResults[nameKey].results);
+    if (ev.type === 'page' || ev.type === 'error') {
+      _pagesProcessed++;
+      const done  = _pagesProcessed;
+      const total = _pagesTotal || ev.total;
+      if (ev.type === 'page') {
+        const nameKey = ev.name.trim().toLowerCase();
+        if (nameKey) {
+          if (!_importResults[nameKey])
+            _importResults[nameKey] = { name: ev.name, results: {} };
+          Object.assign(_importResults[nameKey].results, ev.results);
+          renderRow(ev.name, _importResults[nameKey].results);
+        }
+      } else {
+        _errorPages.push(`Page ${ev.page_num}: ${ev.message}`);
       }
-      setProgress(ev.page_num, ev.total,
-        ev.page_num < ev.total ? `Processing page ${ev.page_num + 1} of ${ev.total}…` : 'Finishing…');
-    }
-
-    if (ev.type === 'error') {
-      _errorPages.push(`Page ${ev.page_num}: ${ev.message}`);
-      setProgress(ev.page_num, ev.total, `Processing page ${ev.page_num + 1} of ${ev.total}…`);
+      setProgress(done, total,
+        done < total ? `Processing… ${done} of ${total} pages done` : 'Finishing…');
     }
 
     if (ev.type === 'done' || ev.type === 'fatal') {
@@ -369,9 +376,11 @@ function resetImport() {
   document.getElementById('import-progress').classList.add('hidden');
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('pdf-upload').value = '';
-  _importResults = {};
-  _errorPages    = [];
-  _totalWords    = 0;
+  _importResults  = {};
+  _errorPages     = [];
+  _totalWords     = 0;
+  _pagesProcessed = 0;
+  _pagesTotal     = 0;
 }
 
 // ── Digital session ───────────────────────────────────────────────────────────
