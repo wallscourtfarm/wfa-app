@@ -49,8 +49,8 @@ def _load_rule_cloze():
     return {}
 
 def _plannable_lessons():
-    """Returns ULS lessons for Y3-Y6 (Y2 excluded — word/focus alignment not yet verified)."""
-    return [l for l in ULS_LESSONS if l['year'] != 'Y2']
+    """Returns all ULS lessons across Y2-Y6."""
+    return list(ULS_LESSONS)
 
 def _rule_sections(selected_ids, cloze_bank):
     """
