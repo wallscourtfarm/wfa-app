@@ -4,7 +4,7 @@ import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
-from spelling_rules import SPELLING_RULES
+from uls_lessons import ULS_LESSONS
 
 ra_bp = Blueprint('rule_assessment', __name__)
 
@@ -16,7 +16,7 @@ DATA_REPO = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
 _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.v3+json'}
 ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 
-WORDS_PER_RULE = 2   # always test first 2 words from each rule's cloze bank
+WORDS_PER_LESSON = 2   # always test first 2 words from each lesson's cloze bank
 
 
 def _auth():
@@ -42,50 +42,47 @@ def _load_pupils(cls):
 
 def _load_rule_cloze():
     r = _req.get(
-        f'https://api.github.com/repos/{DATA_REPO}/contents/data/rule_cloze_sentences.json',
+        f'https://api.github.com/repos/{DATA_REPO}/contents/data/uls_cloze_sentences.json',
         headers=_HDR, timeout=10)
     if r.status_code == 200:
         return json.loads(base64.b64decode(r.json()['content']).decode())
     return {}
 
-def _plannable_rules():
-    """Returns list of (rule_id, stage, step, title, words) for non-hidden rules."""
-    return [
-        (f'{r[0]}-{r[1]}', r[0], r[1], r[2], r[3])
-        for r in SPELLING_RULES if r[4] == 0
-    ]
+def _plannable_lessons():
+    """Returns ULS lessons for Y3-Y6 (Y2 excluded — word/focus alignment not yet verified)."""
+    return [l for l in ULS_LESSONS if l['year'] != 'Y2']
 
 def _rule_sections(selected_ids, cloze_bank):
     """
-    Build list of (rule_id, title, [(word, sentence), (word, sentence)])
-    for the selected rule IDs. Uses first WORDS_PER_RULE sentences from the bank.
+    Build list of (lesson_id, title, [(word, sentence), (word, sentence)])
+    for the selected lesson IDs. Uses first WORDS_PER_LESSON sentences from the bank.
     """
     sections = []
-    for rule_id in selected_ids:
-        entry = cloze_bank.get(rule_id)
+    for lesson_id in selected_ids:
+        entry = cloze_bank.get(lesson_id)
         if not entry:
             continue
-        sentences = entry.get('sentences', [])[:WORDS_PER_RULE]
+        sentences = entry.get('sentences', [])[:WORDS_PER_LESSON]
         if not sentences:
             continue
         pairs = [(s['word'], s['sentence']) for s in sentences]
-        sections.append((rule_id, entry['title'], pairs))
+        sections.append((lesson_id, entry['title'], pairs))
     return sections
 
 def _vision_prompt(sections):
-    """Build a prompt that tells Claude the rule→word mapping on this page."""
+    """Build a prompt that tells Claude the lesson→word mapping on this page."""
     lines = []
-    for rule_id, title, pairs in sections:
+    for lesson_id, title, pairs in sections:
         words = ' and '.join(f'"{w}"' for w, _ in pairs)
-        lines.append(f'  Rule {rule_id} ({title}): tests {words}')
-    rule_map = '\n'.join(lines)
+        lines.append(f'  Lesson {lesson_id} ({title}): tests {words}')
+    lesson_map = '\n'.join(lines)
 
     return (
-        "This is a scanned page from a Year 3/4 spelling rules assessment.\n\n"
+        "This is a scanned page from a ULS spelling assessment.\n\n"
         "The child's name is pre-printed at the top of the page — read it exactly as printed.\n\n"
-        "The assessment is grouped by spelling rule. Each rule has exactly 2 words tested. "
-        "The rules and their words on this page are:\n"
-        f"{rule_map}\n\n"
+        "The assessment is grouped by spelling lesson. Each lesson has exactly 2 words tested. "
+        "The lessons and their words on this page are:\n"
+        f"{lesson_map}\n\n"
         "Each row has a small square box on the right-hand side. The teacher marks correct answers "
         "by drawing a single diagonal line from one corner of the box to the opposite corner. "
         "An empty box or a box with only a small stray mark means incorrect.\n\n"
@@ -108,16 +105,20 @@ def rule_reassessment():
         cls = DEFAULT_CLASS
     wc       = load_weekly_config()
     week_ref = wc.get('week_ref', 'TxWy')
-    rules    = _plannable_rules()
+    lessons  = _plannable_lessons()
 
-    # Group by stage for the selector
-    stages = {}
-    for rule_id, stage, step, title, words in rules:
-        stages.setdefault(stage, []).append({'id': rule_id, 'step': step, 'title': title})
+    # Group by year → term → week for the selector
+    uls_years = {}
+    for l in lessons:
+        uls_years.setdefault(l['year'], {}) \
+                 .setdefault(l['term'], {}) \
+                 .setdefault(l['week'], []) \
+                 .append({'id': l['id'], 'focus': l['focus'],
+                          'sequence': l.get('sequence',''), 'lesson': l.get('lesson','')})
 
     return render_template('rule_assessment.html',
         cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")),
-        week_ref=week_ref, stages=stages)
+        week_ref=week_ref, uls_years=uls_years, active_year=yr)
 
 
 # ── API: Generate sheets ───────────────────────────────────────────────────────
@@ -158,7 +159,7 @@ def api_ra_generate():
             'teacher_pdf_name': f'Rule_Assessment_{week_ref}_{cls}_Teacher.pdf',
             'n_pupils':  len(pupils),
             'n_rules':   len(sections),
-            'n_words':   len(sections) * WORDS_PER_RULE,
+            'n_words':   len(sections) * WORDS_PER_LESSON,
         })
     except Exception as e:
         return _err(e)
@@ -193,7 +194,7 @@ def api_ra_import_upload():
 
         cloze_tmp   = _load_rule_cloze()
         secs_tmp    = _rule_sections(body.get('rules', []), cloze_tmp)
-        total_words = len(secs_tmp) * WORDS_PER_RULE
+        total_words = len(secs_tmp) * WORDS_PER_LESSON
         return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
                         'total_words': total_words})
     except Exception as e:

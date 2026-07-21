@@ -14,47 +14,65 @@
 </div>
 <div class="hl-meta">
   <span>Week: <strong>{{ week_ref or '— (set in Settings)' }}</strong></span>
-  <span id="sel-count" class="muted-label">No rules selected</span>
+  <span id="sel-count" class="muted-label">No lessons selected</span>
 </div>
 
 <div id="status-bar" class="status-bar hidden"></div>
 
-<!-- ── Rule selector ────────────────────────────────────────────── -->
+<!-- ── Lesson selector ────────────────────────────────────────────── -->
 <div class="print-card">
   <div class="print-card-header">
     <span class="print-card-icon">📋</span>
     <div>
-      <h3 class="print-card-title">Select rules to assess</h3>
-      <p class="print-card-desc">2 words tested per rule. Fully mastered = 2/2, partial = 1/2, not mastered = 0/2.</p>
+      <h3 class="print-card-title">Select lessons to assess</h3>
+      <p class="print-card-desc">2 words tested per lesson. Fully mastered = 2/2, partial = 1/2, not mastered = 0/2.</p>
     </div>
   </div>
 
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-    <input type="text" id="rule-search" style="margin:0;flex:1" class="print-textarea" style="height:auto;padding:6px 10px;margin:8px 0 12px;font-size:13px" placeholder="Search rules…" oninput="filterRules(this.value)">
-    <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;white-space:nowrap" onclick="collapseAllStages()">Collapse all</button>
+    <input type="text" id="rule-search" style="margin:0;flex:1" class="print-textarea" style="height:auto;padding:6px 10px;margin:8px 0 12px;font-size:13px" placeholder="Search lessons…" oninput="filterLessons(this.value)">
+    <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;white-space:nowrap" onclick="collapseAll()">Collapse all</button>
   </div>
 
-  <div id="rule-stages">
-    {% for stage, rules in stages.items() | sort %}
-    <details class="ra-stage">
+  <!-- Year tabs -->
+  <div class="ra-year-tabs" id="ra-year-tabs">
+    {% for year in uls_years.keys() | sort %}
+    <button class="ra-year-tab {% if year == 'Y' ~ active_year %}active{% endif %}"
+            data-year="{{ year }}" onclick="switchYear('{{ year }}')">{{ year }}</button>
+    {% endfor %}
+  </div>
+
+  <!-- Year panels -->
+  {% for year, terms in uls_years.items() | sort %}
+  <div class="ra-year-panel" id="panel-{{ year }}"
+       style="display:{% if year == 'Y' ~ active_year %}block{% else %}none{% endif %}">
+    {% for term in terms.keys() | sort %}
+    <details class="ra-stage" id="details-{{ year }}-{{ term }}">
       <summary class="ra-stage-summary">
-        <span>Stage {{ stage }}</span>
+        <span>{{ year }} {{ term }}</span>
         <label class="ra-stage-all" onclick="event.stopPropagation()">
-          <input type="checkbox" onchange="toggleStage({{ stage }}, this.checked)"> Select all
+          <input type="checkbox" onchange="toggleTerm('{{ year }}', '{{ term }}', this.checked)"> Select all
         </label>
       </summary>
       <div class="ra-rules-grid">
-        {% for rule in rules %}
-        <label class="ra-rule-label" data-title="{{ rule.title | lower }}" data-stage="{{ stage }}">
-          <input type="checkbox" class="ra-rule-cb" value="{{ rule.id }}">
-          <span class="ra-rule-title">{{ rule.title }}</span>
-          <span class="ra-rule-id">{{ rule.id }}</span>
+        {% for week in terms[term].keys() | sort %}
+        <div class="ra-week-header">Week {{ week }}</div>
+        {% for lesson in terms[term][week] %}
+        <label class="ra-rule-label"
+               data-title="{{ lesson.focus | lower }}"
+               data-year="{{ year }}"
+               data-term="{{ term }}">
+          <input type="checkbox" class="ra-rule-cb" value="{{ lesson.id }}">
+          <span class="ra-rule-title">{{ lesson.focus }}</span>
+          <span class="ra-rule-id">{{ lesson.id }}</span>
         </label>
+        {% endfor %}
         {% endfor %}
       </div>
     </details>
     {% endfor %}
   </div>
+  {% endfor %}
 
   <div class="print-card-footer" style="margin-top:14px; gap:10px; flex-wrap:wrap">
     <button class="btn btn-primary" id="generate-btn" onclick="generate()">✨ Generate sheets</button>
@@ -92,7 +110,7 @@
     <h4 class="wa-results-title">Results — review before saving</h4>
     <table class="wa-results-table">
       <thead>
-        <tr><th>Name</th><th>Rules</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
+        <tr><th>Name</th><th>Lessons</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
@@ -107,15 +125,37 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+.ra-year-tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+.ra-year-tab {
+  padding:6px 16px; border-radius:20px; border:2px solid var(--brand);
+  background:white; color:var(--brand); font-weight:600; font-size:13px; cursor:pointer;
+}
+.ra-year-tab.active { background:var(--brand); color:white; }
+.ra-week-header {
+  grid-column: 1 / -1;
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  color:var(--muted,#64748b); padding:6px 0 2px; border-top:1px solid #e2e8f0;
+  margin-top:4px;
+}
+</style>
 <script>
 const CLS      = "{{ cls }}";
 const WEEK_REF = "{{ week_ref }}";
 
-// ── Rule selection ────────────────────────────────────────────────
-function collapseAllStages() {
+// ── Year tab switching ─────────────────────────────────────────────
+function switchYear(year) {
+  document.querySelectorAll('.ra-year-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.ra-year-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + year).style.display = 'block';
+  document.querySelector(`.ra-year-tab[data-year="${year}"]`).classList.add('active');
+}
+
+function collapseAll() {
   document.querySelectorAll('.ra-stage[open]').forEach(d => d.removeAttribute('open'));
 }
 
+// ── Selection ─────────────────────────────────────────────────────
 function selectedRules() {
   return [...document.querySelectorAll('.ra-rule-cb:checked')].map(cb => cb.value);
 }
@@ -123,20 +163,25 @@ function selectedRules() {
 function updateCount() {
   const n   = selectedRules().length;
   const el  = document.getElementById('sel-count');
-  el.textContent = n ? `${n} rule${n !== 1 ? 's' : ''} selected (${n * 2} words)` : 'No rules selected';
+  el.textContent = n ? `${n} lesson${n !== 1 ? 's' : ''} selected (${n * 2} words)` : 'No lessons selected';
 }
 
 document.querySelectorAll('.ra-rule-cb').forEach(cb =>
   cb.addEventListener('change', updateCount));
 
-function toggleStage(stage, checked) {
-  document.querySelectorAll(`.ra-rule-label[data-stage="${stage}"] .ra-rule-cb`)
+function toggleTerm(year, term, checked) {
+  document.querySelectorAll(`#panel-${year} #details-${year}-${term} .ra-rule-cb`)
     .forEach(cb => cb.checked = checked);
   updateCount();
 }
 
-function filterRules(q) {
+function filterLessons(q) {
   const lq = q.toLowerCase().trim();
+  // Show all year panels when searching
+  if (lq) {
+    document.querySelectorAll('.ra-year-panel').forEach(p => p.style.display = 'block');
+    document.querySelectorAll('.ra-stage').forEach(d => d.setAttribute('open',''));
+  }
   document.querySelectorAll('.ra-rule-label').forEach(label => {
     const match = !lq ||
       label.dataset.title.includes(lq) ||
@@ -164,7 +209,7 @@ function blob64(b64, mime) {
 // ── Generate ──────────────────────────────────────────────────────
 async function generate() {
   const rules = selectedRules();
-  if (!rules.length) { showStatus('Select at least one rule.', 'error'); return; }
+  if (!rules.length) { showStatus('Select at least one lesson.', 'error'); return; }
   showSpin('generate', true);
   document.getElementById('generate-btn').disabled = true;
   document.getElementById('dl-pdf').classList.add('hidden');
@@ -184,7 +229,7 @@ async function generate() {
     t.href = blob64(d.teacher_pdf, 'application/pdf');
     t.download = d.teacher_pdf_name;
     t.classList.remove('hidden');
-    showStatus(`✅ Generated — ${d.n_rules} rules, ${d.n_words} words, ${d.n_pupils} pupils.`);
+    showStatus(`✅ Generated — ${d.n_rules} lessons, ${d.n_words} words, ${d.n_pupils} pupils.`);
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
   } finally {
@@ -201,21 +246,11 @@ let _totalWords     = 0;
 let _pagesProcessed = 0;
 let _pagesTotal     = 0;
 
-// Results: {name_lower: {name, results: {word: bool}}}
-// Displayed as per-pupil rule scores derived from accumulated word results
-
-function ruleScores(wordResults) {
-  // We just show counts in the table — server computes per-rule on confirm
-  const total = Object.keys(wordResults).length;
-  const correct = Object.values(wordResults).filter(Boolean).length;
-  return { total, correct };
-}
-
 async function startImport() {
   const rules = selectedRules();
   const file  = document.getElementById('pdf-upload').files[0];
   if (!file)  { showStatus('Choose a PDF file first.', 'error'); return; }
-  if (!rules.length) { showStatus('Select the same rules used when generating the sheet.', 'error'); return; }
+  if (!rules.length) { showStatus('Select the same lessons used when generating the sheet.', 'error'); return; }
 
   _importResults  = {};
   _errorPages     = [];
@@ -318,12 +353,8 @@ function setProgress(done, total, label) {
 }
 
 function renderRow(name, wordResults) {
-  // Show per-rule breakdown: full / partial / none
-  // (We don't know the rule groupings in JS, so show word-level totals)
   const words   = Object.keys(wordResults).length;
   const correct = Object.values(wordResults).filter(Boolean).length;
-  // Approximation: assume pairs → full = correct pairs, etc.
-  // Exact per-rule scoring happens server-side on confirm
   const nameKey = name.trim().toLowerCase();
   const rowId   = 'row-' + nameKey.replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
   let row = document.getElementById(rowId);
@@ -332,11 +363,11 @@ function renderRow(name, wordResults) {
     row.id = rowId;
     document.getElementById('results-body').appendChild(row);
   }
-  const rulesTotal = Math.floor(words / 2);
+  const lessonsTotal = Math.floor(words / 2);
   row.innerHTML = `
     <td>${name}</td>
-    <td>${rulesTotal} rule${rulesTotal !== 1 ? 's' : ''}</td>
-    <td colspan="3" style="color:var(--muted);font-size:12px">${correct}/${words} words correct — rule scores calculated on save</td>`;
+    <td>${lessonsTotal} lesson${lessonsTotal !== 1 ? 's' : ''}</td>
+    <td colspan="3" style="color:var(--muted);font-size:12px">${correct}/${words} words correct — lesson scores calculated on save</td>`;
 }
 
 async function confirmImport() {
@@ -353,7 +384,7 @@ async function confirmImport() {
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
-    let msg = `✅ Saved rule confidence for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
+    let msg = `✅ Saved lesson confidence for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
     if (d.unmatched?.length) msg += ` No match: ${d.unmatched.join(', ')}.`;
     showStatus(msg);
     document.getElementById('import-results').classList.add('hidden');
@@ -388,7 +419,7 @@ let _digitalSessionId = null;
 
 async function createDigitalSession() {
   const rules = selectedRules();
-  if (!rules.length) { showStatus('Select at least one rule.', 'error'); return; }
+  if (!rules.length) { showStatus('Select at least one lesson.', 'error'); return; }
   showSpin('digital', true);
   document.getElementById('digital-btn').disabled = true;
   try {
@@ -413,7 +444,7 @@ function showDigitalModal(d) {
   document.getElementById('dm-session-id').textContent = d.session_id;
   document.getElementById('dm-url').textContent        = d.url;
   document.getElementById('dm-url').href               = d.url;
-  document.getElementById('dm-stats').textContent      = d.n_pupils + ' pupils \u00b7 ' + d.n_items + ' words';
+  document.getElementById('dm-stats').textContent      = d.n_pupils + ' pupils · ' + d.n_items + ' words';
   document.getElementById('dm-qr-link').href           = '/api/live/assess/qr/' + d.session_id;
   document.getElementById('digital-modal').style.display = 'flex';
   if (window.QRCode) renderModalQR(d.url);
@@ -429,7 +460,7 @@ function renderModalQR(url) {
 async function processDigitalResults() {
   if (!_digitalSessionId) return;
   const btn = document.getElementById('dm-process-btn');
-  btn.disabled = true; btn.textContent = 'Processing\u2026';
+  btn.disabled = true; btn.textContent = 'Processing…';
   try {
     const resp = await fetch('/api/live/assess/process', {
       method: 'POST',
@@ -437,9 +468,9 @@ async function processDigitalResults() {
       body: JSON.stringify({ session_id: _digitalSessionId }),
     });
     const d = await resp.json();
-    btn.textContent = d.ok ? '\u2705 Saved ' + d.saved + ' pupils' : '\u26a0\ufe0f ' + d.error;
+    btn.textContent = d.ok ? '✅ Saved ' + d.saved + ' pupils' : '⚠️ ' + d.error;
   } catch(e) {
-    btn.textContent = '\u26a0\ufe0f Failed \u2014 try again';
+    btn.textContent = '⚠️ Failed — try again';
     btn.disabled = false;
   }
 }
@@ -454,7 +485,7 @@ function closeDigitalModal() {
   <div style="background:white;border-radius:14px;padding:24px;max-width:480px;width:100%;
     box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <h3 style="font-size:18px;color:#1a3c6e">&#128241; Digital session ready</h3>
+      <h3 style="font-size:18px;color:#1a3c6e">📱 Digital session ready</h3>
       <button onclick="closeDigitalModal()" style="background:none;border:none;font-size:22px;
         cursor:pointer;color:#64748b;line-height:1">&times;</button>
     </div>
@@ -468,9 +499,9 @@ function closeDigitalModal() {
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a id="dm-qr-link" href="#" download class="btn btn-secondary" style="font-size:13px">&#11015; QR card PDF</a>
+      <a id="dm-qr-link" href="#" download class="btn btn-secondary" style="font-size:13px">⬇ QR card PDF</a>
       <button id="dm-process-btn" class="btn btn-primary" style="font-size:13px"
-        onclick="processDigitalResults()">&#10003; Process results</button>
+        onclick="processDigitalResults()">✓ Process results</button>
     </div>
     <p style="font-size:12px;color:#94a3b8;margin:0">
       Pupils open the URL on a shared iPad, pick their name, and type each word as you read it aloud.
