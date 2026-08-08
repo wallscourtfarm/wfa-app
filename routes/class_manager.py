@@ -6,8 +6,8 @@ import os, json, base64, traceback, random
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
-                          get_class_options, get_class_options_for_year, get_year_group,
-                          YEAR_WORD_ZONE, update_teacher_label, bulk_import_pupils, year_end_rollover)
+                          get_class_options, get_class_options_for_year,
+                          update_teacher_label, bulk_import_pupils, year_end_rollover)
 from word_bank import next_active_index
 
 cm_bp = Blueprint('class_manager', __name__)
@@ -234,8 +234,6 @@ def api_pupil_add():
         if not obj:
             return jsonify({'ok': False, 'error': f'Could not load {cls}'})
 
-        yr        = get_year_group(cls) or '4'
-        start_pos = YEAR_WORD_ZONE.get(yr, 185)
         new_id    = _next_pupil_id()
         new_pupil = {
             'id':              new_id,
@@ -251,7 +249,10 @@ def api_pupil_add():
             'language':        body.get('language', ''),
             'pair_id':         '',
             'pair_colour':     '',
-            'word_pos':        start_pos,
+            # New pupils start at the very beginning of the whole CEW/Key
+            # Spelling list (position 0), not their year group's zone —
+            # mastered=[] means we have no evidence they know anything yet.
+            'word_pos':        0,
             'mastered':        [],
             'rule_confidence': {},
             'ss_user':           '',

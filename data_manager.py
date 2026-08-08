@@ -5,7 +5,7 @@ Data lives in wallscourtfarm/spelling-homelearning GitHub repo.
 import os, json, base64, requests, time
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from word_bank import WORD_BANK, get_active_words, mastery_stats
+from word_bank import WORD_BANK, get_active_words, mastery_stats, next_active_index
 
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 DATA_REPO    = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
@@ -643,7 +643,8 @@ def bulk_import_pupils(class_id, csv_text):
     """
     Import pupils from CSV text into a class.
     CSV format (header optional): first, last
-    Pupils start at the correct word_pos for their year group.
+    Pupils start at word_pos 0 — the very start of the whole CEW/Key
+    Spelling list — since a names-only import carries no mastery evidence.
     Returns {'ok': True, 'imported': n, 'errors': [...]}
     """
     import csv, io
@@ -652,8 +653,7 @@ def bulk_import_pupils(class_id, csv_text):
     if not data:
         return {'ok': False, 'error': f'Class {class_id} not found'}
 
-    yr        = get_year_group(class_id) or '4'
-    start_pos = YEAR_WORD_ZONE.get(yr, 185)
+    start_pos = 0
     suffix    = class_id.lstrip('0123456789')
 
     existing_ids = {p['id'] for p in data.get('pupils', [])}
@@ -772,13 +772,13 @@ def year_end_rollover(year_group):
     if not target_data:
         return {'ok': False, 'error': f'Could not load target class {target_id}'}
 
-    # Update each pupil: clear cls (unassigned) and update word_pos floor
-    next_zone = YEAR_WORD_ZONE.get(next_yr, 0)
+    # Update each pupil: clear cls (unassigned) for teacher reassignment.
+    # word_pos carries forward unchanged — it tracks a pupil's real position
+    # in the whole CEW/Key Spelling list, not their year group, so moving up
+    # a year must not bump it.
     for p in all_pupils:
         p['cls']     = ''    # pending — teacher reassigns via class manager
         p['pending'] = True  # flag for class manager to surface in Pending view
-        if p.get('word_pos', 0) < next_zone:
-            p['word_pos'] = next_zone
 
     target_data.setdefault('pupils', []).extend(all_pupils)
     moved = len(all_pupils)
@@ -934,11 +934,9 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
                     row[ci].strip().upper() if ci < len(row) else '')
 
     def compute_word_pos(mastered):
-        pos = YEAR_WORD_ZONE.get(yr, 0)
-        for i, (word, *_) in enumerate(WORD_BANK):
-            if word in mastered:
-                pos = i + 1
-        return pos
+        # First not-yet-mastered word from the very start of the whole
+        # list — a pupil's real position, independent of year group.
+        return next_active_index(0, mastered)
 
     # Group by class
     by_class = {}
