@@ -2,7 +2,7 @@
 routes/class_manager.py
 Pupil and class management: add, edit, remove, move, pair.
 """
-import os, json, base64, traceback
+import os, json, base64, traceback, random
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
@@ -459,6 +459,138 @@ def api_unpair_all():
                 _clear_pair_field(partner_id, own_id)
 
         return jsonify({'ok': True, 'count': len(pairs)})
+    except Exception as e:
+        return _err(e)
+
+
+# ── Internal: pick colours for a batch of new pairs, avoiding ones in use ──────
+
+def _colour_cycle(existing_pupils):
+    used = {p.get('pair_colour') for p in existing_pupils if p.get('pair_colour')}
+    available = [c for c in PAIR_COLOURS if c['hex'] not in used] or list(PAIR_COLOURS)
+    random.shuffle(available)
+    return available + PAIR_COLOURS   # fall back to repeats once we run out of fresh colours
+
+
+# ── API: Bulk pair from numbered assignments ────────────────────────────────────
+
+@cm_bp.route('/api/class/pair_bulk', methods=['POST'])
+def api_pair_bulk():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body        = request.get_json(force=True)
+        cls_id      = body.get('cls_id', '')
+        assignments = body.get('assignments', {})   # {pupil_id: group_number|None}
+        if not cls_id:
+            return jsonify({'ok': False, 'error': 'Missing cls_id'})
+
+        obj, sha = _load_class_file(cls_id)
+        if not obj:
+            return jsonify({'ok': False, 'error': 'Class not found'})
+        pupils = obj.get('pupils', [])
+        by_id  = {p['id']: p for p in pupils}
+
+        # Only pupils the caller explicitly included (i.e. rendered as a bulk
+        # input in this class's table) are eligible to be reconciled — anyone
+        # absent from `assignments` (e.g. a cross-class partner not shown on
+        # this page) is left completely untouched.
+        touched_ids = {pid for pid in assignments if pid in by_id}
+
+        groups = {}
+        for pid, num in assignments.items():
+            if num in (None, '') or pid not in by_id:
+                continue
+            groups.setdefault(str(num), []).append(pid)
+
+        bad = {num: ids for num, ids in groups.items() if len(ids) != 2}
+        if bad:
+            def name(pid):
+                p = by_id[pid]
+                return f"{p.get('first','')} {p.get('last','')}".strip() or pid
+            detail = '; '.join(
+                f"#{num} has {len(ids)} pupil(s) ({', '.join(name(i) for i in ids)})"
+                for num, ids in bad.items())
+            return jsonify({'ok': False, 'error': f'Fix these pair numbers before saving — {detail}'})
+
+        new_pairs = [tuple(ids) for ids in groups.values()]
+        desired_partner = {}
+        for a, b in new_pairs:
+            desired_partner[a] = b
+            desired_partner[b] = a
+
+        touched_partner_ids = []   # (partner_id, former_id) for cross-class partners to clear
+
+        # 1. Break any existing pairing that no longer matches the desired state,
+        #    but only for pupils this bulk save was actually told about.
+        for p in pupils:
+            if p['id'] not in touched_ids:
+                continue
+            cur_partner = p.get('pair_id', '')
+            if not cur_partner or desired_partner.get(p['id']) == cur_partner:
+                continue
+            p['pair_id']          = ''
+            p['pair_colour']      = ''
+            p['pair_colour_name'] = ''
+            if cur_partner not in by_id:
+                touched_partner_ids.append((cur_partner, p['id']))
+
+        # 2. Apply the new pairs, auto-assigning colours to any that are genuinely new
+        colours   = _colour_cycle(pupils)
+        colour_i  = 0
+        for a, b in new_pairs:
+            pa, pb = by_id[a], by_id[b]
+            if pa.get('pair_id') == b and pb.get('pair_id') == a:
+                continue   # already correctly paired — leave its colour alone
+            colour = colours[colour_i % len(colours)]
+            colour_i += 1
+            pa['pair_id'], pa['pair_colour'], pa['pair_colour_name'] = b, colour['hex'], colour['name']
+            pb['pair_id'], pb['pair_colour'], pb['pair_colour_name'] = a, colour['hex'], colour['name']
+
+        _save_class_file(cls_id, obj, sha, f'Bulk update pairings for {cls_id}')
+
+        # 3. Clear the far side of any cross-class pairing we just broke
+        for partner_id, former_id in touched_partner_ids:
+            _clear_pair_field(partner_id, former_id)
+
+        return jsonify({'ok': True, 'pairs': len(new_pairs)})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Randomly pair up everyone currently unpaired in a class ───────────────
+
+@cm_bp.route('/api/class/autopair', methods=['POST'])
+def api_autopair():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body   = request.get_json(force=True)
+        cls_id = body.get('cls_id', '')
+        if not cls_id:
+            return jsonify({'ok': False, 'error': 'Missing cls_id'})
+
+        obj, sha = _load_class_file(cls_id)
+        if not obj:
+            return jsonify({'ok': False, 'error': 'Class not found'})
+        pupils = obj.get('pupils', [])
+
+        unpaired = [p for p in pupils if not p.get('pair_id')]
+        random.shuffle(unpaired)
+        if len(unpaired) < 2:
+            return jsonify({'ok': True, 'pairs': 0})
+
+        colours    = _colour_cycle(pupils)
+        pairs_made = 0
+        for i in range(0, len(unpaired) - 1, 2):
+            a, b = unpaired[i], unpaired[i + 1]
+            colour = colours[pairs_made % len(colours)]
+            a['pair_id'], a['pair_colour'], a['pair_colour_name'] = b['id'], colour['hex'], colour['name']
+            b['pair_id'], b['pair_colour'], b['pair_colour_name'] = a['id'], colour['hex'], colour['name']
+            pairs_made += 1
+
+        _save_class_file(cls_id, obj, sha, f'Auto-pair {pairs_made} pupil pair(s) in {cls_id}')
+        return jsonify({'ok': True, 'pairs': pairs_made})
     except Exception as e:
         return _err(e)
 

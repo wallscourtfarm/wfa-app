@@ -23,18 +23,27 @@
 <!-- Pair mode banner -->
 <div id="pair-banner" style="display:none;background:#fef9c3;border:1.5px solid #fbbf24;
   border-radius:10px;padding:12px 18px;margin-bottom:12px;
-  justify-content:space-between;align-items:center;gap:12px">
+  flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px">
   <span style="font-size:14px;color:#92400e;font-weight:600">
-    🔗 Pair mode — click a pupil to select, then click their partner.
-    <span id="pair-step" style="opacity:.7"> Step 1: select first pupil.</span>
+    🔗 Pair mode —
+    <span id="click-hint">click a pupil to select, then click their partner.
+      <span id="pair-step" style="opacity:.7"> Step 1: select first pupil.</span>
+    </span>
+    <span id="bulk-hint" style="display:none">type the same number in two pupils' boxes to pair them, then Save.</span>
   </span>
-  <div style="display:flex;gap:8px;align-items:center">
-    <label style="font-size:13px;color:#92400e">Colour:</label>
-    <select id="pair-colour-sel" style="font-size:13px;border-radius:6px;padding:3px 6px;border:1px solid #fbbf24">
-      {% for c in pair_colours %}
-      <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#00838F','#5D4037','#37474F','#AD1457','#4527A0','#00695C','#880E4F','#827717','#01579B','#4E342E','#BF360C') else 'black' }}">{{ c.name }}</option>
-      {% endfor %}
-    </select>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span id="pair-colour-label" style="display:flex;gap:6px;align-items:center">
+      <label style="font-size:13px;color:#92400e">Colour:</label>
+      <select id="pair-colour-sel" style="font-size:13px;border-radius:6px;padding:3px 6px;border:1px solid #fbbf24">
+        {% for c in pair_colours %}
+        <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#00838F','#5D4037','#37474F','#AD1457','#4527A0','#00695C','#880E4F','#827717','#01579B','#4E342E','#BF360C') else 'black' }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </span>
+    <button class="btn btn-secondary btn-sm" id="bulk-mode-btn" onclick="toggleBulkMode()">🔢 Switch to number mode</button>
+    <button class="btn btn-primary btn-sm" id="save-bulk-btn" onclick="saveBulkPairings()" style="display:none">💾 Save pairings</button>
+    <button class="btn btn-ghost btn-sm" onclick="autoPairUnpaired()"
+      style="color:#0369a1;border-color:#0369a1">🎲 Auto-pair unpaired</button>
     <button class="btn btn-ghost btn-sm" onclick="resetAllPairings()"
       style="color:#dc2626;border-color:#dc2626">🗑 Reset all pairings</button>
     <button class="btn btn-secondary btn-sm" onclick="togglePairMode()">✕ Done</button>
@@ -434,6 +443,8 @@ let _allPupils   = [];
 let _pairMode    = false;
 let _pairFirst   = null;
 let _pairTarget  = null;
+let _bulkMode    = false;
+let _bulkEdits   = {};   // pupil_id -> typed pair number (string), for the in-progress bulk save
 let _sortKey     = 'name';
 let _sortDir     = 1;   // 1 = ascending, -1 = descending
 
@@ -513,6 +524,14 @@ function updateSortArrows() {
 
 // ── Render table ──────────────────────────────────────────────────────────────
 function render() {
+  // Preserve any in-progress bulk pair numbers before the table is rebuilt
+  // (e.g. if a column header is clicked to sort mid-edit).
+  if (_bulkMode) {
+    document.querySelectorAll('.pair-bulk-input').forEach(inp => {
+      _bulkEdits[inp.dataset.id] = inp.value.trim();
+    });
+  }
+
   const tbody = document.getElementById('pupil-tbody');
   tbody.innerHTML = '';
   const empty = document.getElementById('empty-msg');
@@ -523,22 +542,25 @@ function render() {
   _pupils.forEach(p => {
     const tr = document.createElement('tr');
     const isPending = p.pending;
-    if (_pairMode) tr.className = 'pair-selectable';
-    if (_pairMode && _pairFirst === p.id) tr.className += ' pair-selected';
+    if (_pairMode && !_bulkMode) tr.className = 'pair-selectable';
+    if (_pairMode && !_bulkMode && _pairFirst === p.id) tr.className += ' pair-selected';
     if (isPending) tr.className += ' pending-row';
     tr.dataset.id = p.id;
 
     const pairDot = p.pair_colour
       ? `<span class="pair-dot" style="background:${p.pair_colour}"></span>` : '';
     const clsShort = c => c.replace(/^Y\d+_/, '');
-    // Compute sequential pair number for this pupil's pair_id
+    // Compute a sequential pair number shared by both members of a pair —
+    // keyed by the pair itself (sorted id pair), not by either id alone,
+    // so both rows resolve to the same number regardless of row order.
     if (!window._pairNums) window._pairNums = {};
     if (!window._nextPairNum) window._nextPairNum = 1;
-    if (p.pair_id && !window._pairNums[p.pair_id]) {
-      window._pairNums[p.pair_id] = window._nextPairNum++;
+    const pairKey = p.pair_id ? [p.id, p.pair_id].sort().join('|') : null;
+    if (pairKey && !window._pairNums[pairKey]) {
+      window._pairNums[pairKey] = window._nextPairNum++;
     }
-    const pairNum = p.pair_id && window._pairNums[p.pair_id]
-      ? `<span class="pair-num">P${window._pairNums[p.pair_id]}</span>` : '';
+    const pairNum = pairKey && window._pairNums[pairKey]
+      ? `<span class="pair-num">P${window._pairNums[pairKey]}</span>` : '';
     const pairLabel = p.partner_name
       ? `${pairDot}${pairNum} ${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
           ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}`
@@ -563,16 +585,36 @@ function render() {
                onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){this.value=this.dataset.orig||'';this.style.borderColor='transparent';this.blur();}">
       </td>
       <td>${p.adapted_hl ? '✅' : '—'}</td>
-      <td class="pair-cell" onclick="if(!_pairMode&&!event.target.closest('button'))openPairModal('${p.id}',event)"
-          title="${_pairMode ? '' : 'Click to assign pair'}">
-        ${pairDot}${p.partner_name
+      <td class="pair-cell"
+          ${_bulkMode ? '' : `onclick="if(!_pairMode&&!event.target.closest('button'))openPairModal('${p.id}',event)"`}
+          title="${_bulkMode ? '' : (_pairMode ? '' : 'Click to assign pair')}">
+        ${_bulkMode ? (() => {
+          const crossClassPaired = p.pair_id && p.partner_cls !== CLS_ID && p.partner_cls;
+          if (crossClassPaired) {
+            // Their partner isn't a row in this table, so they can't be
+            // grouped by number here — leave them out of the bulk payload
+            // entirely and only offer the existing Unpair action.
+            return `${pairDot}<span class="pair-name" style="font-size:12px">${p.partner_name}
+                <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span></span>
+              <button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
+                style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">Unpair</button>`;
+          }
+          const bulkKey = p.pair_id ? [p.id, p.pair_id].sort().join('|') : null;
+          const bulkDefault = bulkKey && window._pairNums[bulkKey] ? String(window._pairNums[bulkKey]) : '';
+          const bulkVal = (p.id in _bulkEdits) ? _bulkEdits[p.id] : bulkDefault;
+          return `<input type="number" min="1" step="1" inputmode="numeric" class="pair-bulk-input"
+                    data-id="${p.id}" value="${bulkVal}" placeholder="#"
+                    oninput="_bulkEdits['${p.id}']=this.value.trim()"
+                    onclick="event.stopPropagation()"
+                    style="width:56px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:center">`;
+        })() : `${pairDot}${p.partner_name
           ? `<span class="pair-name">${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
               ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}</span>`
           : `<span class="no-pair">${_pairMode ? 'Unpaired' : 'Click to pair'}</span>`}
         ${p.partner_name && !_pairMode
           ? `<button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
               style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">
-              Unpair</button>` : ''}
+              Unpair</button>` : ''}`}
       </td>
       <td style="color:#94a3b8;font-size:12px">${p.word_pos}</td>
       <td>
@@ -580,7 +622,7 @@ function render() {
       </td>
     `;
 
-    if (_pairMode) tr.onclick = (e) => handlePairClick(p.id, e);
+    if (_pairMode && !_bulkMode) tr.onclick = (e) => handlePairClick(p.id, e);
     tbody.appendChild(tr);
   });
 }
@@ -589,13 +631,75 @@ function render() {
 function togglePairMode() {
   _pairMode  = !_pairMode;
   _pairFirst = null;
+  if (!_pairMode) { _bulkMode = false; _bulkEdits = {}; }
   const btn    = document.getElementById('pair-mode-btn');
   const banner = document.getElementById('pair-banner');
   btn.textContent = _pairMode ? '✕ Exit pair mode' : '🔗 Manage pairs';
   btn.className   = _pairMode ? 'btn btn-primary' : 'btn btn-secondary';
   banner.style.display = _pairMode ? 'flex' : 'none';
   document.getElementById('pair-step').textContent = ' Step 1: select first pupil.';
+  syncBulkUI();
   render();
+}
+
+// ── Bulk (numbered) pairing mode ────────────────────────────────────────────────
+function toggleBulkMode() {
+  _bulkMode  = !_bulkMode;
+  _bulkEdits = {};
+  _pairFirst = null;
+  document.getElementById('pair-step').textContent = ' Step 1: select first pupil.';
+  syncBulkUI();
+  render();
+}
+
+function syncBulkUI() {
+  const bulkBtn = document.getElementById('bulk-mode-btn');
+  bulkBtn.textContent = _bulkMode ? '👆 Switch to click mode' : '🔢 Switch to number mode';
+  document.getElementById('save-bulk-btn').style.display   = _bulkMode ? 'inline-flex' : 'none';
+  document.getElementById('pair-colour-label').style.display = _bulkMode ? 'none' : '';
+  document.getElementById('click-hint').style.display        = _bulkMode ? 'none' : 'inline';
+  document.getElementById('bulk-hint').style.display         = _bulkMode ? 'inline' : 'none';
+}
+
+async function saveBulkPairings() {
+  const assignments = {};
+  document.querySelectorAll('.pair-bulk-input').forEach(inp => {
+    const v = inp.value.trim();
+    assignments[inp.dataset.id] = v === '' ? null : v;
+  });
+  const filledCount = Object.values(assignments).filter(v => v !== null).length;
+  if (!filledCount) { showStatus('No pair numbers entered.'); return; }
+  if (!confirm(`Save pairings from ${filledCount} numbered pupil${filledCount !== 1 ? 's' : ''}?`)) return;
+  try {
+    const resp = await fetch('/api/class/pair_bulk', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls_id: CLS_ID, assignments }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      _bulkEdits = {};
+      showStatus(`Saved ${d.pairs} pair${d.pairs !== 1 ? 's' : ''}.`);
+      await load();
+    } else showStatus(d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+}
+
+async function autoPairUnpaired() {
+  const unpairedCount = _pupils.filter(p => !p.pair_id).length;
+  if (unpairedCount < 2) { showStatus('Not enough unpaired pupils to auto-pair.'); return; }
+  if (!confirm(
+    `Randomly pair up all ${unpairedCount} unpaired pupils in this class?\n\n` +
+    `Existing pairs are left untouched; if there's an odd one out, they stay unpaired.`
+  )) return;
+  try {
+    const resp = await fetch('/api/class/autopair', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls_id: CLS_ID }),
+    });
+    const d = await resp.json();
+    if (d.ok) { showStatus(`Auto-paired ${d.pairs} pair${d.pairs !== 1 ? 's' : ''}.`); await load(); }
+    else showStatus('Could not auto-pair: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 
 function handlePairClick(pid, e) {
