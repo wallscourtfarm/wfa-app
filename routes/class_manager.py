@@ -614,6 +614,47 @@ def _clear_pair_field(pupil_id, former_pair_id):
     _save_class_file(cid, obj, sha, f'Clear stale pair ref on {pupil_id}')
 
 
+# ── API: Recompute word_pos for existing pupils from their mastered list ───────
+
+@cm_bp.route('/api/admin/word_pos_backfill')
+def api_word_pos_backfill():
+    """Dry-run by default; pass ?apply=1 to actually save the corrected
+    word_pos values. Recomputes every pupil's position from the very start
+    of the whole CEW/Key Spelling list, using their real mastered words —
+    correcting anyone left at their old year-zone floor by the pre-fix
+    add/rollover/import logic (see class_manager.py commit history)."""
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    apply_changes = request.args.get('apply') == '1'
+    try:
+        changes = []
+        for cls_id in ALL_CLASSES:
+            obj, sha = _load_class_file(cls_id)
+            if not obj:
+                continue
+            touched = False
+            for p in obj.get('pupils', []):
+                mastered = set(p.get('mastered', []))
+                old_pos  = p.get('word_pos', 0)
+                new_pos  = next_active_index(0, mastered)
+                if new_pos != old_pos:
+                    changes.append({
+                        'cls': cls_id, 'id': p['id'],
+                        'name': f"{p.get('first','')} {p.get('last','')}".strip(),
+                        'group': p.get('group', 'main'),
+                        'mastered_count': len(mastered),
+                        'old_pos': old_pos, 'new_pos': new_pos,
+                    })
+                    if apply_changes:
+                        p['word_pos'] = new_pos
+                        touched = True
+            if apply_changes and touched:
+                _save_class_file(cls_id, obj, sha, f'Backfill word_pos from mastered list ({cls_id})')
+        return jsonify({'ok': True, 'applied': apply_changes, 'count': len(changes), 'changes': changes})
+    except Exception as e:
+        return _err(e)
+
+
 # ── API: Update teacher label ─────────────────────────────────────────────────
 
 @cm_bp.route('/api/class/teacher/update', methods=['POST'])
