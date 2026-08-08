@@ -35,6 +35,8 @@
       <option value="{{ c.hex }}" style="background:{{ c.hex }};color:{{ 'white' if c.hex in ('#1565C0','#C62828','#2E7D32','#6A1B9A','#00838F','#5D4037','#37474F','#AD1457','#4527A0','#00695C','#880E4F','#827717','#01579B','#4E342E','#BF360C') else 'black' }}">{{ c.name }}</option>
       {% endfor %}
     </select>
+    <button class="btn btn-ghost btn-sm" onclick="resetAllPairings()"
+      style="color:#dc2626;border-color:#dc2626">🗑 Reset all pairings</button>
     <button class="btn btn-secondary btn-sm" onclick="togglePairMode()">✕ Done</button>
   </div>
 </div>
@@ -656,6 +658,27 @@ async function unpair(pid, e) {
     const d = await resp.json();
     if (d.ok) { showStatus('Pair removed.'); await load(); }
     else showStatus('Could not unpair: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+}
+
+// ── Reset all pairings ──────────────────────────────────────────────────────────
+async function resetAllPairings() {
+  const clsLabel = document.getElementById('cls-select').selectedOptions[0].textContent;
+  const pairedCount = _pupils.filter(p => p.pair_id).length;
+  if (!pairedCount) { showStatus('No pairings to reset.'); return; }
+  if (!confirm(
+    `Reset ALL pairings for ${clsLabel}?\n\n` +
+    `This will remove ${pairedCount} pupil${pairedCount !== 1 ? 's' : ''} from their current pairs ` +
+    `(including partners in other classes). This cannot be undone.`
+  )) return;
+  try {
+    const resp = await fetch('/api/class/unpair_all', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls_id: CLS_ID }),
+    });
+    const d = await resp.json();
+    if (d.ok) { showStatus(`All pairings reset (${d.count}).`); await load(); }
+    else showStatus('Could not reset pairings: ' + d.error, 'error');
   } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
 }
 

@@ -425,6 +425,43 @@ def api_unpair():
         return _err(e)
 
 
+# ── API: Reset all pairings in a class ──────────────────────────────────────────
+
+@cm_bp.route('/api/class/unpair_all', methods=['POST'])
+def api_unpair_all():
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body   = request.get_json(force=True)
+        cls_id = body.get('cls_id', '')
+        if not cls_id:
+            return jsonify({'ok': False, 'error': 'Missing cls_id'})
+
+        obj, sha = _load_class_file(cls_id)
+        if not obj:
+            return jsonify({'ok': False, 'error': 'Class not found'})
+
+        pairs = [(p['id'], p['pair_id']) for p in obj.get('pupils', []) if p.get('pair_id')]
+        if not pairs:
+            return jsonify({'ok': True, 'count': 0})
+
+        own_ids = {p['id'] for p in obj.get('pupils', [])}
+        for p in obj.get('pupils', []):
+            if p.get('pair_id'):
+                p['pair_id']    = ''
+                p['pair_colour'] = ''
+        _save_class_file(cls_id, obj, sha, f'Reset all pairings for {cls_id}')
+
+        # Clear the other side for any partners who live in a different class
+        for own_id, partner_id in pairs:
+            if partner_id not in own_ids:
+                _clear_pair_field(partner_id, own_id)
+
+        return jsonify({'ok': True, 'count': len(pairs)})
+    except Exception as e:
+        return _err(e)
+
+
 # ── Internal: clear one side of a broken pair ─────────────────────────────────
 
 def _clear_pair_field(pupil_id, former_pair_id):
