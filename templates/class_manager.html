@@ -57,13 +57,13 @@
   <table class="cm-table" id="pupil-table">
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Group</th>
-        <th>TT</th>
-        <th>Table</th>
-        <th>Adapted HL</th>
-        <th>Pair</th>
-        <th>Word pos.</th>
+        <th class="sortable" onclick="sortBy('name')">Name<span class="sort-arrow" data-col="name"></span></th>
+        <th class="sortable" onclick="sortBy('group')">Group<span class="sort-arrow" data-col="group"></span></th>
+        <th class="sortable" onclick="sortBy('tt_set')">TT<span class="sort-arrow" data-col="tt_set"></span></th>
+        <th class="sortable" onclick="sortBy('table')">Table<span class="sort-arrow" data-col="table"></span></th>
+        <th class="sortable" onclick="sortBy('adapted_hl')">Adapted HL<span class="sort-arrow" data-col="adapted_hl"></span></th>
+        <th class="sortable" onclick="sortBy('partner_name')">Pair<span class="sort-arrow" data-col="partner_name"></span></th>
+        <th class="sortable" onclick="sortBy('word_pos')">Word pos.<span class="sort-arrow" data-col="word_pos"></span></th>
         <th></th>
       </tr>
     </thead>
@@ -312,6 +312,9 @@
 
   text-transform:uppercase; letter-spacing:.5px; padding:8px 12px; text-align:left;
   border-bottom:2px solid #e2e8f0; white-space:nowrap; }
+.cm-table th.sortable { cursor:pointer; user-select:none; }
+.cm-table th.sortable:hover { color:#1798d3; }
+.sort-arrow { display:inline-block; width:10px; font-size:10px; margin-left:2px; color:#1798d3; }
 .cm-table td { padding:9px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
 .cm-table tr:hover td { background:#f8fafc; }
 .cm-table tr.pair-selected td { background:#fef9c3 !important; }
@@ -431,6 +434,8 @@ let _allPupils   = [];
 let _pairMode    = false;
 let _pairFirst   = null;
 let _pairTarget  = null;
+let _sortKey     = 'name';
+let _sortDir     = 1;   // 1 = ascending, -1 = descending
 
 function showStatus(msg, type='ok') {
   const bar = document.getElementById('status-bar');
@@ -455,6 +460,8 @@ async function load() {
         `${pending.length} pupil${pending.length !== 1 ? 's' : ''}`;
       document.getElementById('pending-notice').style.display = 'block';
     }
+    applySort();
+    updateSortArrows();
     render();
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
@@ -465,6 +472,44 @@ async function load() {
 }
 
 function switchClass(val) { window.location = `/class-manager?cls=${val}`; }
+
+// ── Sorting ───────────────────────────────────────────────────────────────────
+function sortBy(key) {
+  if (_sortKey === key) _sortDir *= -1;
+  else { _sortKey = key; _sortDir = 1; }
+  applySort();
+  updateSortArrows();
+  render();
+}
+
+function applySort() {
+  const key = _sortKey, dir = _sortDir;
+  const nameOf = p => `${p.first} ${p.last}`.toLowerCase();
+  const valueOf = p => {
+    switch (key) {
+      case 'name':         return nameOf(p);
+      case 'group':        return p.group === 'main' ? 'main' : 'phonics';
+      case 'tt_set':       return p.tt_set === 'All' ? Infinity : parseInt(p.tt_set, 10);
+      case 'table':        return p.table && !isNaN(parseInt(p.table, 10)) ? parseInt(p.table, 10) : Infinity;
+      case 'adapted_hl':   return p.adapted_hl ? 1 : 0;
+      case 'partner_name': return p.partner_name ? p.partner_name.toLowerCase() : '￿';
+      case 'word_pos':     return p.word_pos;
+      default:             return nameOf(p);
+    }
+  };
+  _pupils.sort((a, b) => {
+    const av = valueOf(a), bv = valueOf(b);
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return nameOf(a) < nameOf(b) ? -1 : nameOf(a) > nameOf(b) ? 1 : 0;
+  });
+}
+
+function updateSortArrows() {
+  document.querySelectorAll('.sort-arrow').forEach(el => {
+    el.textContent = el.dataset.col === _sortKey ? (_sortDir === 1 ? '▲' : '▼') : '';
+  });
+}
 
 // ── Render table ──────────────────────────────────────────────────────────────
 function render() {

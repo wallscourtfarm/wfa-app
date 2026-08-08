@@ -8,6 +8,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
                           get_class_options, get_class_options_for_year, get_year_group,
                           YEAR_WORD_ZONE, update_teacher_label, bulk_import_pupils, year_end_rollover)
+from word_bank import next_active_index
 
 cm_bp = Blueprint('class_manager', __name__)
 
@@ -156,7 +157,7 @@ def api_class_list():
                 'adapted_hl':    bool(p.get('adapted_hl', False)),
                 'home_language': p.get('home_language', ''),
                 'cls':          p.get('cls', _cls_short(cls)),
-                'word_pos':     p.get('word_pos', 0),
+                'word_pos':     next_active_index(p.get('word_pos', 0), set(p.get('mastered', []))),
             })
 
         pupils.sort(key=lambda p: (p['first'].lower(), p['last'].lower()))

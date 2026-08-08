@@ -254,6 +254,21 @@ def get_active_words(word_pos, mastered_set, count=5):
         i += 1
     return active
 
+def next_active_index(word_pos, mastered_set):
+    """Index of the first not-yet-mastered word from word_pos onward.
+
+    word_pos alone can lag a pupil's real position: mastered words are
+    skipped when serving active words, so two pupils who share the same
+    stored word_pos can be on different actual words depending on what
+    they've already mastered.
+    """
+    i = word_pos
+    while i < len(WORD_BANK):
+        if WORD_BANK[i][0] not in mastered_set:
+            return i
+        i += 1
+    return i
+
 def mastery_stats(mastered_set):
     """Return mastery percentages by year group and phase.
 
