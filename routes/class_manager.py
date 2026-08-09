@@ -9,6 +9,7 @@ from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
                           get_class_options, get_class_options_for_year,
                           update_teacher_label, bulk_import_pupils, year_end_rollover)
 from word_bank import next_active_index
+from phonics_bank import PHONICS_SETS
 
 cm_bp = Blueprint('class_manager', __name__)
 
@@ -119,7 +120,8 @@ def class_manager():
         cls = YEAR_GROUP_CLASSES.get(yr, ['4CK'])[0]
     return render_template('class_manager.html',
         cls=cls, class_options=opts,
-        tt_sets=TT_SETS, pair_colours=PAIR_COLOURS)
+        tt_sets=TT_SETS, pair_colours=PAIR_COLOURS,
+        phonics_sets_json=json.dumps(PHONICS_SETS))
 
 
 # ── API: List pupils ──────────────────────────────────────────────────────────

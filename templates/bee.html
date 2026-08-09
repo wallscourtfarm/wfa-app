@@ -109,10 +109,10 @@
       {% if p.is_phonics %}<span class="rev-badge">{{ p.gpc_label or 'Phonics' }}</span>{% endif %}
     </div>
     <div class="bee-words">
-      {% set all_words = p.words + p.phonics_words %}
+      {% set all_words = p.phonics_words if p.is_phonics else p.words %}
       {% if all_words %}
         {% for w in all_words %}
-        <button type="button" class="word-pill{% if loop.index0 >= p.words|length %} word-pill--phonics{% endif %}"
+        <button type="button" class="word-pill{% if p.is_phonics %} word-pill--phonics{% endif %}"
                 data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
         {% endfor %}
       {% else %}

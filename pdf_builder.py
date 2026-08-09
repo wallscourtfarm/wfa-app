@@ -1946,7 +1946,7 @@ def _hl_reading_col(c, x, top_y, col_w, col_h, cfg):
 
 
 def _hl_spelling_page(c, pupil, rule_title, rule_words, key_words, week_ref,
-                      rule_explanation=''):
+                      rule_explanation='', phonics_mode=False, phonics_label=''):
     """Draw the spelling back page. Caller calls c.showPage() afterwards."""
     from reportlab.lib.utils import simpleSplit
 
@@ -1966,6 +1966,7 @@ def _hl_spelling_page(c, pupil, rule_title, rule_words, key_words, week_ref,
     c.setFont('Helvetica-Bold', 9)
     c.setFillColorRGB(*NAVY)
     c.drawString(M, cy - 9 * 0.85,
+                 'Phonics Practice Words' if phonics_mode else
                  'Personal Key Spellings and Weekly Spelling Rule Words')
     ss_u = pupil.get('ss_user', '')
     ss_p = pupil.get('ss_pass', '')
@@ -1982,15 +1983,22 @@ def _hl_spelling_page(c, pupil, rule_title, rule_words, key_words, week_ref,
     cy -= 3 * mm
 
     # Instruction text (includes full rule explanation if provided)
-    rule_desc = rule_title
-    if rule_explanation:
-        rule_desc = rule_title + ' \u2013 ' + rule_explanation
-    instruction = (
-        'The first 5 words below are your Key Spellings. '
-        'This week\u2019s spelling rule \u2013 ' + rule_desc + '. '
-        'Practise spelling these words. Write each word within a sentence '
-        'in the space below. These words will be checked in your paired spelling bee.'
-    )
+    if phonics_mode:
+        instruction = (
+            'These are your phonics practice words for ' + (phonics_label or 'this week') + '. '
+            'Practise spelling these words. Write each word within a sentence '
+            'in the space below. These words will be checked in your paired spelling bee.'
+        )
+    else:
+        rule_desc = rule_title
+        if rule_explanation:
+            rule_desc = rule_title + ' \u2013 ' + rule_explanation
+        instruction = (
+            'The first 5 words below are your Key Spellings. '
+            'This week\u2019s spelling rule \u2013 ' + rule_desc + '. '
+            'Practise spelling these words. Write each word within a sentence '
+            'in the space below. These words will be checked in your paired spelling bee.'
+        )
     c.setFont('Helvetica', 8.5)
     c.setFillColorRGB(0.1, 0.1, 0.1)
     for il in simpleSplit(instruction, 'Helvetica', 8.5, UW):
@@ -2007,7 +2015,7 @@ def _hl_spelling_page(c, pupil, rule_title, rule_words, key_words, week_ref,
     table_top = cy
     table_bot = M + GLUE_H
     table_h   = table_top - table_bot
-    all_words = list(key_words)[:5] + list(rule_words)[:5]
+    all_words = list(key_words)[:5] if phonics_mode else list(key_words)[:5] + list(rule_words)[:5]
     n         = len(all_words)
     if n == 0:
         return
@@ -2129,12 +2137,20 @@ def build_hl_pdf(pupils, hl_config, weekly_config, version='standard',
         c.showPage()
 
         # Back: spelling
-        kw = key_words_map.get(pupil.get('id', ''), [])
-        if not kw:
-            mastered = set(pupil.get('mastered', []))
-            kw = get_active_words(pupil.get('word_pos', 0), mastered, count=5)
-        _hl_spelling_page(c, pupil, rule_title, rule_words, kw, week_ref,
-                          rule_explanation=rule_explanation)
+        phonics_gpcs = pupil.get('phonics_gpcs', [])
+        if pupil.get('group') in ('phonics', 'revision') and phonics_gpcs:
+            from phonics_bank import PHONICS_BANK, GPC_LABELS, get_phonics_words
+            kw = get_phonics_words(phonics_gpcs, PHONICS_BANK)
+            label = ', '.join(GPC_LABELS.get(g, g) for g in phonics_gpcs)
+            _hl_spelling_page(c, pupil, rule_title, [], kw, week_ref,
+                              phonics_mode=True, phonics_label=label)
+        else:
+            kw = key_words_map.get(pupil.get('id', ''), [])
+            if not kw:
+                mastered = set(pupil.get('mastered', []))
+                kw = get_active_words(pupil.get('word_pos', 0), mastered, count=5)
+            _hl_spelling_page(c, pupil, rule_title, rule_words, kw, week_ref,
+                              rule_explanation=rule_explanation)
         c.showPage()
 
     c.save()

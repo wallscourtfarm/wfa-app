@@ -25,6 +25,8 @@ PHONICS_BANK = {
     "b": ["big", "bad", "bit", "bed", "bus"],
     "f": ["fat", "fin", "fog", "fun", "fed"],
     "l": ["leg", "lid", "lot", "let", "lip"],
+    "c": ["cat", "cap", "cod", "cup", "cot"],
+    "k": ["kit", "kid", "keg", "kin", "kept"],
 
     # ── Phase 3 ────────────────────────────────────────────────────────────────
     # New consonant graphemes; all Phase 2 single-letter graphemes now available.
@@ -75,11 +77,41 @@ PHONICS_BANK = {
     "oe": ["toe", "foe", "doe", "hoe", "roe"],
     "au": ["haul", "fault", "sauce", "launch", "cause"],
     "ey": ["they", "grey", "prey", "obey", "hey"],
+    "zh": ["treasure", "measure", "vision", "usual", "visual"],
     "a-e": ["make", "cake", "late", "game", "name"],
     "e-e": ["these", "theme", "eve", "gene", "scene"],
     "i-e": ["like", "bike", "time", "mine", "side"],
     "o-e": ["home", "bone", "note", "hope", "rope"],
     "u-e": ["cube", "tune", "huge", "rude", "use"],
+
+    # ── Y1 National Curriculum (Set 16) ───────────────────────────────────────
+
+    "nk": ["drink", "think", "thank", "sink", "dunk"],
+    "ve": ["have", "give", "live", "love", "serve"],
+
+    # ── Phase 4 — review & polysyllabic words (GPC-agnostic) ──────────────────
+    # Not tied to a single GPC — a consolidation set drawing on graphemes already taught.
+
+    "p4_gr2":  ["went", "swim", "track", "bend", "lost"],
+    "p4_gr3":  ["green", "train", "smart", "growl", "paint"],
+    "p4_poly": ["shampoo", "floating", "lunchbox", "starlight", "handstand"],
+
+    # ── Phase 5b — alternative pronunciations (Set 17) ────────────────────────
+    # Same grapheme as an earlier phase, but representing a different sound —
+    # kept under distinct "_alt" keys so they don't collide with the phase 2/3
+    # entries above for the same letter(s).
+
+    "a_alt":  ["acorn", "fast", "wash", "April", "banana"],
+    "e_alt":  ["relax", "me", "we", "she", "he"],
+    "i_alt":  ["mind", "kind", "find", "rewind", "island"],
+    "o_alt":  ["both", "hotel", "open", "go", "pony"],
+    "u_alt":  ["unit", "put", "push", "pull", "judo"],
+    "ea_e":   ["bread", "dead", "head", "spread", "thread"],
+    "ou_alt": ["soup", "could", "mould", "young", "cousin"],
+    "y_alt":  ["by", "gym", "very", "cry", "typical"],
+    "ch_alt": ["school", "chef", "machine", "chemist", "stomach"],
+    "c_alt":  ["city", "cell", "cent", "rice", "face"],
+    "g_alt":  ["age", "gem", "giant", "gym", "huge"],
 
     # ── Phase 5c — alternative spellings ──────────────────────────────────────
     # All Phase 2, 3 and 5a graphemes now available.
@@ -140,12 +172,20 @@ PHONICS_BANK = {
 PHASE_ORDER = [
     # Phase 2
     "s", "a", "t", "p", "i", "n", "m", "d", "g", "o", "ck", "e", "u", "r", "h", "b", "f", "l",
+    "c", "k",
     # Phase 3
     "j", "v", "w", "x", "y", "z", "qu", "ch", "sh", "th", "ng",
     "ai", "ee", "igh", "oa", "oo", "ar", "or", "ur", "ow", "oi", "ear", "air", "ure", "er",
     # Phase 5a
-    "ay", "ou", "ie", "ea", "oy", "ir", "ue", "aw", "wh", "ph", "ew", "oe", "au", "ey",
+    "ay", "ou", "ie", "ea", "oy", "ir", "ue", "aw", "wh", "ph", "ew", "oe", "au", "ey", "zh",
     "a-e", "e-e", "i-e", "o-e", "u-e",
+    # Y1 National Curriculum
+    "nk", "ve",
+    # Phase 4 review & polysyllabic
+    "p4_gr2", "p4_gr3", "p4_poly",
+    # Phase 5b alternative pronunciations
+    "a_alt", "e_alt", "i_alt", "o_alt", "u_alt", "ea_e", "ou_alt", "y_alt",
+    "ch_alt", "c_alt", "g_alt",
     # Phase 5c alternatives
     "tch", "dge", "mb", "gn", "kn", "wr",
     "al_ar", "al_or", "our_or", "augh", "ear_ur", "or_ur", "oul_oo",
@@ -157,7 +197,7 @@ PHASE_ORDER = [
 GPC_LABELS = {
     "s": "s", "a": "a", "t": "t", "p": "p", "i": "i", "n": "n", "m": "m",
     "d": "d", "g": "g", "o": "o", "ck": "ck", "e": "e", "u": "u", "r": "r",
-    "h": "h", "b": "b", "f": "f", "l": "l",
+    "h": "h", "b": "b", "f": "f", "l": "l", "c": "c", "k": "k",
     "j": "j", "v": "v", "w": "w", "x": "x", "y": "y", "z": "z", "qu": "qu",
     "ch": "ch", "sh": "sh", "th": "th", "ng": "ng",
     "ai": "ai", "ee": "ee", "igh": "igh", "oa": "oa", "oo": "oo",
@@ -165,8 +205,17 @@ GPC_LABELS = {
     "ear": "ear", "air": "air", "ure": "ure", "er": "er",
     "ay": "ay", "ou": "ou", "ie": "ie", "ea": "ea", "oy": "oy", "ir": "ir",
     "ue": "ue", "aw": "aw", "wh": "wh", "ph": "ph", "ew": "ew", "oe": "oe",
-    "au": "au", "ey": "ey", "a-e": "a-e", "e-e": "e-e", "i-e": "i-e",
+    "au": "au", "ey": "ey", "zh": "/zh/ (treasure)", "a-e": "a-e", "e-e": "e-e", "i-e": "i-e",
     "o-e": "o-e", "u-e": "u-e",
+    "nk": "nk", "ve": "ve",
+    "p4_gr2": "Phase 2 review words", "p4_gr3": "Phase 3 review words",
+    "p4_poly": "Polysyllabic words",
+    "a_alt": "a (alt — wash/April)", "e_alt": "e (alt — relax/me)",
+    "i_alt": "i (alt — mind/island)", "o_alt": "o (alt — open/pony)",
+    "u_alt": "u (alt — unit/push)", "ea_e": "ea (alt — bread)",
+    "ou_alt": "ou (alt — soup/could)", "y_alt": "y (alt — gym/cry)",
+    "ch_alt": "ch (alt — school/chef)", "c_alt": "c (alt — city)",
+    "g_alt": "g (alt — age/gem)",
     "tch": "tch (/ch/)", "dge": "dge (/j/)", "mb": "mb (/m/)",
     "gn": "gn (/n/)", "kn": "kn (/n/)", "wr": "wr (/r/)",
     "al_ar": "al (/ar/ — half)", "al_or": "al (/or/ — all)",
@@ -181,3 +230,66 @@ GPC_LABELS = {
     "ew_oo": "ew (/oo/ — blew)", "ti_sh": "ti (/sh/ — station)",
     "su_sh": "su (/sh/ — sugar)",
 }
+
+# ── Phase → Set groupings, matching the school's ULS spreadsheet ───────────────
+# Drives the Class Manager "Phase / Set" picker: choosing a set assigns all of
+# its GPCs to a pupil in one go, matching how ULS intervention groups are taught.
+
+PHONICS_SETS = [
+    {"phase": "Phase 2", "sets": [
+        {"id": "set1", "label": "Set 1", "gpcs": ["s", "a", "t", "p"]},
+        {"id": "set2", "label": "Set 2", "gpcs": ["i", "n", "m", "d"]},
+        {"id": "set3", "label": "Set 3", "gpcs": ["g", "o", "c", "k"]},
+        {"id": "set4", "label": "Set 4", "gpcs": ["ck", "e", "u", "r"]},
+        {"id": "set5", "label": "Set 5", "gpcs": ["h", "b", "f", "l"]},
+    ]},
+    {"phase": "Phase 3", "sets": [
+        {"id": "set6",  "label": "Set 6",  "gpcs": ["j", "v", "w", "x"]},
+        {"id": "set7",  "label": "Set 7",  "gpcs": ["y", "z", "qu"]},
+        {"id": "set8",  "label": "Set 8",  "gpcs": ["ch", "sh", "th", "ng"]},
+        {"id": "set9",  "label": "Set 9",  "gpcs": ["ai", "ee", "igh", "oa"]},
+        {"id": "set10", "label": "Set 10", "gpcs": ["oo", "ar", "or", "ur"]},
+        {"id": "set11", "label": "Set 11", "gpcs": ["ow", "oi", "ear", "air"]},
+        {"id": "set12", "label": "Set 12", "gpcs": ["ure", "er"]},
+    ]},
+    {"phase": "Phase 4", "sets": [
+        {"id": "p4_gr2",  "label": "Phase 2 review words", "gpcs": ["p4_gr2"]},
+        {"id": "p4_gr3",  "label": "Phase 3 review words", "gpcs": ["p4_gr3"]},
+        {"id": "p4_poly", "label": "Polysyllabic words",    "gpcs": ["p4_poly"]},
+    ]},
+    {"phase": "Phase 5a", "sets": [
+        {"id": "set13", "label": "Set 13", "gpcs": ["ay", "ou", "ie", "ea", "oy", "ir", "ue"]},
+        {"id": "set14", "label": "Set 14", "gpcs": ["aw", "wh", "ph", "ew", "oe", "au", "ey", "zh"]},
+        {"id": "set15", "label": "Set 15", "gpcs": ["a-e", "e-e", "i-e", "o-e", "u-e"]},
+    ]},
+    {"phase": "Y1 NC", "sets": [
+        {"id": "set16", "label": "Set 16", "gpcs": ["nk", "tch", "ve"]},
+    ]},
+    {"phase": "Phase 5b", "sets": [
+        {"id": "set17", "label": "Set 17 (alternative pronunciations)", "gpcs": [
+            "a_alt", "e_alt", "i_alt", "o_alt", "u_alt", "ow_oa", "ie_ee", "ea_e",
+            "er", "ou_alt", "y_alt", "ch_alt", "c_alt", "g_alt", "ey",
+        ]},
+    ]},
+]
+
+
+def get_phonics_words(gpcs, bank=None, count=5):
+    """Interleave words from each GPC's bank entry to fill `count` slots."""
+    bank = bank if bank is not None else PHONICS_BANK
+    pools = [bank.get(g, []) for g in gpcs if g in bank]
+    if not pools:
+        return []
+    result, i = [], 0
+    while len(result) < count:
+        added = False
+        for pool in pools:
+            if i < len(pool):
+                result.append(pool[i])
+                added = True
+                if len(result) == count:
+                    break
+        if not added:
+            break
+        i += 1
+    return result

@@ -131,8 +131,19 @@
         </div>
       </div>
       <div class="cm-field" id="edit-gpc-field" style="display:none">
-        <label>Phonics GPCs this week <span style="font-size:11px;color:#64748b">(e.g. ai, ar)</span></label>
-        <input id="edit-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar">
+        <label>Phonics phase &amp; set</label>
+        <div class="cm-field-row">
+          <div class="cm-field">
+            <select id="edit-phonics-phase" class="cm-input" onchange="populatePhonicsSets('edit')"></select>
+          </div>
+          <div class="cm-field">
+            <select id="edit-phonics-set" class="cm-input" onchange="applyPhonicsSet('edit')"></select>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px">
+          <a href="#" onclick="togglePhonicsAdvanced('edit');return false;">Edit GPCs directly</a>
+        </div>
+        <input id="edit-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar" style="display:none;margin-top:6px">
       </div>
       <div class="cm-field">
         <label>
@@ -201,8 +212,19 @@
         </div>
       </div>
       <div class="cm-field" id="add-gpc-field" style="display:none">
-        <label>Phonics GPCs this week <span style="font-size:11px;color:#64748b">(e.g. ai, ar)</span></label>
-        <input id="add-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar">
+        <label>Phonics phase &amp; set</label>
+        <div class="cm-field-row">
+          <div class="cm-field">
+            <select id="add-phonics-phase" class="cm-input" onchange="populatePhonicsSets('add')"></select>
+          </div>
+          <div class="cm-field">
+            <select id="add-phonics-set" class="cm-input" onchange="applyPhonicsSet('add')"></select>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px">
+          <a href="#" onclick="togglePhonicsAdvanced('add');return false;">Edit GPCs directly</a>
+        </div>
+        <input id="add-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar" style="display:none;margin-top:6px">
       </div>
       <div class="cm-field">
         <label>
@@ -432,9 +454,10 @@
 </div>
 
 <script>
-const CLS_ID     = {{ cls | tojson }};
-const TT_SETS    = {{ tt_sets | tojson }};
-const ALL_CLS    = {{ class_options | tojson }};
+const CLS_ID       = {{ cls | tojson }};
+const TT_SETS      = {{ tt_sets | tojson }};
+const ALL_CLS      = {{ class_options | tojson }};
+const PHONICS_SETS = {{ phonics_sets_json | safe }};
 // All individual classes except _all entries, excluding current
 const OTHER_CLASSES = ALL_CLS.filter(([v]) => !v.endsWith('_all') && v !== CLS_ID);
 
@@ -741,6 +764,57 @@ function toggleGpcField(prefix) {
   document.getElementById(`${prefix}-gpc-field`).style.display = show ? '' : 'none';
 }
 
+// ── Phonics phase/set picker ────────────────────────────────────────────────
+function populatePhonicsPhases(prefix) {
+  const sel = document.getElementById(`${prefix}-phonics-phase`);
+  sel.innerHTML = '<option value="">Phase…</option>' +
+    PHONICS_SETS.map(g => `<option value="${g.phase}">${g.phase}</option>`).join('');
+}
+
+function populatePhonicsSets(prefix) {
+  const phase  = document.getElementById(`${prefix}-phonics-phase`).value;
+  const setSel = document.getElementById(`${prefix}-phonics-set`);
+  const group  = PHONICS_SETS.find(g => g.phase === phase);
+  const sets   = group ? group.sets : [];
+  setSel.innerHTML = '<option value="">Set…</option>' +
+    sets.map(s => `<option value="${s.id}">${s.label} (${s.gpcs.join(', ')})</option>`).join('');
+  applyPhonicsSet(prefix);
+}
+
+function applyPhonicsSet(prefix) {
+  const phase = document.getElementById(`${prefix}-phonics-phase`).value;
+  const setId = document.getElementById(`${prefix}-phonics-set`).value;
+  const group = PHONICS_SETS.find(g => g.phase === phase);
+  const set   = group ? group.sets.find(s => s.id === setId) : null;
+  document.getElementById(`${prefix}-phonics-gpcs`).value = set ? set.gpcs.join(', ') : '';
+}
+
+function togglePhonicsAdvanced(prefix) {
+  const el = document.getElementById(`${prefix}-phonics-gpcs`);
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+// Best-effort reverse lookup: preselect the Phase/Set dropdowns for a pupil's
+// existing phonics_gpcs, if they exactly match a known Set. Returns true on match.
+function selectPhonicsSetFromGpcs(prefix, gpcs) {
+  for (const group of PHONICS_SETS) {
+    for (const set of group.sets) {
+      if (set.gpcs.length === gpcs.length && set.gpcs.every((g, i) => g === gpcs[i])) {
+        document.getElementById(`${prefix}-phonics-phase`).value = group.phase;
+        populatePhonicsSets(prefix);
+        document.getElementById(`${prefix}-phonics-set`).value = set.id;
+        return true;
+      }
+    }
+  }
+  document.getElementById(`${prefix}-phonics-phase`).value = '';
+  populatePhonicsSets(prefix);
+  return false;
+}
+
+populatePhonicsPhases('edit');
+populatePhonicsPhases('add');
+
 // ── Pair modal ────────────────────────────────────────────────────────────────
 function openPairModal(pid, e) {
   if (e) e.stopPropagation();
@@ -841,7 +915,10 @@ function openEditModal(pid, e) {
   document.getElementById('edit-first').value       = p.first;
   document.getElementById('edit-last').value        = p.last || '';
   document.getElementById('edit-group').value       = p.group || 'main';
-  document.getElementById('edit-phonics-gpcs').value = (p.phonics_gpcs || []).join(', ');
+  const editGpcs = p.phonics_gpcs || [];
+  document.getElementById('edit-phonics-gpcs').value = editGpcs.join(', ');
+  const editMatched = selectPhonicsSetFromGpcs('edit', editGpcs);
+  document.getElementById('edit-phonics-gpcs').style.display = (!editMatched && editGpcs.length) ? '' : 'none';
   toggleGpcField('edit');
   document.getElementById('edit-tt-set').value      = p.tt_set;
   document.getElementById('edit-tt-mode').value     = p.tt_mode;
@@ -967,6 +1044,9 @@ function openAddModal() {
   document.getElementById('add-last').value  = '';
   document.getElementById('add-group').value = 'main';
   document.getElementById('add-phonics-gpcs').value = '';
+  document.getElementById('add-phonics-gpcs').style.display = 'none';
+  document.getElementById('add-phonics-phase').value = '';
+  populatePhonicsSets('add');
   document.getElementById('add-table').value = '';
   toggleGpcField('add');
   document.getElementById('add-adapted-hl').checked = false;

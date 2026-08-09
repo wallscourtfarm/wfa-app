@@ -320,7 +320,7 @@ def load_bee_pupils(class_id='4CK'):
     term_label = TERM_LABELS.get(wc.get('term',''), wc.get('term',''))
     week_label = f"{wc.get('term','')} W{wc.get('week','')} · {term_label}" if wc.get('term') else wc.get('week_ref','')
 
-    from phonics_bank import PHONICS_BANK
+    from phonics_bank import PHONICS_BANK, get_phonics_words
     pupils = []
     for p in data.get('pupils',[]):
         mastered   = set(p.get('mastered',[]))
@@ -329,7 +329,7 @@ def load_bee_pupils(class_id='4CK'):
         is_phonics = group in ('phonics', 'revision')
         gpcs       = p.get('phonics_gpcs', [])
         if is_phonics and gpcs:
-            phonics_words = _get_phonics_words(gpcs, PHONICS_BANK)
+            phonics_words = get_phonics_words(gpcs, PHONICS_BANK)
             gpc_label = ', '.join(gpcs)
         else:
             phonics_words = []
@@ -352,25 +352,6 @@ def load_bee_pupils(class_id='4CK'):
         'year_group': wc.get('year_group', ''),
     }
     return pupils, rules_info, wc.get('week_ref', week_label)
-
-def _get_phonics_words(gpcs, bank, count=5):
-    """Interleave words from each GPC bank to fill `count` slots."""
-    pools = [bank.get(g, []) for g in gpcs if g in bank]
-    if not pools:
-        return []
-    result, i = [], 0
-    while len(result) < count:
-        added = False
-        for pool in pools:
-            if i < len(pool):
-                result.append(pool[i])
-                added = True
-                if len(result) == count:
-                    break
-        if not added:
-            break
-        i += 1
-    return result
 
 
 def _apply_assessment(pupil, correct_words):
