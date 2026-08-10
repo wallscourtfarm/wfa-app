@@ -598,6 +598,7 @@ def update_pupil_rule_confidence_from_bee(assessments):
                 'score':   100 if confident else 0,
                 'status':  'full' if confident else 'none',
                 'rule':    rule_title,
+                'source':  'bee',
             })
             rc[lesson_id]   = history
             p               = dict(p)
@@ -609,6 +610,22 @@ def update_pupil_rule_confidence_from_bee(assessments):
             _put_file(path, data, sha, f'Bee rule confidence: {cls_id} ({len(ass_map)} pupils)')
 
     return {'ok': True, 'updated': total_updated, 'lesson_id': lesson_id, 'rule_title': rule_title}
+
+
+def latest_rule_confidence_entry(entries):
+    """
+    Pick the entry that represents a rule's *current* confidence out of its
+    history list. A full Rule Reassessment ('source': 'reassessment') is a
+    proper word-by-word test and is authoritative: once one exists for a
+    rule, it always wins over any weekly Bee tick ('source': 'bee'), even if
+    a Bee save happens to land later in the list. Among reassessment entries
+    (or among plain entries with no 'source' tag — e.g. pre-migration data),
+    the most recent one wins as before.
+    """
+    if not entries:
+        return None
+    reassessments = [e for e in entries if e.get('source') == 'reassessment']
+    return reassessments[-1] if reassessments else entries[-1]
 
 
 # ── Per-pupil rule confidence archive/reset (ULS migration) ────────────────────

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_learners, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_learners, get_class_options, get_class_options_for_year, get_ref_class, latest_rule_confidence_entry
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
@@ -50,11 +50,12 @@ def _enrich(pupils, homophone_words_by_stage):
                 'status': status, 'last_date': last,
             })
 
-        # Rule confidence — latest entry per rule
+        # Rule confidence — latest entry per rule (a full Reassessment always
+        # outranks a weekly Bee tick — see latest_rule_confidence_entry)
         rc_latest = []
         for rule_id, entries in sorted(p.get('rule_confidence', {}).items()):
-            if not entries: continue
-            latest = entries[-1]
+            latest = latest_rule_confidence_entry(entries)
+            if not latest: continue
             rc_latest.append({
                 'rule_id':  rule_id,
                 'title':    latest.get('rule', rule_id),

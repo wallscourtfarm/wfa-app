@@ -890,6 +890,7 @@ def api_assess_process():
                             'total':   total,
                             'score':   score,
                             'status':  status,
+                            'source':  'reassessment',
                         }
                         rule_conf.setdefault(rid, []).append(entry)
                     p['rule_confidence'] = rule_conf

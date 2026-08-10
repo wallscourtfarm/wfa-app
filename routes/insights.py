@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_class, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_class, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, latest_rule_confidence_entry
 from spelling_rules import SPELLING_RULES
 from word_bank import WORD_BANK
 
@@ -39,27 +39,36 @@ def _load_pupils(cls):
 
 
 def _rule_priorities(pupils):
-    """Per-rule: how many pupils, breakdown by status, average score. Sorted by impact."""
+    """Per-rule: how many pupils, breakdown by status, average score. Sorted by impact.
+
+    Uses latest_rule_confidence_entry so a full Reassessment always outranks
+    a weekly Bee tick for a rule, even if the Bee entry is more recent.
+    Average is computed fresh from correct/total rather than the stored
+    'score' field, since that field's scale differs by source (reassessment
+    entries store a 0-1 fraction, Bee/digital-session entries store 0-100).
+    """
     rules = {}
     for p in pupils:
         for rid, entries in p.get('rule_confidence', {}).items():
-            if not entries: continue
-            latest = entries[-1]
+            latest = latest_rule_confidence_entry(entries)
+            if not latest: continue
             if rid not in rules:
                 rules[rid] = {
                     'rule_id': rid,
                     'title': RULE_TITLE_MAP.get(rid, latest.get('rule', rid)),
                     'full': 0, 'partial': 0, 'none': 0,
-                    'total_score': 0, 'n': 0,
+                    'total_pct': 0, 'n': 0,
                 }
+            total = latest.get('total', 0)
+            pct   = round(latest.get('correct', 0) / total * 100) if total else 0
             rules[rid][latest.get('status', 'none')] += 1
-            rules[rid]['total_score'] += latest.get('score', 0)
+            rules[rid]['total_pct'] += pct
             rules[rid]['n'] += 1
 
     result = []
     for r in rules.values():
         n   = r['n']
-        avg = round(r['total_score'] / n * 100) if n else 0
+        avg = round(r['total_pct'] / n) if n else 0
         result.append({**r, 'avg_pct': avg,
                         'needs_work': r['partial'] + r['none']})
 

@@ -384,6 +384,7 @@ def api_ra_confirm():
                         'correct': correct,
                         'total':   total,
                         'score':   round(correct / total, 4) if total else 0,
+                        'source':  'reassessment',
                     })
 
                 p['rule_confidence'] = rc
