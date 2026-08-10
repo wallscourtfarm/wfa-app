@@ -322,6 +322,32 @@ def advance_tt_pupils(class_id, pupil_ids):
 
 # ── Spelling Bee ──────────────────────────────────────────────────────────────
 
+def _group_words_by_lesson(words, lessons):
+    """
+    Group a flat word list (e.g. weekly_config's selected_words) by which
+    lesson/rule each word actually belongs to, so a week that mixes several
+    rules in one 5-word pick (e.g. -ing/-ed/-ly all taught the same week)
+    still reports confidence separately per rule, even though there's only
+    one word-picker. A rule with none of its words selected doesn't appear;
+    a week with only one lesson naturally collapses to a single group.
+    Returns [{'lesson_id', 'title', 'words'}], in first-seen order.
+    """
+    word_to_lesson = {}
+    for l in lessons:
+        for w in l.get('hlWords', []):
+            word_to_lesson.setdefault(w, l)
+    groups, index = [], {}
+    for w in words:
+        l = word_to_lesson.get(w)
+        lesson_id = l['id'] if l else ''
+        title = l['focus'] if l else ''
+        if lesson_id not in index:
+            index[lesson_id] = {'lesson_id': lesson_id, 'title': title, 'words': []}
+            groups.append(index[lesson_id])
+        index[lesson_id]['words'].append(w)
+    return groups
+
+
 def load_bee_pupils(class_id='4CK'):
     data = load_class(class_id)
     wc   = load_weekly_config(get_year_group(class_id) or '4')
@@ -332,10 +358,11 @@ def load_bee_pupils(class_id='4CK'):
     lessons    = [get_lesson(lid) for lid in lesson_ids if get_lesson(lid)]
     week_focuses = [l['focus'] for l in lessons] if lessons else []
     hl_words   = wc.get('selected_words', [])
-    # The Bee's rule words are simply this week's HL words (selected_words) —
-    # the same 5 words already picked for Home Learning — attributed to the
-    # week's first lesson for confidence-history purposes.
-    rule_lesson_id = lesson_ids[0] if lesson_ids else ''
+    # The Bee's rule words are this week's HL words (selected_words) — the
+    # same 5 words already picked for Home Learning — grouped by whichever
+    # rule each word actually belongs to, so mixed-rule weeks still get
+    # separate confidence per rule.
+    rule_groups = _group_words_by_lesson(hl_words, lessons)
 
     # Build week label e.g. "T1 W2 · Spring 1"
     term_label = TERM_LABELS.get(wc.get('term',''), wc.get('term',''))
@@ -370,8 +397,7 @@ def load_bee_pupils(class_id='4CK'):
         'week':      wc.get('week_ref', week_label),
         'hl_words':  hl_words,
         'lessons':   lessons,
-        'rule_words': hl_words,
-        'rule_lesson_id': rule_lesson_id,
+        'rule_groups': rule_groups,
         'year_group': wc.get('year_group', ''),
     }
     return pupils, rules_info, wc.get('week_ref', week_label)
@@ -507,8 +533,10 @@ def save_rule_confidence(confidence):
 def _bee_rules_by_class(assessments):
     """Group a Bee save's assessments by class, and for each class resolve
     that year group's rule words this week — the same 5 words already
-    selected for Home Learning (weekly_config's selected_words), attributed
-    to the week's first lesson: {lesson_id: {'title': focus, 'total': n}}.
+    selected for Home Learning (weekly_config's selected_words), grouped by
+    whichever rule/lesson each word actually belongs to (a week can mix
+    several rules in one 5-word pick, e.g. -ing/-ed/-ly together):
+    {lesson_id: {'title': focus, 'total': n_words_for_that_rule}}.
     Shared helper for both functions below."""
     from uls_lessons import get_lesson
 
@@ -523,12 +551,10 @@ def _bee_rules_by_class(assessments):
         wc = load_weekly_config(get_year_group(cls_id) or '4')
         words = wc.get('selected_words', [])
         lesson_ids = wc.get('lesson_ids', [])
-        rules = {}
-        if words and lesson_ids:
-            lesson_id = lesson_ids[0]
-            lesson = get_lesson(lesson_id)
-            rules[lesson_id] = {'title': lesson['focus'] if lesson else lesson_id,
-                                'total': len(words)}
+        lessons = [get_lesson(lid) for lid in lesson_ids if get_lesson(lid)]
+        groups = _group_words_by_lesson(words, lessons)
+        rules = {g['lesson_id']: {'title': g['title'], 'total': len(g['words'])}
+                for g in groups if g['lesson_id']}
         result[cls_id] = {'assessments': ass_list, 'week_ref': wc.get('week_ref', ''), 'rules': rules}
     return result
 

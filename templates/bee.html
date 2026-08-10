@@ -93,8 +93,9 @@
     <div>
       <h3 class="print-card-title">Enter results</h3>
       <p class="print-card-desc">
-        Mark each word correct by clicking it (green = correct). Tick "Confident" if the pupil
-        answered quickly and without hesitation. Save when done — word lists update automatically.
+        Mark each word correct by clicking it (green = correct). Rule confidence is worked out
+        automatically from which of that rule's words are marked correct. Save when done — word
+        lists update automatically.
       </p>
     </div>
   </div>
@@ -126,18 +127,20 @@
         {% endif %}
       </div>
     </div>
-    {% if not p.is_phonics and rules_info.rule_words %}
+    {% if not p.is_phonics and rules_info.rule_groups %}
     <div class="bee-rules">
-      <div class="bee-rule-row" data-lesson="{{ rules_info.rule_lesson_id }}">
-        <span class="bee-rule-title">{{ rules_info.main }}</span>
+      {% for group in rules_info.rule_groups %}
+      <div class="bee-rule-row" data-lesson="{{ group.lesson_id }}">
+        <span class="bee-rule-title">{{ group.title or rules_info.main }}</span>
         <div class="bee-rule-words">
-          {% for w in rules_info.rule_words %}
+          {% for w in group.words %}
           <button type="button" class="word-pill" data-word="{{ w }}"
                   onclick="toggleRuleWord(this)">{{ w }}</button>
           {% endfor %}
         </div>
         <span class="rule-status-badge rule-status--none">—</span>
       </div>
+      {% endfor %}
     </div>
     {% endif %}
   </div>
