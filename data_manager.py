@@ -537,6 +537,96 @@ def update_rule_confidence_from_bee(assessments):
     return save_rule_confidence(conf)
 
 
+# ── Per-pupil rule confidence archive/reset (ULS migration) ────────────────────
+# The per-pupil `rule_confidence` field (dashboard "Rule confidence" panel) holds
+# assessment history keyed by the old Spelling Shed rule IDs (e.g. "4-1"). After
+# switching to Unlocking Letters & Sounds those IDs no longer mean anything, so
+# this archives the data (never deletes it) and clears the live field. It does
+# NOT touch mastered/word_pos/homophone_mastered — those track the CEW/Key
+# Spelling list, which is unaffected by the ULS change.
+
+def get_rule_confidence_summary():
+    """Dry-run: how much rule_confidence data exists right now, per class."""
+    summary = {'classes': {}, 'total_pupils': 0, 'total_entries': 0}
+    for cid in ALL_CLASSES:
+        data = load_class(cid)
+        if not data:
+            continue
+        n_pupils, n_entries = 0, 0
+        for p in data.get('pupils', []):
+            rc = p.get('rule_confidence') or {}
+            if rc:
+                n_pupils += 1
+                n_entries += sum(len(v) for v in rc.values())
+        if n_pupils:
+            summary['classes'][cid] = {'pupils': n_pupils, 'entries': n_entries}
+        summary['total_pupils']  += n_pupils
+        summary['total_entries'] += n_entries
+    return summary
+
+
+def archive_and_reset_rule_confidence():
+    """
+    Archive every pupil's current rule_confidence to a dated backup file under
+    data/archive/, then clear rule_confidence to {} for every pupil who had
+    data. Pupils with no rule_confidence are left untouched (no-op write).
+    Returns {'ok': True, 'archived': n, 'reset': n, 'archive_path': ...}.
+    """
+    import datetime
+    stamp = datetime.date.today().isoformat()
+    archive = {
+        'archived_date': stamp,
+        'reason': 'ULS migration — Spelling Shed rule confidence retired',
+        'classes': {},
+    }
+    total_pupils = 0
+    class_snapshots = []
+
+    for cid in ALL_CLASSES:
+        path = f'data/classes/{cid}.json'
+        data, sha = _get_file(path)
+        if not data:
+            continue
+        class_snapshots.append((cid, path, data, sha))
+        archived_pupils = []
+        for p in data.get('pupils', []):
+            rc = p.get('rule_confidence') or {}
+            if rc:
+                archived_pupils.append({
+                    'id': p.get('id', ''), 'first': p.get('first', ''),
+                    'last': p.get('last', ''), 'rule_confidence': rc,
+                })
+        if archived_pupils:
+            archive['classes'][cid] = archived_pupils
+            total_pupils += len(archived_pupils)
+
+    archive['total_pupils'] = total_pupils
+    if total_pupils == 0:
+        return {'ok': True, 'archived': 0, 'reset': 0,
+                'note': 'No rule confidence data found — nothing to do.'}
+
+    archive_path = f'data/archive/rule_confidence_backup_{stamp}.json'
+    if not _put_file_create(archive_path, archive,
+                            f'Archive rule confidence before ULS reset ({total_pupils} pupils, {stamp})'):
+        return {'ok': False, 'error': f'Failed to write archive file {archive_path} — nothing was reset'}
+
+    reset_count = 0
+    for cid, path, data, sha in class_snapshots:
+        changed = False
+        for p in data.get('pupils', []):
+            if p.get('rule_confidence'):
+                p['rule_confidence'] = {}
+                reset_count += 1
+                changed = True
+        if changed:
+            if not _put_file(path, data, sha, f'Reset rule confidence (ULS migration): {cid}'):
+                return {'ok': False,
+                        'error': f'Archived OK, but failed to reset {path} — some pupils may still show old data',
+                        'archived': total_pupils, 'reset': reset_count, 'archive_path': archive_path}
+
+    return {'ok': True, 'archived': total_pupils, 'reset': reset_count, 'archive_path': archive_path}
+
+
 def load_term_dates():
     """Load term weeks from data/term_dates.json.
     Returns list of {label, iso, display, term, week} dicts, or [] on failure."""

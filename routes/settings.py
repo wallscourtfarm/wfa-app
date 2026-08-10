@@ -18,6 +18,31 @@ def api_debug_learners():
     return jsonify({'ok': True, 'sample': sample})
 
 
+@settings_bp.route('/api/settings/rule-confidence-summary')
+def api_rule_confidence_summary():
+    """Dry-run counts for the rule confidence archive/reset tool."""
+    if not session.get('authenticated'):
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    from data_manager import get_rule_confidence_summary
+    try:
+        return jsonify({'ok': True, 'summary': get_rule_confidence_summary()})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@settings_bp.route('/api/settings/rule-confidence-archive-reset', methods=['POST'])
+def api_rule_confidence_archive_reset():
+    """Archive every pupil's rule_confidence, then clear it. Does not touch
+    mastered/word_pos (CEW/Key Spelling lists)."""
+    if not session.get('authenticated'):
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    from data_manager import archive_and_reset_rule_confidence
+    try:
+        return jsonify(archive_and_reset_rule_confidence())
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @settings_bp.route('/api/settings/sync-term-dates', methods=['POST'])
 def api_sync_term_dates():
     """Pull term dates from the school planning Google Sheet and save to term_dates.json."""

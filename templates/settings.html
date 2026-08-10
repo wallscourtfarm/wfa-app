@@ -118,6 +118,26 @@
     </div>
   </div>
 
+  <!-- ULS migration: archive & reset old Spelling Shed rule confidence -->
+  <div class="settings-section">
+    <h3 class="settings-heading">ULS migration — Rule confidence</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 12px">
+      The "Rule confidence" data on the dashboard comes from the old Spelling Shed rule
+      IDs and no longer matches the Unlocking Letters &amp; Sounds programme. This archives
+      it (never deletes) and resets it to blank for every pupil. It does <strong>not</strong>
+      touch anyone's Key Spellings / CEW list or word position — those are unaffected.
+    </p>
+    <div class="settings-row">
+      <button class="btn btn-secondary" id="rc-preview-btn" style="font-size:12px;padding:5px 14px"
+              onclick="previewRuleConfidenceReset()">Preview</button>
+      <span id="rc-preview-result" style="font-size:13px;color:#475569;margin-left:10px"></span>
+    </div>
+    <div class="settings-row" style="margin-top:8px">
+      <button class="btn btn-primary" id="rc-reset-btn" style="font-size:12px;padding:5px 14px" disabled
+              onclick="runRuleConfidenceReset()">Archive &amp; reset</button>
+    </div>
+  </div>
+
   <div class="settings-save-row">
     <button class="btn btn-primary btn-lg" onclick="saveSettings(event)">💾 Save settings</button>
   </div>
@@ -356,6 +376,64 @@ async function syncTermDates(evt) {
   } catch (err) {
     btn.disabled = false;
     btn.textContent = '↻ Sync from planning sheet';
+    showStatus('Network error.', 'error');
+  }
+}
+
+let _rcSummary = null;
+
+async function previewRuleConfidenceReset() {
+  const btn = document.getElementById('rc-preview-btn');
+  const out = document.getElementById('rc-preview-result');
+  btn.disabled = true;
+  out.textContent = 'Checking…';
+  try {
+    const res  = await fetch('/api/settings/rule-confidence-summary');
+    const data = await res.json();
+    btn.disabled = false;
+    if (!data.ok) { out.textContent = 'Error: ' + (data.error || 'Unknown'); return; }
+    _rcSummary = data.summary;
+    if (data.summary.total_pupils === 0) {
+      out.textContent = 'No rule confidence data found — nothing to archive.';
+      document.getElementById('rc-reset-btn').disabled = true;
+    } else {
+      const classList = Object.entries(data.summary.classes)
+        .map(([cid, c]) => `${cid}: ${c.pupils}`).join(', ');
+      out.textContent = `${data.summary.total_pupils} pupils, ${data.summary.total_entries} entries across: ${classList}`;
+      document.getElementById('rc-reset-btn').disabled = false;
+    }
+  } catch (err) {
+    btn.disabled = false;
+    out.textContent = 'Network error.';
+  }
+}
+
+async function runRuleConfidenceReset() {
+  if (!_rcSummary || _rcSummary.total_pupils === 0) return;
+  if (!confirm(
+    `Archive and reset rule confidence for ${_rcSummary.total_pupils} pupils across ` +
+    `${Object.keys(_rcSummary.classes).length} classes?\n\n` +
+    `This clears the old Spelling Shed "Rule confidence" data (backed up first, never deleted). ` +
+    `It does NOT touch anyone's Key Spellings / CEW list.\n\nThis cannot be undone from the UI.`
+  )) return;
+  const btn = document.getElementById('rc-reset-btn');
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  try {
+    const res  = await fetch('/api/settings/rule-confidence-archive-reset', {method: 'POST'});
+    const data = await res.json();
+    btn.textContent = 'Archive & reset';
+    if (data.ok) {
+      showStatus(`✓ Archived and reset ${data.reset} pupils' rule confidence (backup: ${data.archive_path || 'n/a'}).`, 'success');
+      document.getElementById('rc-preview-result').textContent = 'Done — reset for all pupils above.';
+      _rcSummary = null;
+    } else {
+      btn.disabled = false;
+      showStatus('Failed: ' + (data.error || 'Unknown'), 'error');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Archive & reset';
     showStatus('Network error.', 'error');
   }
 }
