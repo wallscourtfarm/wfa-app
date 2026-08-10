@@ -160,18 +160,24 @@ def api_uls_lesson():
 def settings():
     if not session.get('authenticated'):
         return redirect(url_for('auth.login'))
+    import json
     from data_manager import YEAR_GROUP_CLASSES, get_class_options_for_year
+    from phonics_bank import phonics_sets_for_ui
     yr         = session.get('year_group', '4')
     yr_classes = YEAR_GROUP_CLASSES.get(yr, [])
     wc         = load_weekly_config(yr)
     td         = load_term_dates()
     term_dates = term_dates_by_term(td)
     this_week  = current_week_ref(td)
+    default_programme = 'phonics' if yr in ('1', '2') else 'uls'
+    programme  = wc.get('programme') or default_programme
     return render_template('settings.html',
         wc=wc, yr_classes=yr_classes, active_year=yr,
         class_options=get_class_options_for_year(yr, include_all=False),
         term_dates=term_dates,
-        this_week=this_week)
+        this_week=this_week,
+        programme=programme,
+        phonics_sets_json=json.dumps(phonics_sets_for_ui()))
 
 
 @settings_bp.route('/api/settings/save', methods=['POST'])
@@ -183,46 +189,67 @@ def api_settings_save():
     yr = session.get('year_group', '4')
     wc = load_weekly_config(yr)
 
-    # ULS fields
-    year_group  = body.get('year_group', '').strip()
-    term        = body.get('term', '').strip()
-    week        = body.get('week')
-    lesson_ids  = body.get('lesson_ids', [])
-    hl_mode     = body.get('hl_mode', 'single')
-    hl_lesson_id = body.get('hl_lesson_id', '')
-    selected_words = body.get('selected_words', [])
-
+    year_group = body.get('year_group', '').strip()
     if year_group:
         wc['year_group'] = year_group
-    if term:
-        wc['term'] = term
-    if week is not None:
-        wc['week'] = int(week)
-        wc['week_ref'] = f'{term}W{week}'
-    if lesson_ids:
-        wc['lesson_ids'] = lesson_ids
-    if hl_mode:
-        wc['hl_mode'] = hl_mode
-    if hl_lesson_id:
-        wc['hl_lesson_id'] = hl_lesson_id
-    if selected_words:
-        wc['selected_words'] = selected_words
 
-    # Derive and save rule_title so Streamlit can display it without uls_lessons.py
-    from data_manager import get_uls_lesson
-    rule_title = ''
-    if hl_lesson_id:
-        lesson = get_uls_lesson(hl_lesson_id)
-        if lesson:
-            rule_title = lesson.get('focus', '')
-    if not rule_title and lesson_ids:
-        lesson = get_uls_lesson(lesson_ids[0])
-        if lesson:
-            rule_title = lesson.get('focus', '')
-    if rule_title:
-        wc['rule_title'] = rule_title
+    programme = body.get('programme', '').strip()
+    week      = body.get('week')
 
-    # Legacy week_ref override
+    if programme == 'phonics':
+        from phonics_bank import get_phonics_set
+        set_id = body.get('phonics_set_id', '').strip()
+        pset   = get_phonics_set(set_id) if set_id else None
+        if pset:
+            wc['programme']       = 'phonics'
+            wc['phonics_set_id']  = set_id
+            wc['selected_words']  = pset['words']
+            wc['rule_title']      = f"{pset['phase']}, {pset['label']} ({pset['gpcs_label']})"
+            # Clear stale Unlocking Spelling fields so their fallbacks can't
+            # leak a previous week's lesson title/words into a phonics week.
+            wc['hl_lesson_id'] = ''
+            wc['lesson_ids']   = []
+
+    elif programme == 'uls':
+        term        = body.get('term', '').strip()
+        lesson_ids  = body.get('lesson_ids', [])
+        hl_mode     = body.get('hl_mode', 'single')
+        hl_lesson_id = body.get('hl_lesson_id', '')
+        selected_words = body.get('selected_words', [])
+
+        wc['programme'] = 'uls'
+        if term:
+            wc['term'] = term
+        if week is not None:
+            wc['week'] = int(week)
+            wc['week_ref'] = f'{term}W{week}'
+        if lesson_ids:
+            wc['lesson_ids'] = lesson_ids
+        if hl_mode:
+            wc['hl_mode'] = hl_mode
+        if hl_lesson_id:
+            wc['hl_lesson_id'] = hl_lesson_id
+        if selected_words:
+            wc['selected_words'] = selected_words
+
+        # Derive and save rule_title so Streamlit can display it without uls_lessons.py
+        from data_manager import get_uls_lesson
+        rule_title = ''
+        if hl_lesson_id:
+            lesson = get_uls_lesson(hl_lesson_id)
+            if lesson:
+                rule_title = lesson.get('focus', '')
+        if not rule_title and lesson_ids:
+            lesson = get_uls_lesson(lesson_ids[0])
+            if lesson:
+                rule_title = lesson.get('focus', '')
+        if rule_title:
+            wc['rule_title'] = rule_title
+
+        # Clear stale phonics selection now that this week is Unlocking Spelling.
+        wc['phonics_set_id'] = ''
+
+    # Legacy week_ref override (shared across both programmes)
     week_ref = body.get('week_ref', '').strip()
     if week_ref and not week:
         wc['week_ref'] = week_ref

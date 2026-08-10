@@ -148,7 +148,7 @@ def api_hl_generate():
     # ULS: get HL words and focus from weekly config
     rule_words = wc.get('selected_words', [])
     hl_lesson  = get_uls_lesson(wc.get('hl_lesson_id', ''))
-    rule_title = hl_lesson['focus'] if hl_lesson else wc.get('year_group','')
+    rule_title = hl_lesson['focus'] if hl_lesson else (wc.get('rule_title') or wc.get('year_group',''))
     if not rule_words and hl_lesson:
         rule_words = hl_lesson.get('hlWords', [])
     # Fall back to old Spelling Shed rule if no ULS config

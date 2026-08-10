@@ -293,3 +293,30 @@ def get_phonics_words(gpcs, bank=None, count=5):
             break
         i += 1
     return result
+
+
+def get_phonics_set(set_id):
+    """Look up a teaching Set by id across all Phase groups in PHONICS_SETS.
+    Returns {'id','phase','label','gpcs','gpcs_label','words'} or None."""
+    for group in PHONICS_SETS:
+        for s in group['sets']:
+            if s['id'] == set_id:
+                gpcs_label = ', '.join(GPC_LABELS.get(g, g) for g in s['gpcs'])
+                return {
+                    'id':         s['id'],
+                    'phase':      group['phase'],
+                    'label':      s['label'],
+                    'gpcs':       s['gpcs'],
+                    'gpcs_label': gpcs_label,
+                    'words':      get_phonics_words(s['gpcs']),
+                }
+    return None
+
+
+def phonics_sets_for_ui():
+    """PHONICS_SETS with each Set's word preview precomputed, for embedding
+    in templates (avoids re-deriving the interleaved word list in JS)."""
+    return [
+        {'phase': group['phase'], 'sets': [get_phonics_set(s['id']) for s in group['sets']]}
+        for group in PHONICS_SETS
+    ]

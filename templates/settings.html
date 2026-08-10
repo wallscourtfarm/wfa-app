@@ -10,11 +10,63 @@
 
 <div class="settings-wrap">
 
-  <!-- Unlocking Spelling Weekly setup -->
+  <!-- Shared: active year group + programme toggle -->
   <div class="settings-section">
+    <div class="settings-row">
+      <label class="settings-label">Year group</label>
+      <span style="font-size:14px;font-weight:600;color:#1e293b">Year {{ active_year }}</span>
+      <span style="font-size:12px;color:#94a3b8;margin-left:8px">Each year group has its own weekly setup — switch year in the header above to configure a different one.</span>
+      <input type="hidden" id="uls_year" value="{{ '' if active_year == '1' else 'Y' + active_year }}">
+    </div>
+
+    {% if active_year == '2' %}
+    <div class="settings-row" style="margin-top:10px">
+      <label class="settings-label">Programme</label>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="programme" value="phonics" id="prog_phonics"
+            {% if programme == 'phonics' %}checked{% endif %} onchange="onProgrammeChange()">
+          <span>Phonics (Letters &amp; Sounds)</span>
+          <span style="font-size:12px;color:#94a3b8">Terms 1–2</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="programme" value="uls" id="prog_uls"
+            {% if programme == 'uls' %}checked{% endif %} onchange="onProgrammeChange()">
+          <span>Unlocking Spelling</span>
+          <span style="font-size:12px;color:#94a3b8">Term 3 onward</span>
+        </label>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if active_year in ('1', '2') %}
+  <!-- Phonics Weekly setup: Y1 always, Y2 when the Phonics programme is active -->
+  <div class="settings-section" id="phonics_section"
+       style="{% if not (active_year == '1' or programme == 'phonics') %}display:none{% endif %}">
+    <h3 class="settings-heading">Phonics — Weekly Setup (Unlocking Letters &amp; Sounds)</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 12px">
+      Pick this week's teaching Set — the same Phase/Set order used in Class Manager for phonics-group pupils.
+      Generates this week's 5 words for Home Learning and printed materials.
+    </p>
+    <div class="settings-row">
+      <label class="settings-label">Phase</label>
+      <select id="phonics_phase" class="hl-input" style="max-width:220px" onchange="populatePhonicsSets()"></select>
+    </div>
+    <div class="settings-row">
+      <label class="settings-label">Set</label>
+      <select id="phonics_set" class="hl-input" style="max-width:420px" onchange="applyPhonicsSet()"></select>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if active_year != '1' %}
+  <!-- Unlocking Spelling Weekly setup: Y3-6 always, Y2 when that programme is active -->
+  <div class="settings-section" id="uls_section"
+       style="{% if active_year == '2' and programme != 'uls' %}display:none{% endif %}">
     <h3 class="settings-heading">Unlocking Spelling — Weekly Setup</h3>
 
-    {% if this_week and active_year != '1' %}
+    {% if this_week %}
     <div style="margin-bottom:14px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:12px">
       <span style="font-size:13px;color:#0369a1">
         📅 This week is <strong>{{ this_week }}</strong> — click to load the correct Unlocking Spelling lessons automatically.
@@ -24,22 +76,6 @@
     </div>
     {% endif %}
 
-    <div class="settings-row">
-      <label class="settings-label">Year group</label>
-      {% if active_year == '1' %}
-        <span style="font-size:14px;font-weight:600;color:#1e293b">Year 1</span>
-      {% else %}
-        <span style="font-size:14px;font-weight:600;color:#1e293b">Year {{ active_year }}</span>
-      {% endif %}
-      <span style="font-size:12px;color:#94a3b8;margin-left:8px">Each year group has its own weekly setup — switch year in the header above to configure a different one.</span>
-      <input type="hidden" id="uls_year" value="{{ '' if active_year == '1' else 'Y' + active_year }}">
-    </div>
-
-    {% if active_year == '1' %}
-    <p style="font-size:13px;color:#64748b;margin:0 0 4px">
-      Year 1 doesn't have an Unlocking Spelling weekly programme here (phonics only) — use the Phonics tools instead.
-    </p>
-    {% else %}
     <div class="settings-row">
       <label class="settings-label">Week</label>
       <select id="uls_week" class="hl-input" style="max-width:280px" onchange="onWeekChange()">
@@ -83,16 +119,16 @@
       <label class="settings-label">Select 5 words</label>
       <div id="mix_word_picker" style="display:flex;flex-wrap:wrap;gap:8px"></div>
     </div>
+  </div>
+  {% endif %}
 
-    <div id="selected_words_preview" class="settings-row" style="display:none">
-      <label class="settings-label">HL words</label>
-      <div id="hl_words_list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-      <p style="font-size:12px;color:#94a3b8;margin:6px 0 0">
-        These 5 words are also what show up on the Spelling Bee marking page as this week's rule words.
-      </p>
-    </div>
-    {% endif %}
-
+  <!-- Shared: this week's words preview -->
+  <div id="selected_words_preview" class="settings-row" style="display:none;margin:0 0 20px">
+    <label class="settings-label">This week's words</label>
+    <div id="hl_words_list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    <p style="font-size:12px;color:#94a3b8;margin:6px 0 0">
+      These 5 words feed Home Learning and printed materials (and the Spelling Bee, where used).
+    </p>
   </div>
 
   <!-- Legacy week reference (calendar date) -->
@@ -165,6 +201,65 @@ let selectedWords = {{ wc.get('selected_words', []) | tojson }};
 let currentHLLesson = null;
 const savedWeekCode = {{ (wc.get('term','') + 'W' + wc.get('week','').__str__()) | tojson }};
 const savedHLLessonId = {{ wc.get('hl_lesson_id', '') | tojson }};
+
+// Phonics state
+const PHONICS_SETS = {{ phonics_sets_json | safe }};
+const savedPhonicsSetId = {{ wc.get('phonics_set_id', '') | tojson }};
+let currentProgramme = {{ programme | tojson }};
+
+function onProgrammeChange() {
+  const ulsRadio = document.getElementById('prog_uls');
+  currentProgramme = (ulsRadio && ulsRadio.checked) ? 'uls' : 'phonics';
+  const ps = document.getElementById('phonics_section');
+  const us = document.getElementById('uls_section');
+  if (ps) ps.style.display = currentProgramme === 'phonics' ? '' : 'none';
+  if (us) us.style.display = currentProgramme === 'uls'     ? '' : 'none';
+  settleWordsPreview();
+}
+
+// Recompute selectedWords for whichever programme is actually current, so
+// switching modes (or loading the page) never shows the other programme's
+// stale word list in the shared preview.
+function settleWordsPreview() {
+  if (currentProgramme === 'phonics') {
+    applyPhonicsSet();
+    return;
+  }
+  const mode = document.querySelector('input[name="hl_mode"]:checked')?.value;
+  if (mode === 'single' && document.getElementById('hl_lesson')?.value) {
+    onHLLessonChange();
+  } else if (mode === 'mix' && currentLessons.length) {
+    showSelectedWords();
+  } else {
+    selectedWords = [];
+    showSelectedWords();
+  }
+}
+
+function initPhonicsPhases() {
+  const sel = document.getElementById('phonics_phase');
+  if (!sel) return;
+  sel.innerHTML = PHONICS_SETS.map(g => `<option value="${g.phase}">${g.phase}</option>`).join('');
+  populatePhonicsSets();
+}
+
+function populatePhonicsSets() {
+  const phase  = document.getElementById('phonics_phase').value;
+  const setSel = document.getElementById('phonics_set');
+  const group  = PHONICS_SETS.find(g => g.phase === phase);
+  setSel.innerHTML = (group ? group.sets : []).map(s =>
+    `<option value="${s.id}">${s.label} (${s.gpcs_label})</option>`).join('');
+  applyPhonicsSet();
+}
+
+function applyPhonicsSet() {
+  const phase = document.getElementById('phonics_phase').value;
+  const setId = document.getElementById('phonics_set').value;
+  const group = PHONICS_SETS.find(g => g.phase === phase);
+  const set   = group ? group.sets.find(s => s.id === setId) : null;
+  selectedWords = set ? [...set.words] : [];
+  showSelectedWords();
+}
 
 async function loadThisWeek(weekCode) {
   // Select the week in the dropdown and trigger load
@@ -326,27 +421,31 @@ async function saveSettings(evt) {
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
-  const ulsWeekCode = document.getElementById('uls_week')?.value || '';
-  const wk = allWeeks.find(w => w.code === ulsWeekCode) || {};
-  const hlMode = document.querySelector('input[name="hl_mode"]:checked')?.value || 'single';
-  const hlLessonId = document.getElementById('hl_lesson')?.value || '';
   const week_ref = document.getElementById('week_ref').value.trim();
-
-  // Parse term + week from code e.g. "T1W3"
-  const m = ulsWeekCode.match(/^(T\d)W(\d+)$/);
-  const term = m ? m[1] : '';
-  const week = m ? parseInt(m[2]) : null;
-
   const payload = {
-    year_group:     document.getElementById('uls_year').value,
-    term,
-    week,
-    lesson_ids:     wk.lessonIds || [],
-    hl_mode:        hlMode,
-    hl_lesson_id:   hlLessonId,
-    selected_words: selectedWords,
+    year_group: document.getElementById('uls_year').value,
+    programme:  currentProgramme,
     week_ref,
   };
+
+  if (currentProgramme === 'phonics') {
+    payload.phonics_set_id = document.getElementById('phonics_set')?.value || '';
+    payload.selected_words = selectedWords;
+  } else {
+    const ulsWeekCode = document.getElementById('uls_week')?.value || '';
+    const wk = allWeeks.find(w => w.code === ulsWeekCode) || {};
+    const hlMode = document.querySelector('input[name="hl_mode"]:checked')?.value || 'single';
+    const hlLessonId = document.getElementById('hl_lesson')?.value || '';
+
+    // Parse term + week from code e.g. "T1W3"
+    const m = ulsWeekCode.match(/^(T\d)W(\d+)$/);
+    payload.term           = m ? m[1] : '';
+    payload.week           = m ? parseInt(m[2]) : null;
+    payload.lesson_ids     = wk.lessonIds || [];
+    payload.hl_mode        = hlMode;
+    payload.hl_lesson_id   = hlLessonId;
+    payload.selected_words = selectedWords;
+  }
 
   try {
     const res  = await fetch('/api/settings/save', {
@@ -458,16 +557,33 @@ function showStatus(msg, type) {
   if (type !== 'error') setTimeout(() => { statusBar.className = 'status-bar hidden'; }, 3500);
 }
 
-// Init on load — load weeks, then auto-select this week if nothing is saved
+// Init on load — populate both sections' dropdowns (so the Y2 toggle works
+// without extra fetches), then settle the shared word preview on whichever
+// programme is actually current, since populating each section has side
+// effects on `selectedWords` that would otherwise clobber each other.
 const AUTO_WEEK = {{ this_week | tojson }};
 (async () => {
-  if (!document.getElementById('uls_week')) return;   // Year 1 — nothing to load
-  await loadULSWeeks();
-  // If no week saved yet and we know the current week, auto-select it
-  if (!savedWeekCode && AUTO_WEEK) {
-    document.getElementById('uls_week').value = AUTO_WEEK;
-    await onWeekChange();
+  if (document.getElementById('phonics_phase')) {
+    initPhonicsPhases();
+    if (savedPhonicsSetId) {
+      const grp = PHONICS_SETS.find(g => g.sets.some(s => s.id === savedPhonicsSetId));
+      if (grp) {
+        document.getElementById('phonics_phase').value = grp.phase;
+        populatePhonicsSets();
+        document.getElementById('phonics_set').value = savedPhonicsSetId;
+      }
+    }
   }
+
+  if (document.getElementById('uls_week')) {   // not present for Year 1
+    await loadULSWeeks();
+    if (!savedWeekCode && AUTO_WEEK && currentProgramme === 'uls') {
+      document.getElementById('uls_week').value = AUTO_WEEK;
+      await onWeekChange();
+    }
+  }
+
+  settleWordsPreview();
 })();
 </script>
 {% endblock %}

@@ -33,7 +33,7 @@ def _get_rules(cls):
     selected_words = wc.get('selected_words', [])
     hl_lesson = get_uls_lesson(wc.get('hl_lesson_id', ''))
     if selected_words or hl_lesson:
-        focus = hl_lesson['focus'] if hl_lesson else wc.get('year_group', '')
+        focus = hl_lesson['focus'] if hl_lesson else (wc.get('rule_title') or wc.get('year_group', ''))
         words = selected_words or (hl_lesson['hlWords'] if hl_lesson else [])
         # Return a tuple compatible with existing callers: (stage, step, title, words, rtype)
         main = (0, 0, focus, words, 0)
