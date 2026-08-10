@@ -537,6 +537,80 @@ def update_rule_confidence_from_bee(assessments):
     return save_rule_confidence(conf)
 
 
+def update_pupil_rule_confidence_from_bee(assessments):
+    """
+    Companion to update_rule_confidence_from_bee: appends a rule_confidence
+    entry to each individually-assessed pupil's own record (the same field
+    the Rule Reassessment tool writes to), so the dashboard's per-pupil Rule
+    Confidence panel builds up week by week straight from the Bee's
+    Confident tick, rather than only from a standalone reassessment.
+
+    Every pupil present in `assessments` (i.e. anyone who had words ticked
+    or the Confident box ticked this Bee session) gets one entry for this
+    week's rule/lesson, ticked -> status 'full', unticked -> status 'none'.
+    Does not touch mastered/word_pos.
+    """
+    if not assessments:
+        return {'ok': True, 'updated': 0}
+
+    from uls_lessons import get_lesson
+
+    wc          = load_weekly_config()
+    lesson_ids  = wc.get('lesson_ids', [])
+    cls_cfg     = wc.get('classes', {})
+    any_cfg     = next(iter(cls_cfg.values()), {}) if cls_cfg else {}
+    fallback_id = any_cfg.get('main_rule_id', '')
+    lesson_id   = lesson_ids[0] if lesson_ids else fallback_id
+    if not lesson_id:
+        return {'ok': True, 'updated': 0, 'note': 'No lesson configured for this week'}
+
+    lesson     = get_lesson(lesson_id)
+    rule_title = lesson['focus'] if lesson else lesson_id
+    week_ref   = wc.get('week_ref', '')
+    today      = datetime.now(timezone.utc).date().isoformat()
+
+    by_class = {}
+    for a in assessments:
+        by_class.setdefault(a.get('cls', ''), []).append(a)
+
+    total_updated = 0
+    for cls_id, ass_list in by_class.items():
+        if not cls_id:
+            continue
+        path = f'data/classes/{cls_id}.json'
+        data, sha = _get_file(path)
+        if not data:
+            continue
+        ass_map = {a['pupil_id']: a for a in ass_list}
+        changed = False
+        for i, p in enumerate(data.get('pupils', [])):
+            entry_in = ass_map.get(p['id'])
+            if entry_in is None:
+                continue
+            confident = bool(entry_in.get('confident', False))
+            rc = dict(p.get('rule_confidence') or {})
+            history = list(rc.get(lesson_id, []))
+            history.append({
+                'week':    week_ref,
+                'date':    today,
+                'correct': 1 if confident else 0,
+                'total':   1,
+                'score':   100 if confident else 0,
+                'status':  'full' if confident else 'none',
+                'rule':    rule_title,
+            })
+            rc[lesson_id]   = history
+            p               = dict(p)
+            p['rule_confidence'] = rc
+            data['pupils'][i] = p
+            changed = True
+            total_updated += 1
+        if changed:
+            _put_file(path, data, sha, f'Bee rule confidence: {cls_id} ({len(ass_map)} pupils)')
+
+    return {'ok': True, 'updated': total_updated, 'lesson_id': lesson_id, 'rule_title': rule_title}
+
+
 # ── Per-pupil rule confidence archive/reset (ULS migration) ────────────────────
 # The per-pupil `rule_confidence` field (dashboard "Rule confidence" panel) holds
 # assessment history keyed by the old Spelling Shed rule IDs (e.g. "4-1"). After
