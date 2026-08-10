@@ -147,9 +147,25 @@ def load_class(class_id):
     data, _ = _get_file(f'data/classes/{class_id}.json')
     return data
 
-def load_weekly_config():
+def _is_legacy_weekly_config(data):
+    """Old shape: a single flat config dict, not yet keyed by year group."""
+    return isinstance(data, dict) and ('year_group' in data or 'lesson_ids' in data)
+
+def _migrate_legacy_weekly_config(data):
+    """Wrap a pre-migration flat weekly_config under whichever year it was
+    actually configured for, so existing data isn't lost on first read."""
+    legacy_yr = str(data.get('year_group', '')).lstrip('Yy') or '4'
+    return {legacy_yr: data}
+
+def load_weekly_config(year_group):
+    """Each year group has its own weekly ULS config — a Y2 week has nothing
+    to do with a Y5 week. `year_group` is the bare digit string ('1'-'6')."""
     data, _ = _get_file('data/weekly_config.json')
-    return data or {}
+    if not data:
+        return {}
+    if _is_legacy_weekly_config(data):
+        data = _migrate_legacy_weekly_config(data)
+    return data.get(str(year_group), {})
 
 def get_rule(rule_id_str):
     """Return a rule tuple [stage, step, title, words, ...] by ID string like '4-2' or '0-3'."""
@@ -308,7 +324,7 @@ def advance_tt_pupils(class_id, pupil_ids):
 
 def load_bee_pupils(class_id='4CK'):
     data = load_class(class_id)
-    wc   = load_weekly_config()
+    wc   = load_weekly_config(get_year_group(class_id) or '4')
     if not data: return [], {}, ''
     # ULS: get this week's lesson focuses
     from uls_lessons import get_lesson, TERM_LABELS
@@ -316,6 +332,27 @@ def load_bee_pupils(class_id='4CK'):
     lessons    = [get_lesson(lid) for lid in lesson_ids if get_lesson(lid)]
     week_focuses = [l['focus'] for l in lessons] if lessons else []
     hl_words   = wc.get('selected_words', [])
+
+    # One rule per lesson this week — do NOT collapse same-focus lessons,
+    # e.g. a "prefixes" week often has 3 lessons all labelled "prefixes" but
+    # covering different prefix families with entirely different word banks.
+    # When a focus repeats, disambiguate the title with (L1)/(L2)/... rather
+    # than silently hiding the later lessons' word banks.
+    rule_words_cfg = wc.get('rule_words', {})
+    focus_counts = {}
+    for l in lessons:
+        focus = l.get('focus') or l.get('sequence') or l['id']
+        focus_counts[focus] = focus_counts.get(focus, 0) + 1
+    seen_counts, rules = {}, []
+    for l in lessons:
+        focus = l.get('focus') or l.get('sequence') or l['id']
+        if focus_counts[focus] > 1:
+            seen_counts[focus] = seen_counts.get(focus, 0) + 1
+            title = f'{focus} (L{seen_counts[focus]})'
+        else:
+            title = focus
+        rules.append({'lesson_id': l['id'], 'title': title,
+                      'words': rule_words_cfg.get(l['id'], [])})
     # Build week label e.g. "T1 W2 · Spring 1"
     term_label = TERM_LABELS.get(wc.get('term',''), wc.get('term',''))
     week_label = f"{wc.get('term','')} W{wc.get('week','')} · {term_label}" if wc.get('term') else wc.get('week_ref','')
@@ -349,6 +386,7 @@ def load_bee_pupils(class_id='4CK'):
         'week':      wc.get('week_ref', week_label),
         'hl_words':  hl_words,
         'lessons':   lessons,
+        'rules':     rules,
         'year_group': wc.get('year_group', ''),
     }
     return pupils, rules_info, wc.get('week_ref', week_label)
@@ -405,12 +443,19 @@ def load_learners(class_id='Y4_all'):
     return [{**p, 'partner_name': partner_map.get(p.get('pair_id',''), '—')
              if p.get('pair_id') else '—'} for p in pupils]
 
-def save_weekly_config(data):
-    """Save weekly_config.json back to GitHub."""
-    _, sha = _get_file('data/weekly_config.json')
+def save_weekly_config(year_group, data):
+    """Save one year group's weekly ULS config back to GitHub, without
+    touching any other year group's config in the same file. Self-migrates
+    a pre-migration flat file to the per-year-group shape on first save."""
+    all_data, sha = _get_file('data/weekly_config.json')
+    if all_data is None:
+        all_data, sha = {}, None
+    elif _is_legacy_weekly_config(all_data):
+        all_data = _migrate_legacy_weekly_config(all_data)
+    all_data[str(year_group)] = data
     if sha is None:
-        return False
-    return _put_file('data/weekly_config.json', data, sha, 'Update weekly config')
+        return _put_file_create('data/weekly_config.json', all_data, f'Update weekly config (Y{year_group})')
+    return _put_file('data/weekly_config.json', all_data, sha, f'Update weekly config (Y{year_group})')
 
 
 def list_plannable_rules():
@@ -474,56 +519,72 @@ def save_rule_confidence(confidence):
 
 # ── Bee → rule confidence ─────────────────────────────────────────────────────
 
+def _bee_rules_by_class(assessments):
+    """Group a Bee save's assessments by class, and for each class resolve
+    that year group's configured rule words this week: {lesson_id: {'title':
+    focus, 'total': n_words}}. Shared helper for both functions below."""
+    from uls_lessons import get_lesson
+
+    by_class = {}
+    for a in assessments:
+        by_class.setdefault(a.get('cls', ''), []).append(a)
+
+    result = {}
+    for cls_id, ass_list in by_class.items():
+        if not cls_id:
+            continue
+        wc = load_weekly_config(get_year_group(cls_id) or '4')
+        rule_words = wc.get('rule_words', {})
+        rules = {}
+        for lesson_id, words in rule_words.items():
+            if not words:
+                continue
+            lesson = get_lesson(lesson_id)
+            rules[lesson_id] = {'title': lesson['focus'] if lesson else lesson_id,
+                                'total': len(words)}
+        result[cls_id] = {'assessments': ass_list, 'week_ref': wc.get('week_ref', ''), 'rules': rules}
+    return result
+
+
 def update_rule_confidence_from_bee(assessments):
     """
-    Given a list of {pupil_id, words, confident} dicts from a Bee save,
-    tally confident responses per rule and update rule_confidence.json.
+    Given a list of {pupil_id, cls, rules: [{lesson_id, correct_words}]}
+    dicts from a Bee save, tally word-level correctness per rule (across all
+    classes/pupils in this save) and update rule_confidence.json — the
+    whole-school dot indicators shown on the Rules page.
 
     Proportion thresholds: <40% → Low (1), 40–70% → Medium (2), >70% → High (3).
-    Only rules that had at least one pupil assessed are updated — rules with no
-    data this session are left unchanged so manual settings are preserved.
+    Only rules that had at least one pupil assessed are updated — rules with
+    no data this session are left unchanged so manual settings are preserved.
     """
     if not assessments:
         return False
 
-    # Build pupil_id → group map across all classes
-    pupil_group = {}
-    for cid in ALL_CLASSES:
-        d = load_class(cid)
-        if d:
-            for p in d.get('pupils', []):
-                pupil_group[p['id']] = p.get('group', 'main')
+    by_class = _bee_rules_by_class(assessments)
 
-    wc = load_weekly_config()
-    # ULS: key confidence by lesson IDs for this week
-    lesson_ids = wc.get('lesson_ids', [])
-    # Fall back to old main_rule_id if no ULS config yet
-    cls_cfg = wc.get('classes', {})
-    any_cfg = next(iter(cls_cfg.values()), {}) if cls_cfg else {}
-    fallback_id = any_cfg.get('main_rule_id', '')
-    week_id = lesson_ids[0] if lesson_ids else fallback_id
-
-    # Tally per lesson: {lesson_id: [total, confident_count]}
+    # Tally per lesson: {lesson_id: [total_words_possible, total_correct]}
     tally = {}
-    for a in assessments:
-        confident = bool(a.get('confident', False))
-        lid = week_id
-        if not lid:
-            continue
-        if lid not in tally:
-            tally[lid] = [0, 0]
-        tally[lid][0] += 1
-        if confident:
-            tally[lid][1] += 1
+    for cls_id, info in by_class.items():
+        rules = info['rules']
+        for a in info['assessments']:
+            for r in a.get('rules', []):
+                lesson_id = r.get('lesson_id', '')
+                cfg = rules.get(lesson_id)
+                if not cfg:
+                    continue
+                correct = len(r.get('correct_words', []))
+                if lesson_id not in tally:
+                    tally[lesson_id] = [0, 0]
+                tally[lesson_id][0] += cfg['total']
+                tally[lesson_id][1] += correct
 
     if not tally:
         return False
 
-    # Convert tally to confidence level
-    def _level(total, conf_count):
+    def _level(total, correct):
         if total == 0:
             return 0
-        pct = conf_count / total
+        pct = correct / total
         if pct > 0.70:
             return 3  # High
         if pct >= 0.40:
@@ -531,8 +592,8 @@ def update_rule_confidence_from_bee(assessments):
         return 1      # Low
 
     conf = load_rule_confidence()
-    for rule_id, (total, conf_count) in tally.items():
-        conf[rule_id] = {'level': _level(total, conf_count)}
+    for rule_id, (total, correct) in tally.items():
+        conf[rule_id] = {'level': _level(total, correct)}
 
     return save_rule_confidence(conf)
 
@@ -542,74 +603,75 @@ def update_pupil_rule_confidence_from_bee(assessments):
     Companion to update_rule_confidence_from_bee: appends a rule_confidence
     entry to each individually-assessed pupil's own record (the same field
     the Rule Reassessment tool writes to), so the dashboard's per-pupil Rule
-    Confidence panel builds up week by week straight from the Bee's
-    Confident tick, rather than only from a standalone reassessment.
+    Confidence panel builds up week by week straight from the Bee.
 
-    Every pupil present in `assessments` (i.e. anyone who had words ticked
-    or the Confident box ticked this Bee session) gets one entry for this
-    week's rule/lesson, ticked -> status 'full', unticked -> status 'none'.
-    Does not touch mastered/word_pos.
+    A week can cover several distinct rules — every rule a pupil has words
+    marked for gets its own entry, with status derived from correct/total
+    words marked (matching Rule Reassessment's thresholds), not a manual
+    tick. Does not touch mastered/word_pos.
     """
     if not assessments:
         return {'ok': True, 'updated': 0}
 
-    from uls_lessons import get_lesson
-
-    wc          = load_weekly_config()
-    lesson_ids  = wc.get('lesson_ids', [])
-    cls_cfg     = wc.get('classes', {})
-    any_cfg     = next(iter(cls_cfg.values()), {}) if cls_cfg else {}
-    fallback_id = any_cfg.get('main_rule_id', '')
-    lesson_id   = lesson_ids[0] if lesson_ids else fallback_id
-    if not lesson_id:
-        return {'ok': True, 'updated': 0, 'note': 'No lesson configured for this week'}
-
-    lesson     = get_lesson(lesson_id)
-    rule_title = lesson['focus'] if lesson else lesson_id
-    week_ref   = wc.get('week_ref', '')
-    today      = datetime.now(timezone.utc).date().isoformat()
-
-    by_class = {}
-    for a in assessments:
-        by_class.setdefault(a.get('cls', ''), []).append(a)
+    by_class = _bee_rules_by_class(assessments)
+    today = datetime.now(timezone.utc).date().isoformat()
 
     total_updated = 0
-    for cls_id, ass_list in by_class.items():
-        if not cls_id:
+    for cls_id, info in by_class.items():
+        rules = info['rules']
+        if not rules:
             continue
         path = f'data/classes/{cls_id}.json'
         data, sha = _get_file(path)
         if not data:
             continue
-        ass_map = {a['pupil_id']: a for a in ass_list}
+        ass_map = {a['pupil_id']: a for a in info['assessments']}
         changed = False
+        class_updated = 0
         for i, p in enumerate(data.get('pupils', [])):
             entry_in = ass_map.get(p['id'])
             if entry_in is None:
                 continue
-            confident = bool(entry_in.get('confident', False))
             rc = dict(p.get('rule_confidence') or {})
-            history = list(rc.get(lesson_id, []))
-            history.append({
-                'week':    week_ref,
-                'date':    today,
-                'correct': 1 if confident else 0,
-                'total':   1,
-                'score':   100 if confident else 0,
-                'status':  'full' if confident else 'none',
-                'rule':    rule_title,
-                'source':  'bee',
-            })
-            rc[lesson_id]   = history
-            p               = dict(p)
-            p['rule_confidence'] = rc
-            data['pupils'][i] = p
-            changed = True
-            total_updated += 1
+            row_changed = False
+            for r in entry_in.get('rules', []):
+                lesson_id = r.get('lesson_id', '')
+                cfg = rules.get(lesson_id)
+                if not cfg:
+                    continue
+                correct = len(r.get('correct_words', []))
+                total   = cfg['total']
+                score   = round(correct / total * 100) if total else 0
+                if correct == total:
+                    status = 'full'
+                elif correct > 0:
+                    status = 'partial'
+                else:
+                    status = 'none'
+                history = list(rc.get(lesson_id, []))
+                history.append({
+                    'week':    info['week_ref'],
+                    'date':    today,
+                    'correct': correct,
+                    'total':   total,
+                    'score':   score,
+                    'status':  status,
+                    'rule':    cfg['title'],
+                    'source':  'bee',
+                })
+                rc[lesson_id] = history
+                row_changed = True
+            if row_changed:
+                p = dict(p)
+                p['rule_confidence'] = rc
+                data['pupils'][i] = p
+                changed = True
+                class_updated += 1
+                total_updated += 1
         if changed:
-            _put_file(path, data, sha, f'Bee rule confidence: {cls_id} ({len(ass_map)} pupils)')
+            _put_file(path, data, sha, f'Bee rule confidence: {cls_id} ({class_updated} pupils)')
 
-    return {'ok': True, 'updated': total_updated, 'lesson_id': lesson_id, 'rule_title': rule_title}
+    return {'ok': True, 'updated': total_updated}
 
 
 def latest_rule_confidence_entry(entries):

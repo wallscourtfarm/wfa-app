@@ -3,7 +3,7 @@ from datetime import datetime, date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, send_file, make_response)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
@@ -130,7 +130,7 @@ def api_bee_create():
     try:
         body     = request.get_json(force=True)
         cls      = body.get('cls', 'all')
-        wc       = load_weekly_config()
+        wc       = load_weekly_config(get_year_group(cls) or session.get('year_group', '4'))
         week_ref = wc.get('week_ref', '')
         rule_wds = _rule_words(wc, cls)
 

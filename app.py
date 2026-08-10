@@ -76,5 +76,29 @@ def inject_year():
     yr = session.get('year_group', '4')
     return {'active_year': yr, 'all_year_groups': list(_YGC.keys())}
 
+
+# ── UK date formatting ───────────────────────────────────────────────────────
+# Stored dates are ISO (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ) — always render
+# them day-first for a UK audience rather than showing the raw ISO string.
+
+@app.template_filter('uk_date')
+def uk_date(value):
+    if not value or len(value) < 10:
+        return value or '—'
+    try:
+        y, m, d = value[0:4], value[5:7], value[8:10]
+        return f'{d}/{m}/{y[2:]}'
+    except (IndexError, ValueError):
+        return value
+
+@app.template_filter('uk_datetime')
+def uk_datetime(value):
+    if not value or len(value) < 10:
+        return value or '—'
+    date_part = uk_date(value)
+    time_part = value[11:16] if len(value) >= 16 else ''
+    return f'{date_part} {time_part}'.strip()
+
+
 if __name__ == '__main__':
     app.run(debug=True)

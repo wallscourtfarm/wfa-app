@@ -54,7 +54,7 @@ def api_bee_save():
             return jsonify(result)
         total_saved += result.get('saved', 0)
 
-    # Update rule confidence dots based on confident flags
+    # Update rule confidence dots based on words marked correct per rule
     update_rule_confidence_from_bee(assessments)
     # Also build up each pupil's own rule confidence history week by week
     update_pupil_rule_confidence_from_bee(assessments)

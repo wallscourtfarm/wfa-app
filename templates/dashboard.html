@@ -86,7 +86,7 @@
                     {% if s.last_date %}
                       <span class="ld-badge ld-badge--{{ s.status }}">{{ s.status|title }}</span>
                       <span class="ld-score">{{ s.correct }}/{{ s.total }} ({{ s.pct }}%)</span>
-                      <span class="ld-date">{{ s.last_date }}</span>
+                      <span class="ld-date">{{ s.last_date | uk_date }}</span>
                     {% else %}
                       <span class="ld-badge ld-badge--none">Not assessed</span>
                     {% endif %}
@@ -108,7 +108,7 @@
                     <span class="ld-rule-title">{{ rc.title }}</span>
                     <span class="ld-badge ld-badge--{{ rc.status }}">{{ rc.status|title }}</span>
                     <span class="ld-score">{{ rc.correct }}/{{ rc.total }}</span>
-                    <span class="ld-date">{{ rc.week }} · {{ rc.date }}</span>
+                    <span class="ld-date">{{ rc.week }} · {{ rc.date | uk_date }}</span>
                   </div>
                   {% endfor %}
                 </div>

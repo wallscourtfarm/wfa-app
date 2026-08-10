@@ -163,7 +163,7 @@ def settings():
     from data_manager import YEAR_GROUP_CLASSES, get_class_options_for_year
     yr         = session.get('year_group', '4')
     yr_classes = YEAR_GROUP_CLASSES.get(yr, [])
-    wc         = load_weekly_config()
+    wc         = load_weekly_config(yr)
     td         = load_term_dates()
     term_dates = term_dates_by_term(td)
     this_week  = current_week_ref(td)
@@ -180,7 +180,8 @@ def api_settings_save():
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     body = request.get_json(force=True)
 
-    wc = load_weekly_config()
+    yr = session.get('year_group', '4')
+    wc = load_weekly_config(yr)
 
     # ULS fields
     year_group  = body.get('year_group', '').strip()
@@ -190,6 +191,7 @@ def api_settings_save():
     hl_mode     = body.get('hl_mode', 'single')
     hl_lesson_id = body.get('hl_lesson_id', '')
     selected_words = body.get('selected_words', [])
+    rule_words  = body.get('rule_words', {})
 
     if year_group:
         wc['year_group'] = year_group
@@ -206,6 +208,8 @@ def api_settings_save():
         wc['hl_lesson_id'] = hl_lesson_id
     if selected_words:
         wc['selected_words'] = selected_words
+    if rule_words:
+        wc['rule_words'] = rule_words
 
     # Derive and save rule_title so Streamlit can display it without uls_lessons.py
     from data_manager import get_uls_lesson
@@ -226,5 +230,5 @@ def api_settings_save():
     if week_ref and not week:
         wc['week_ref'] = week_ref
 
-    ok = save_weekly_config(wc)
+    ok = save_weekly_config(yr, wc)
     return jsonify({'ok': ok, 'error': None if ok else 'GitHub write failed'})

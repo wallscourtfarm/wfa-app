@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
+from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -26,7 +26,7 @@ def _load_pupils(cls):
 def _get_rules(cls):
     """Return (main_rule_like, rev_rule_like, week_ref).
     Now uses ULS selected_words from weekly config; falls back to old Spelling Shed rule_id."""
-    wc      = load_weekly_config()
+    wc      = load_weekly_config(get_year_group(cls) or session.get('year_group', '4'))
     week_ref = wc.get('week_ref', 'TxWy')
 
     # ULS path: build a pseudo-rule tuple from selected_words + lesson focus

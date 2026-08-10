@@ -78,7 +78,7 @@
   {% if current %}
   <div class="meta">
     <strong>Term:</strong> {{ current._termLabel or '(none)' }}<br>
-    <strong>Last updated:</strong> {{ current._lastUpdated or '(unknown)' }}<br>
+    <strong>Last updated:</strong> {{ (current._lastUpdated | uk_date) if current._lastUpdated else '(unknown)' }}<br>
     <strong>Weeks covered:</strong> {{ current.weeks | length }}<br>
     {% set mondays = current.weeks.keys() | sort %}
     {% if mondays %}

@@ -14,7 +14,7 @@
   <div class="settings-section">
     <h3 class="settings-heading">Unlocking Spelling — Weekly Setup</h3>
 
-    {% if this_week %}
+    {% if this_week and active_year != '1' %}
     <div style="margin-bottom:14px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:12px">
       <span style="font-size:13px;color:#0369a1">
         📅 This week is <strong>{{ this_week }}</strong> — click to load the correct Unlocking Spelling lessons automatically.
@@ -26,13 +26,20 @@
 
     <div class="settings-row">
       <label class="settings-label">Year group</label>
-      <select id="uls_year" class="hl-input" style="max-width:120px" onchange="loadULSWeeks()">
-        {% for yr in ['Y2','Y3','Y4','Y5','Y6'] %}
-        <option value="{{ yr }}" {% if wc.get('year_group','Y'+active_year) == yr %}selected{% endif %}>{{ yr }}</option>
-        {% endfor %}
-      </select>
+      {% if active_year == '1' %}
+        <span style="font-size:14px;font-weight:600;color:#1e293b">Year 1</span>
+      {% else %}
+        <span style="font-size:14px;font-weight:600;color:#1e293b">Year {{ active_year }}</span>
+      {% endif %}
+      <span style="font-size:12px;color:#94a3b8;margin-left:8px">Each year group has its own weekly setup — switch year in the header above to configure a different one.</span>
+      <input type="hidden" id="uls_year" value="{{ '' if active_year == '1' else 'Y' + active_year }}">
     </div>
 
+    {% if active_year == '1' %}
+    <p style="font-size:13px;color:#64748b;margin:0 0 4px">
+      Year 1 doesn't have an Unlocking Spelling weekly programme here (phonics only) — use the Phonics tools instead.
+    </p>
+    {% else %}
     <div class="settings-row">
       <label class="settings-label">Week</label>
       <select id="uls_week" class="hl-input" style="max-width:280px" onchange="onWeekChange()">
@@ -81,6 +88,16 @@
       <label class="settings-label">HL words</label>
       <div id="hl_words_list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
+
+    <div id="rule_words_section" style="margin-top:16px;display:none">
+      <label class="settings-label" style="display:block;margin-bottom:6px">Rule words (Spelling Bee)</label>
+      <p style="font-size:12px;color:#94a3b8;margin:0 0 10px">
+        Pick up to 5 words per rule — these show on the Spelling Bee marking page, and each rule's
+        confidence is worked out automatically from which of its words get marked correct.
+      </p>
+      <div id="rule_words_picker" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+    {% endif %}
 
   </div>
 
@@ -152,12 +169,14 @@ let allWeeks = [];        // [{code, label, focuses, lessonIds}]
 let currentLessons = [];  // lesson dicts for selected week
 let selectedWords = {{ wc.get('selected_words', []) | tojson }};
 let currentHLLesson = null;
+let ruleWords = {{ wc.get('rule_words', {}) | tojson }};   // {lesson_id: [word, ...]}
 const savedWeekCode = {{ (wc.get('term','') + 'W' + wc.get('week','').__str__()) | tojson }};
 const savedHLLessonId = {{ wc.get('hl_lesson_id', '') | tojson }};
 
 async function loadThisWeek(weekCode) {
   // Select the week in the dropdown and trigger load
   const sel = document.getElementById('uls_week');
+  if (!sel) return;   // Year 1 has no ULS weekly programme
   // Weeks may not be loaded yet — load them first
   if (allWeeks.length === 0) await loadULSWeeks();
   sel.value = weekCode;
@@ -171,8 +190,9 @@ async function loadThisWeek(weekCode) {
 }
 
 async function loadULSWeeks() {
-  const yr = document.getElementById('uls_year').value;
   const sel = document.getElementById('uls_week');
+  if (!sel) return;   // Year 1 has no ULS weekly programme — nothing to load
+  const yr = document.getElementById('uls_year').value;
   sel.innerHTML = '<option value="">Loading…</option>';
   const r = await fetch(`/api/settings/uls-weeks?year=${yr}`);
   const d = await r.json();
@@ -226,6 +246,80 @@ async function onWeekChange() {
   refreshHLLessonDropdown();
   updateMixPicker();
   showSelectedWords();
+  updateRuleWordsPicker();
+}
+
+// One rule per lesson this week — do NOT collapse same-focus lessons, e.g.
+// a "prefixes" week often has 3 lessons all labelled "prefixes" but covering
+// different prefix families with entirely different word banks. When a
+// focus repeats, disambiguate with (L1)/(L2)/... rather than hiding lessons.
+function rulesWithLabels() {
+  const counts = {};
+  currentLessons.forEach(l => {
+    const focus = l.focus || l.sequence;
+    counts[focus] = (counts[focus] || 0) + 1;
+  });
+  const seen = {};
+  return currentLessons.map(l => {
+    const focus = l.focus || l.sequence;
+    let label = focus;
+    if (counts[focus] > 1) {
+      seen[focus] = (seen[focus] || 0) + 1;
+      label = `${focus} (L${seen[focus]})`;
+    }
+    return {...l, ruleLabel: label};
+  });
+}
+
+function updateRuleWordsPicker() {
+  const section = document.getElementById('rule_words_section');
+  const picker  = document.getElementById('rule_words_picker');
+  const rules   = rulesWithLabels();
+  if (!rules.length) { section.style.display = 'none'; return; }
+
+  picker.innerHTML = '';
+  rules.forEach(l => {
+    const chosen = ruleWords[l.id] || [];
+    const row = document.createElement('div');
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px';
+    label.textContent = l.ruleLabel;
+    row.appendChild(label);
+
+    const words = document.createElement('div');
+    words.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+    l.hlWords.forEach(w => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = w;
+      const active = chosen.includes(w);
+      btn.style.cssText = `padding:4px 10px;border-radius:20px;border:1px solid;cursor:pointer;font-size:13px;
+        background:${active ? '#1798d3' : '#fff'};color:${active ? '#fff' : '#1e293b'};
+        border-color:${active ? '#1798d3' : '#cbd5e1'}`;
+      btn.onclick = () => toggleRuleWord(l.id, w, btn);
+      words.appendChild(btn);
+    });
+    row.appendChild(words);
+    picker.appendChild(row);
+  });
+  section.style.display = 'block';
+}
+
+function toggleRuleWord(lessonId, word, btn) {
+  const chosen = ruleWords[lessonId] || (ruleWords[lessonId] = []);
+  const idx = chosen.indexOf(word);
+  if (idx >= 0) {
+    chosen.splice(idx, 1);
+    btn.style.background = '#fff';
+    btn.style.color = '#1e293b';
+    btn.style.borderColor = '#cbd5e1';
+  } else {
+    if (chosen.length >= 5) { showStatus('Maximum 5 words per rule', 'error'); return; }
+    chosen.push(word);
+    btn.style.background = '#1798d3';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#1798d3';
+  }
 }
 
 function refreshHLLessonDropdown() {
@@ -313,10 +407,10 @@ async function saveSettings(evt) {
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
-  const ulsWeekCode = document.getElementById('uls_week').value;
+  const ulsWeekCode = document.getElementById('uls_week')?.value || '';
   const wk = allWeeks.find(w => w.code === ulsWeekCode) || {};
   const hlMode = document.querySelector('input[name="hl_mode"]:checked')?.value || 'single';
-  const hlLessonId = document.getElementById('hl_lesson').value || '';
+  const hlLessonId = document.getElementById('hl_lesson')?.value || '';
   const week_ref = document.getElementById('week_ref').value.trim();
 
   // Parse term + week from code e.g. "T1W3"
@@ -332,6 +426,7 @@ async function saveSettings(evt) {
     hl_mode:        hlMode,
     hl_lesson_id:   hlLessonId,
     selected_words: selectedWords,
+    rule_words:     ruleWords,
     week_ref,
   };
 
@@ -448,6 +543,7 @@ function showStatus(msg, type) {
 // Init on load — load weeks, then auto-select this week if nothing is saved
 const AUTO_WEEK = {{ this_week | tojson }};
 (async () => {
+  if (!document.getElementById('uls_week')) return;   // Year 1 — nothing to load
   await loadULSWeeks();
   // If no week saved yet and we know the current week, auto-select it
   if (!savedWeekCode && AUTO_WEEK) {

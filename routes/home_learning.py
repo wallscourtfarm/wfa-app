@@ -1,6 +1,6 @@
 import base64
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
+from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group
 from word_bank import get_active_words
 
 hl_bp = Blueprint('hl', __name__)
@@ -143,7 +143,7 @@ def api_hl_generate():
     if not maths_topic or not reading_topic:
         return jsonify({'ok': False, 'error': 'Maths topic and reading text are required'})
 
-    wc         = load_weekly_config() or {}
+    wc         = load_weekly_config(get_year_group(cls) or session.get('year_group', '4')) or {}
     week_ref   = wc.get('week_ref', 'TxWy')
     # ULS: get HL words and focus from weekly config
     rule_words = wc.get('selected_words', [])

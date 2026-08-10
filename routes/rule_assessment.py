@@ -3,7 +3,7 @@ from datetime import date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
-from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, _resolve_classes
+from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from uls_lessons import ULS_LESSONS
 
 ra_bp = Blueprint('rule_assessment', __name__)
@@ -103,7 +103,7 @@ def rule_reassessment():
     cls = request.args.get('cls', f'Y{yr}_all')
     if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
         cls = DEFAULT_CLASS
-    wc       = load_weekly_config()
+    wc       = load_weekly_config(yr)
     week_ref = wc.get('week_ref', 'TxWy')
     lessons  = _plannable_lessons()
 
@@ -139,7 +139,7 @@ def api_ra_generate():
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
 
-        wc        = load_weekly_config()
+        wc        = load_weekly_config(get_year_group(cls) or session.get('year_group', '4'))
         week_ref  = wc.get('week_ref', 'TxWy')
         cloze     = _load_rule_cloze()
         sections  = _rule_sections(selected_ids, cloze)
