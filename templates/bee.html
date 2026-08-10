@@ -126,24 +126,18 @@
         {% endif %}
       </div>
     </div>
-    {% if not p.is_phonics and rules_info.rules %}
+    {% if not p.is_phonics and rules_info.rule_words %}
     <div class="bee-rules">
-      {% for rule in rules_info.rules %}
-      <div class="bee-rule-row" data-lesson="{{ rule.lesson_id }}">
-        <span class="bee-rule-title">{{ rule.title }}</span>
+      <div class="bee-rule-row" data-lesson="{{ rules_info.rule_lesson_id }}">
+        <span class="bee-rule-title">{{ rules_info.main }}</span>
         <div class="bee-rule-words">
-          {% if rule.words %}
-            {% for w in rule.words %}
-            <button type="button" class="word-pill" data-word="{{ w }}"
-                    onclick="toggleRuleWord(this)">{{ w }}</button>
-            {% endfor %}
-          {% else %}
-            <span class="no-words">No words set for this rule — add them in Settings</span>
-          {% endif %}
+          {% for w in rules_info.rule_words %}
+          <button type="button" class="word-pill" data-word="{{ w }}"
+                  onclick="toggleRuleWord(this)">{{ w }}</button>
+          {% endfor %}
         </div>
         <span class="rule-status-badge rule-status--none">—</span>
       </div>
-      {% endfor %}
     </div>
     {% endif %}
   </div>

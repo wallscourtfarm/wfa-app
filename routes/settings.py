@@ -191,7 +191,6 @@ def api_settings_save():
     hl_mode     = body.get('hl_mode', 'single')
     hl_lesson_id = body.get('hl_lesson_id', '')
     selected_words = body.get('selected_words', [])
-    rule_words  = body.get('rule_words', {})
 
     if year_group:
         wc['year_group'] = year_group
@@ -208,8 +207,6 @@ def api_settings_save():
         wc['hl_lesson_id'] = hl_lesson_id
     if selected_words:
         wc['selected_words'] = selected_words
-    if rule_words:
-        wc['rule_words'] = rule_words
 
     # Derive and save rule_title so Streamlit can display it without uls_lessons.py
     from data_manager import get_uls_lesson

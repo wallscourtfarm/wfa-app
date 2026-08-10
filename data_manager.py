@@ -332,27 +332,11 @@ def load_bee_pupils(class_id='4CK'):
     lessons    = [get_lesson(lid) for lid in lesson_ids if get_lesson(lid)]
     week_focuses = [l['focus'] for l in lessons] if lessons else []
     hl_words   = wc.get('selected_words', [])
+    # The Bee's rule words are simply this week's HL words (selected_words) —
+    # the same 5 words already picked for Home Learning — attributed to the
+    # week's first lesson for confidence-history purposes.
+    rule_lesson_id = lesson_ids[0] if lesson_ids else ''
 
-    # One rule per lesson this week — do NOT collapse same-focus lessons,
-    # e.g. a "prefixes" week often has 3 lessons all labelled "prefixes" but
-    # covering different prefix families with entirely different word banks.
-    # When a focus repeats, disambiguate the title with (L1)/(L2)/... rather
-    # than silently hiding the later lessons' word banks.
-    rule_words_cfg = wc.get('rule_words', {})
-    focus_counts = {}
-    for l in lessons:
-        focus = l.get('focus') or l.get('sequence') or l['id']
-        focus_counts[focus] = focus_counts.get(focus, 0) + 1
-    seen_counts, rules = {}, []
-    for l in lessons:
-        focus = l.get('focus') or l.get('sequence') or l['id']
-        if focus_counts[focus] > 1:
-            seen_counts[focus] = seen_counts.get(focus, 0) + 1
-            title = f'{focus} (L{seen_counts[focus]})'
-        else:
-            title = focus
-        rules.append({'lesson_id': l['id'], 'title': title,
-                      'words': rule_words_cfg.get(l['id'], [])})
     # Build week label e.g. "T1 W2 · Spring 1"
     term_label = TERM_LABELS.get(wc.get('term',''), wc.get('term',''))
     week_label = f"{wc.get('term','')} W{wc.get('week','')} · {term_label}" if wc.get('term') else wc.get('week_ref','')
@@ -386,7 +370,8 @@ def load_bee_pupils(class_id='4CK'):
         'week':      wc.get('week_ref', week_label),
         'hl_words':  hl_words,
         'lessons':   lessons,
-        'rules':     rules,
+        'rule_words': hl_words,
+        'rule_lesson_id': rule_lesson_id,
         'year_group': wc.get('year_group', ''),
     }
     return pupils, rules_info, wc.get('week_ref', week_label)
@@ -521,8 +506,10 @@ def save_rule_confidence(confidence):
 
 def _bee_rules_by_class(assessments):
     """Group a Bee save's assessments by class, and for each class resolve
-    that year group's configured rule words this week: {lesson_id: {'title':
-    focus, 'total': n_words}}. Shared helper for both functions below."""
+    that year group's rule words this week — the same 5 words already
+    selected for Home Learning (weekly_config's selected_words), attributed
+    to the week's first lesson: {lesson_id: {'title': focus, 'total': n}}.
+    Shared helper for both functions below."""
     from uls_lessons import get_lesson
 
     by_class = {}
@@ -534,11 +521,11 @@ def _bee_rules_by_class(assessments):
         if not cls_id:
             continue
         wc = load_weekly_config(get_year_group(cls_id) or '4')
-        rule_words = wc.get('rule_words', {})
+        words = wc.get('selected_words', [])
+        lesson_ids = wc.get('lesson_ids', [])
         rules = {}
-        for lesson_id, words in rule_words.items():
-            if not words:
-                continue
+        if words and lesson_ids:
+            lesson_id = lesson_ids[0]
             lesson = get_lesson(lesson_id)
             rules[lesson_id] = {'title': lesson['focus'] if lesson else lesson_id,
                                 'total': len(words)}
