@@ -367,8 +367,11 @@ function onHLLessonChange() {
 function updateMixPicker() {
   const picker = document.getElementById('mix_word_picker');
   picker.innerHTML = '';
-  currentLessons.forEach((l, li) => {
+  const seen = new Set();
+  currentLessons.forEach(l => {
     l.hlWords.forEach(w => {
+      if (seen.has(w)) return;
+      seen.add(w);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = w;
@@ -380,12 +383,6 @@ function updateMixPicker() {
       btn.onclick = () => toggleMixWord(w, btn);
       picker.appendChild(btn);
     });
-    // Divider between lessons
-    if (li < currentLessons.length - 1) {
-      const sep = document.createElement('span');
-      sep.style.cssText = 'width:1px;height:24px;background:#e2e8f0;display:inline-block';
-      picker.appendChild(sep);
-    }
   });
 }
 
