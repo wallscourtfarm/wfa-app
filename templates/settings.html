@@ -290,7 +290,8 @@ async function loadULSWeeks() {
   allWeeks.forEach(w => {
     const opt = document.createElement('option');
     opt.value = w.code;
-    opt.textContent = `${w.code} — ${w.focuses.slice(0,2).join(' / ')}`;
+    const uniqueFocuses = [...new Set(w.focuses)];
+    opt.textContent = `${w.code} — ${uniqueFocuses.slice(0,2).join(' / ')}`;
     if (w.code === savedWeekCode) opt.selected = true;
     sel.appendChild(opt);
   });
