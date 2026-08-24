@@ -12,6 +12,7 @@
     </select>
     <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import names</button>
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Import pupils with spelling mastery data">📊 Import mastery</button>
+<button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
     <button class="btn btn-secondary" onclick="openSettingsModal()" title="Edit class teacher label">⚙ Settings</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
     <button class="btn btn-primary" onclick="openAddModal()">+ Add pupil</button>
@@ -469,6 +470,37 @@
       <button class="btn btn-primary" id="mastery-btn" onclick="confirmMasteryImport()" disabled>Import</button>
       <button class="btn btn-secondary" onclick="closeMasteryModal()">Cancel</button>
       <span class="print-spinner hidden" id="spin-mastery"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Unlocking Spelling import modal ─────────────────────────────────────── -->
+<div id="us-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:600px">
+    <div class="cm-modal-hdr">
+      <h3>🔑 Import Unlocking Spelling ID/PIN</h3>
+      <button onclick="closeUsModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0;line-height:1.6">
+        Paste the roster straight from the Unlocking Spelling Google Sheet — select the
+        <strong>First Name, Last Name, Year, Code, PIN</strong> columns (with header row),
+        copy, and paste below. Matches pupils across <strong>all</strong> year groups by name.
+      </p>
+      <div class="cm-field">
+        <label>Paste roster</label>
+        <textarea id="us-csv" class="cm-input" rows="10"
+          placeholder="First Name	Last Name	Year	Code	PIN&#10;Bailey	Silvers	Y5	BA55	7975"
+          style="font-family:monospace;font-size:12px;resize:vertical"></textarea>
+      </div>
+      <div id="us-preview" style="font-size:13px;color:#1e40af;background:#eff6ff;
+        border-radius:8px;padding:8px 12px;display:none;white-space:pre-wrap"></div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-secondary" id="us-preview-btn" onclick="previewUsImport()">Preview</button>
+      <button class="btn btn-primary" id="us-apply-btn" onclick="applyUsImport()" disabled>Apply</button>
+      <button class="btn btn-secondary" onclick="closeUsModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-us"></span>
     </div>
   </div>
 </div>
@@ -1304,6 +1336,86 @@ async function confirmMasteryImport() {
   } finally {
     document.getElementById('spin-mastery').classList.add('hidden');
     document.getElementById('mastery-btn').disabled = false;
+  }
+}
+
+// ── Unlocking Spelling import modal ─────────────────────────────────────────────
+function openUsModal() {
+  document.getElementById('us-csv').value = '';
+  document.getElementById('us-preview').style.display = 'none';
+  document.getElementById('us-apply-btn').disabled = true;
+  document.getElementById('us-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('us-csv').focus(), 50);
+}
+
+function closeUsModal() {
+  document.getElementById('us-modal').style.display = 'none';
+}
+
+async function previewUsImport() {
+  const csv = document.getElementById('us-csv').value.trim();
+  const preview = document.getElementById('us-preview');
+  const applyBtn = document.getElementById('us-apply-btn');
+  if (!csv) return;
+
+  document.getElementById('spin-us').classList.remove('hidden');
+  document.getElementById('us-preview-btn').disabled = true;
+  applyBtn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/class/import-unlocking-spelling-csv', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mode: 'preview', csv }),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      let msg = `${d.matched} pupil${d.matched !== 1 ? 's' : ''} matched, ${d.unmatched} unmatched.`;
+      if (d.unmatched_names?.length) msg += `\nUnmatched: ${d.unmatched_names.join(', ')}`;
+      preview.textContent = msg;
+      preview.style.display = 'block';
+      applyBtn.disabled = d.matched === 0;
+    } else {
+      preview.textContent = 'Preview failed: ' + d.error;
+      preview.style.display = 'block';
+    }
+  } catch(e) {
+    preview.textContent = 'Request failed: ' + e.message;
+    preview.style.display = 'block';
+  } finally {
+    document.getElementById('spin-us').classList.add('hidden');
+    document.getElementById('us-preview-btn').disabled = false;
+  }
+}
+
+async function applyUsImport() {
+  const csv = document.getElementById('us-csv').value.trim();
+  if (!csv) return;
+  if (!confirm('Apply these ID/PIN updates? This overwrites the existing values for every matched pupil.')) return;
+
+  document.getElementById('spin-us').classList.remove('hidden');
+  document.getElementById('us-apply-btn').disabled = true;
+
+  try {
+    const resp = await fetch('/api/class/import-unlocking-spelling-csv', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mode: 'apply', csv }),
+    });
+    const d = await resp.json();
+    closeUsModal();
+    if (d.ok) {
+      let msg = `Updated ${d.applied} pupil${d.applied !== 1 ? 's' : ''}.`;
+      if (d.unmatched) msg += ` ${d.unmatched} not matched — see console.`;
+      if (d.unmatched_names?.length) console.warn('Unmatched:', d.unmatched_names);
+      showStatus(msg);
+      await load();
+    } else {
+      showStatus('Import failed: ' + d.error, 'error');
+    }
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    document.getElementById('spin-us').classList.add('hidden');
+    document.getElementById('us-apply-btn').disabled = false;
   }
 }
 

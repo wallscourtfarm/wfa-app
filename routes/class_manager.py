@@ -158,6 +158,8 @@ def api_class_list():
                 'table':        str(p.get('table', '')),
                 'adapted_hl':    bool(p.get('adapted_hl', False)),
                 'home_language': p.get('home_language', ''),
+                'us_code':      p.get('us_code', ''),
+                'us_pin':       p.get('us_pin', ''),
                 'cls':          p.get('cls', _cls_short(cls)),
                 'word_pos':     next_active_index(p.get('word_pos', 0), set(p.get('mastered', []))),
             })
@@ -756,8 +758,10 @@ def api_mastery_template():
 @cm_bp.route('/api/class/import-unlocking-spelling-csv', methods=['POST'])
 def api_import_unlocking_spelling_csv():
     """
-    Parse an Unlocking Spelling roster CSV and match pupils to the app by full name + year group.
-    CSV columns: First Name(0), Last Name(1), Year(2, e.g. "Y4"), Code(3), PIN(4).
+    Parse a pasted Unlocking Spelling roster (columns: First, Last, Year e.g.
+    "Y4", Code, PIN) and match pupils to the app by full name + year group.
+    Accepts comma- or tab-separated text (a direct paste from Google Sheets
+    is tab-separated) — delimiter is auto-detected.
     Returns a list of matched/unmatched results for review, then applies on confirm.
     """
     r = _auth()
@@ -769,16 +773,17 @@ def api_import_unlocking_spelling_csv():
             s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
             return s.lower().strip()
 
-        mode = request.form.get('mode', 'preview')   # 'preview' or 'apply'
-        f    = request.files.get('csv_file')
-        if not f:
-            return jsonify({'ok': False, 'error': 'No file uploaded'})
+        body = request.get_json(force=True)
+        mode = body.get('mode', 'preview')   # 'preview' or 'apply'
+        text = body.get('csv', '').lstrip('﻿').strip()
+        if not text:
+            return jsonify({'ok': False, 'error': 'No data provided'})
 
-        text   = f.read().decode('utf-8-sig')
-        reader = csv.reader(io.StringIO(text))
+        delimiter = '\t' if text.split('\n', 1)[0].count('\t') >= text.split('\n', 1)[0].count(',') else ','
+        reader = csv.reader(io.StringIO(text), delimiter=delimiter)
         rows   = list(reader)
         if not rows:
-            return jsonify({'ok': False, 'error': 'Empty CSV'})
+            return jsonify({'ok': False, 'error': 'Empty data'})
 
         # Skip header row if present
         data_rows = rows[1:] if rows[0][0].lower() in ('first name', 'first') else rows
