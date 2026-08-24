@@ -69,13 +69,13 @@ def build_spelling_page(pupil, rule_title, rule_words, key_words, week_ref):
 
     cy = H - 18*mm
 
-    # ── Spelling Shed login ─────────────────────────────────────────────
-    ss_user = pupil.get("ss_user", "")
-    ss_pass = pupil.get("ss_pass", "")
-    if ss_user or ss_pass:
+    # ── Unlocking Spelling login ────────────────────────────────────────
+    us_code = pupil.get("us_code", "")
+    us_pin = pupil.get("us_pin", "")
+    if us_code or us_pin:
         c.setFont("Helvetica-Bold", 9)
         c.setFillColorRGB(*NAVY)
-        c.drawString(M, cy, f"Spelling Shed  –  {ss_user} / {ss_pass}")
+        c.drawString(M, cy, f"Unlocking Spelling  –  {us_code} / {us_pin}")
         cy -= 6*mm
 
     # ── Instruction text ────────────────────────────────────────────────
@@ -962,6 +962,9 @@ BLACK = (0, 0, 0)
 WHITE = (1, 1, 1)
 
 TT_URL = 'https://play.ttrockstars.com/auth/school/student/81920'
+US_GAMES_URL = 'https://games.wallscourt-farm-academy.co.uk/spelling-games/play/index.html'
+_ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
+US_QR_PATH  = os.path.join(_ASSETS_DIR, 'spelling_qr.png')
 
 # Register Sassoon if available
 _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
@@ -1433,12 +1436,12 @@ def _draw_spelling_back(c, pupil, rule_title, rule_words, key_words):
     _set_fill(c, BLACK)
     cy -= 9 * 0.85
     c.drawString(x, cy, 'Personal Key Spellings and Weekly Spelling Rule Words')
-    ss_user = pupil.get('ss_user', '')
-    ss_pass = pupil.get('ss_pass', '')
-    if ss_user or ss_pass:
+    us_code = pupil.get('us_code', '')
+    us_pin = pupil.get('us_pin', '')
+    if us_code or us_pin:
         c.setFont('Helvetica', 8.5)
         _set_fill(c, DGREY)
-        c.drawRightString(x + w, cy, f'Spelling Shed \u2013 {ss_user} / {ss_pass}')
+        c.drawRightString(x + w, cy, f'Unlocking Spelling \u2013 {us_code} / {us_pin}')
     cy -= 9 * 0.15 + 1*mm
 
     _hrule(c, x, cy, w, NAVY, 0.6)
@@ -1968,14 +1971,30 @@ def _hl_spelling_page(c, pupil, rule_title, rule_words, key_words, week_ref,
     c.drawString(M, cy - 9 * 0.85,
                  'Phonics Practice Words' if phonics_mode else
                  'Personal Key Spellings and Weekly Spelling Rule Words')
-    ss_u = pupil.get('ss_user', '')
-    ss_p = pupil.get('ss_pass', '')
-    if ss_u or ss_p:
-        c.setFont('Helvetica', 8.5)
-        c.setFillColorRGB(0.25, 0.25, 0.25)
-        c.drawRightString(M + UW, cy - 8.5 * 0.85,
-                          'Spelling Shed  \u2013  ' + ss_u + ' / ' + ss_p)
-    cy -= 9 + 3 * mm
+    us_code = pupil.get('us_code', '')
+    us_pin  = pupil.get('us_pin', '')
+    if us_code or us_pin:
+        qr_size = 15 * mm
+        qr_x = M + UW - qr_size
+        qr_y = cy - qr_size
+        qr_src = US_QR_PATH if os.path.exists(US_QR_PATH) else io.BytesIO(generate_qr_png(US_GAMES_URL))
+        c.drawImage(ImageReader(qr_src), qr_x, qr_y, qr_size, qr_size,
+                    preserveAspectRatio=True, mask='auto')
+
+        tx = qr_x - 2 * mm
+        c.setFont('Helvetica-Bold', 8)
+        c.setFillColorRGB(*NAVY)
+        c.drawRightString(tx, cy - 4 * mm, 'Unlocking Spelling \u2013 scan to play')
+        c.setFont('Helvetica', 6.5)
+        c.setFillColorRGB(0.3, 0.3, 0.3)
+        c.drawRightString(tx, cy - 7.7 * mm, US_GAMES_URL)
+        c.setFont('Helvetica-Bold', 8.5)
+        c.setFillColorRGB(*NAVY)
+        c.drawRightString(tx, cy - 12 * mm, f'ID: {us_code}    PIN: {us_pin}')
+
+        cy = qr_y - 3 * mm
+    else:
+        cy -= 9 + 3 * mm
 
     c.setStrokeColorRGB(0.35, 0.35, 0.35)
     c.setLineWidth(0.6)

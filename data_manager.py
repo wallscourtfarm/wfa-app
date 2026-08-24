@@ -935,8 +935,8 @@ def bulk_import_pupils(class_id, csv_text):
             'rule_confidence':  {},
             'homophone_mastered': [],
             'homophone_history':  {},
-            'ss_user':          '',
-            'ss_pass':          '',
+            'us_code':          '',
+            'us_pin':          '',
         })
         existing_ids.add(pid)
         next_n += 1
@@ -1230,7 +1230,7 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
                     'word_pos': compute_word_pos(set(mastered)),
                     'mastered': mastered, 'rule_confidence': {},
                     'homophone_mastered': [], 'homophone_history': {},
-                    'ss_user': '', 'ss_pass': '',
+                    'us_code': '', 'us_pin': '',
                 })
                 name_map[key] = len(data['pupils']) - 1
                 created += 1

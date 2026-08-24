@@ -190,7 +190,7 @@ def api_pupil_update():
         changes   = body.get('changes', {})
 
         ALLOWED = {'first', 'last', 'group', 'phonics_gpcs', 'tt_set', 'tt_mode',
-                   'table', 'adapted_hl', 'ss_user', 'ss_pass', 'language', 'home_language'}
+                   'table', 'adapted_hl', 'us_code', 'us_pin', 'language', 'home_language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
         obj, sha = _load_class_file(cls)
@@ -257,8 +257,8 @@ def api_pupil_add():
             'word_pos':        0,
             'mastered':        [],
             'rule_confidence': {},
-            'ss_user':           '',
-            'ss_pass':           '',
+            'us_code':           '',
+            'us_pin':           '',
             'homophone_mastered': [],
             'homophone_history':  {},
         }
@@ -753,11 +753,11 @@ def api_mastery_template():
     )
 
 
-@cm_bp.route('/api/class/import-ss-csv', methods=['POST'])
-def api_import_ss_csv():
+@cm_bp.route('/api/class/import-unlocking-spelling-csv', methods=['POST'])
+def api_import_unlocking_spelling_csv():
     """
-    Parse a Spelling Shed export CSV and match pupils to the app by full name + year group.
-    CSV columns: name(0), school_username(4), group(6), password(7).
+    Parse an Unlocking Spelling roster CSV and match pupils to the app by full name + year group.
+    CSV columns: First Name(0), Last Name(1), Year(2, e.g. "Y4"), Code(3), PIN(4).
     Returns a list of matched/unmatched results for review, then applies on confirm.
     """
     r = _auth()
@@ -781,29 +781,27 @@ def api_import_ss_csv():
             return jsonify({'ok': False, 'error': 'Empty CSV'})
 
         # Skip header row if present
-        data_rows = rows[1:] if rows[0][0].lower() in ('name', 'full name') else rows
+        data_rows = rows[1:] if rows[0][0].lower() in ('first name', 'first') else rows
 
         # Parse CSV entries
-        ss_entries = []
+        us_entries = []
         for row in data_rows:
-            if len(row) < 8:
+            if len(row) < 5:
                 continue
-            full_name = row[0].strip()
-            ss_user   = row[4].strip()
-            yr_label  = row[6].strip()          # e.g. "Year 4"
-            ss_pass   = row[7].strip()
-            if not full_name or not ss_user:
+            first    = row[0].strip()
+            last     = row[1].strip()
+            yr_label = row[2].strip()          # e.g. "Y4"
+            us_code  = row[3].strip()
+            us_pin   = row[4].strip()
+            if not first or not us_code:
                 continue
-            # Parse year group number from "Year 4" → "4"
-            yr = yr_label.replace('Year ', '').replace('year ', '').strip()
-            parts = full_name.split(' ', 1)
-            first = parts[0]
-            last  = parts[1] if len(parts) > 1 else ''
-            ss_entries.append({
-                'full_name': full_name,
+            # Parse year group number from "Y4" → "4"
+            yr = yr_label.upper().replace('YEAR ', '').replace('Y', '').strip()
+            us_entries.append({
+                'full_name': f'{first} {last}'.strip(),
                 'first': first, 'last': last,
                 'yr': yr,
-                'ss_user': ss_user, 'ss_pass': ss_pass
+                'us_code': us_code, 'us_pin': us_pin
             })
 
         # Load all pupils from the data store grouped by class
@@ -823,13 +821,13 @@ def api_import_ss_csv():
                        str(p.get('yr') or ''))
                 lookup[key] = (cid, p)
                 # Also index by year from the class ID (e.g. 4CK → yr='4')
-                yr_from_cls = cid[1] if len(cid) > 1 else ''
+                yr_from_cls = cid[0] if cid else ''
                 lookup[(normalise(f"{p.get('first','')} {p.get('last','')}"), yr_from_cls)] = (cid, p)
 
         matched   = []
         unmatched = []
 
-        for entry in ss_entries:
+        for entry in us_entries:
             key = (normalise(f"{entry['first']} {entry['last']}"), entry['yr'])
             result = lookup.get(key)
 
@@ -846,15 +844,15 @@ def api_import_ss_csv():
                     'pupil_id': pupil['id'],
                     'cls':      cid,
                     'name':     f"{pupil.get('first','')} {pupil.get('last','')}".strip(),
-                    'ss_user':  entry['ss_user'],
-                    'ss_pass':  entry['ss_pass'],
+                    'us_code':  entry['us_code'],
+                    'us_pin':  entry['us_pin'],
                 })
             else:
                 unmatched.append({
                     'name': entry['full_name'],
                     'yr':   entry['yr'],
-                    'ss_user': entry['ss_user'],
-                    'ss_pass': entry['ss_pass'],
+                    'us_code': entry['us_code'],
+                    'us_pin': entry['us_pin'],
                 })
 
         if mode == 'preview':
@@ -880,10 +878,10 @@ def api_import_ss_csv():
             for p in d.get('pupils', []):
                 if p['id'] in id_map:
                     u = id_map[p['id']]
-                    p['ss_user'] = u['ss_user']
-                    p['ss_pass'] = u['ss_pass']
+                    p['us_code'] = u['us_code']
+                    p['us_pin'] = u['us_pin']
                     applied += 1
-            _save_class_file(cid, d, sha_c, f'Import Spelling Shed credentials ({len(updates)} pupils)')
+            _save_class_file(cid, d, sha_c, f'Import Unlocking Spelling credentials ({len(updates)} pupils)')
 
         return jsonify({'ok': True, 'applied': applied, 'unmatched': len(unmatched),
                         'unmatched_names': [u['name'] for u in unmatched]})
