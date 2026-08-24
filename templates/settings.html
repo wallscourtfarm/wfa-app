@@ -361,7 +361,7 @@ function onHLLessonChange() {
   const lid = document.getElementById('hl_lesson').value;
   const lesson = currentLessons.find(l => l.id === lid);
   currentHLLesson = lesson || null;
-  if (lesson) selectedWords = [...lesson.hlWords];
+  if (lesson) selectedWords = lesson.hlWords.slice(0, 5);
   showSelectedWords();
 }
 

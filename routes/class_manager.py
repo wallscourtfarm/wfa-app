@@ -257,8 +257,8 @@ def api_pupil_add():
             'word_pos':        0,
             'mastered':        [],
             'rule_confidence': {},
-            'us_code':           '',
-            'us_pin':           '',
+            'us_code':           body.get('us_code', ''),
+            'us_pin':            body.get('us_pin', ''),
             'homophone_mastered': [],
             'homophone_history':  {},
         }

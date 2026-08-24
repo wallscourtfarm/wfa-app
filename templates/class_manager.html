@@ -160,6 +160,16 @@
           </select>
         </div>
       </div>
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>Unlocking Spelling ID</label>
+          <input id="edit-us-code" type="text" class="cm-input" placeholder="e.g. BO46">
+        </div>
+        <div class="cm-field">
+          <label>Unlocking Spelling PIN</label>
+          <input id="edit-us-pin" type="text" class="cm-input" placeholder="e.g. 2818">
+        </div>
+      </div>
     </div>
     <div class="cm-modal-footer" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
@@ -231,6 +241,16 @@
           <input type="checkbox" id="add-adapted-hl" style="margin-right:6px">
           Adapted home learning
         </label>
+      </div>
+      <div class="cm-field-row">
+        <div class="cm-field">
+          <label>Unlocking Spelling ID</label>
+          <input id="add-us-code" type="text" class="cm-input" placeholder="e.g. BO46">
+        </div>
+        <div class="cm-field">
+          <label>Unlocking Spelling PIN</label>
+          <input id="add-us-pin" type="text" class="cm-input" placeholder="e.g. 2818">
+        </div>
       </div>
     </div>
     <div class="cm-modal-footer">
@@ -925,6 +945,8 @@ function openEditModal(pid, e) {
   document.getElementById('edit-table').value       = p.table || '';
   document.getElementById('edit-adapted-hl').checked = p.adapted_hl;
   document.getElementById('edit-home-language').value = p.home_language || '';
+  document.getElementById('edit-us-code').value     = p.us_code || '';
+  document.getElementById('edit-us-pin').value      = p.us_pin || '';
 
   // Populate move-to select with all classes except current
   const sel = document.getElementById('move-to-cls');
@@ -956,6 +978,8 @@ async function saveEdit() {
           table:      document.getElementById('edit-table').value.trim(),
           adapted_hl:     document.getElementById('edit-adapted-hl').checked,
           home_language:  document.getElementById('edit-home-language').value,
+          us_code:        document.getElementById('edit-us-code').value.trim(),
+          us_pin:         document.getElementById('edit-us-pin').value.trim(),
         },
       }),
     });
@@ -1044,6 +1068,8 @@ function openAddModal() {
   document.getElementById('add-phonics-phase').value = '';
   populatePhonicsSets('add');
   document.getElementById('add-table').value = '';
+  document.getElementById('add-us-code').value = '';
+  document.getElementById('add-us-pin').value = '';
   toggleGpcField('add');
   document.getElementById('add-adapted-hl').checked = false;
   document.getElementById('add-modal').style.display = 'flex';
@@ -1068,6 +1094,8 @@ async function confirmAdd() {
         phonics_gpcs: document.getElementById('add-phonics-gpcs').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
         table:      document.getElementById('add-table').value.trim(),
         adapted_hl: document.getElementById('add-adapted-hl').checked,
+        us_code:    document.getElementById('add-us-code').value.trim(),
+        us_pin:     document.getElementById('add-us-pin').value.trim(),
       }),
     });
     const d = await resp.json();
