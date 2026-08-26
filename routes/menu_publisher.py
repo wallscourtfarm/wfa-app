@@ -79,7 +79,7 @@ def require_auth(f):
 def _fetch_current_menu():
     try:
         r = http_req.get(
-            f"https://wallscourtfarm.github.io/{GITHUB_REPO}/{GITHUB_PATH}",
+            f"https://staff.wallscourt-farm-academy.co.uk/{GITHUB_PATH}",
             timeout=5,
             params={"t": datetime.now().isoformat()},
         )
