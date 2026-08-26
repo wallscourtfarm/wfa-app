@@ -16,18 +16,23 @@ GITHUB_REPO  = "staff-tools"
 GITHUB_PATH  = "menu.json"
 DAYS         = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 
-EXTRACT_PROMPT = """You are extracting a UK primary school lunch menu from a PDF.
+EXTRACT_PROMPT = """You are extracting a UK primary school lunch menu from a PDF
+(current provider: Innovate IFG).
 
-The menu has 3 weeks (Week 1, Week 2, Week 3) that rotate. Each page lists the dates
-the week applies to (typically 8-10 Monday dates per page in DD/MM/YY format) and the
-meal options for that week.
+The menu has 3 weeks (Week 1, Week 2, Week 3) that rotate, one per page. Each page
+header lists the "Served w/c" Monday dates the week applies to (typically 8-11 dates,
+ordinal format like "7th Sep") and a Monday-Friday grid of meal options.
 
-Each day has TWO main hot options:
-- A "red column" option (typically meat-based, upper row)
-- A "green column" option (vegetarian, lower row)
+Each day has a "Main Meal" block with THREE rows — extract only the first two:
+- "Option 1" (top row) — always the plant-based/vegetarian dish → GREEN
+- "Option 2" (middle row) — the standard meat/fish dish → RED
+Ignore the third "Halal" row entirely (a halal-suitable variant of Option 2) — it is
+not part of the extracted output.
 
-Days run Monday to Friday. Ignore the rotating "Filled Jackets" and "Pasta Twirler"
-sections — those are fixed and not part of what we extract.
+Below the Main Meal rows the page also lists Veggies, Pasta, Filled Rolls and Sweet
+Treats sections, plus a "Available Every Day" footer (salad bar, jacket potato,
+fruit/jelly/yoghurt, bread) and a dietary-icon key (wholegrain/vegetarian/vegan/
+nutritionist's choice). Ignore all of that — it is fixed/not part of what we extract.
 
 Keep meal names SHORT (under 40 chars). Drop "HALAL/NON HALAL" labels. Drop "Skin on".
 Convert "&" to "and". Examples:
