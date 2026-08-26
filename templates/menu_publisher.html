@@ -118,6 +118,7 @@
       <th>Monday</th><th>Day</th>
       <th class="red">🔴 Red option</th>
       <th class="grn">🟢 Green option</th>
+      <th class="bold">🍝 Pasta</th>
     </tr></thead>
     <tbody id="menuBody"></tbody>
   </table>
@@ -186,11 +187,12 @@ function renderTable(menu) {
   const tb = document.getElementById("menuBody"); tb.innerHTML = "";
   for (const [mon, days] of Object.entries(menu.weeks).sort()) {
     DAYS.forEach((day, i) => {
-      const opts = days[day] || ["",""];
+      const opts = days[day] || ["","",""];
       const tr = document.createElement("tr");
       tr.innerHTML = `<td class="bold">${i===0?mon:""}</td><td class="muted">${day}</td>` +
         `<td class="red" contenteditable data-m="${mon}" data-d="${day}" data-c="0">${opts[0]||""}</td>` +
-        `<td class="grn" contenteditable data-m="${mon}" data-d="${day}" data-c="1">${opts[1]||""}</td>`;
+        `<td class="grn" contenteditable data-m="${mon}" data-d="${day}" data-c="1">${opts[1]||""}</td>` +
+        `<td contenteditable data-m="${mon}" data-d="${day}" data-c="2">${opts[2]||""}</td>`;
       tb.appendChild(tr);
     });
   }
@@ -201,7 +203,7 @@ function getTable() {
   document.querySelectorAll("[data-m][data-d]").forEach(td => {
     const m=td.dataset.m, d=td.dataset.d, c=parseInt(td.dataset.c);
     if (!w[m]) w[m]={};
-    if (!w[m][d]) w[m][d]=["",""];
+    if (!w[m][d]) w[m][d]=["","",""];
     w[m][d][c]=td.textContent.trim();
   });
   return w;
@@ -211,7 +213,7 @@ async function publishMenu() {
   const btn=document.getElementById("publishBtn"), sp=document.getElementById("publishSpinner"), msg=document.getElementById("publishMsg");
   const cm=document.getElementById("commitMsg").value.trim()||"Update menu (via WFA app)";
   const tl=document.getElementById("termLabel").value.trim();
-  const menu={_comment:"WFA shared lunch menu.",_lastUpdated:new Date().toISOString().slice(0,10),_termLabel:tl,weeks:Object.fromEntries(Object.entries(getTable()).sort())};
+  const menu={_comment:"WFA shared lunch menu. Each day holds [red_option, green_option, pasta_option].",_lastUpdated:new Date().toISOString().slice(0,10),_termLabel:tl,weeks:Object.fromEntries(Object.entries(getTable()).sort())};
   btn.disabled=true; sp.style.display="inline-block"; showMsg(msg,"","");
   try {
     const res=await fetch("/menu/publish",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({menu,message:cm})});
@@ -225,6 +227,6 @@ async function publishMenu() {
 
 function showMsg(el,t,tp) { el.textContent=t; el.className="msg"+(tp?" "+tp:""); el.style.display=t?"":"none"; }
 </script>
-<div style="position:fixed;bottom:6px;right:8px;font-size:10px;font-weight:600;opacity:0.5;pointer-events:none;z-index:9999">26.08.26a</div>
+<div style="position:fixed;bottom:6px;right:8px;font-size:10px;font-weight:600;opacity:0.5;pointer-events:none;z-index:9999">26.08.26b</div>
 </body>
 </html>

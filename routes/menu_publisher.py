@@ -23,16 +23,17 @@ The menu has 3 weeks (Week 1, Week 2, Week 3) that rotate, one per page. Each pa
 header lists the "Served w/c" Monday dates the week applies to (typically 8-11 dates,
 ordinal format like "7th Sep") and a Monday-Friday grid of meal options.
 
-Each day has a "Main Meal" block with THREE rows — extract only the first two:
+Each day has a "Main Meal" block with THREE rows:
 - "Option 1" (top row) — always the plant-based/vegetarian dish → GREEN
 - "Option 2" (middle row) — the standard meat/fish dish → RED
-Ignore the third "Halal" row entirely (a halal-suitable variant of Option 2) — it is
-not part of the extracted output.
+- "Halal" (bottom row) — a halal-suitable variant of Option 2 — IGNORE this row
+  entirely, it is not part of the extracted output.
 
 Below the Main Meal rows the page also lists Veggies, Pasta, Filled Rolls and Sweet
 Treats sections, plus a "Available Every Day" footer (salad bar, jacket potato,
 fruit/jelly/yoghurt, bread) and a dietary-icon key (wholegrain/vegetarian/vegan/
-nutritionist's choice). Ignore all of that — it is fixed/not part of what we extract.
+nutritionist's choice). Ignore Veggies, Filled Rolls and Sweet Treats — they are not
+part of what we extract. The "Pasta" row IS extracted (see below) — it varies by day.
 
 Keep meal names SHORT (under 40 chars). Drop "HALAL/NON HALAL" labels. Drop "Skin on".
 Convert "&" to "and". Examples:
@@ -48,15 +49,20 @@ Return ONLY valid JSON in this exact structure (no markdown, no commentary):
       "week_number": 1,
       "monday_dates": ["2026-04-13", "2026-05-04"],
       "days": {
-        "Mon": ["Red option", "Green option"],
-        "Tue": ["...", "..."],
-        "Wed": ["...", "..."],
-        "Thu": ["...", "..."],
-        "Fri": ["...", "..."]
+        "Mon": ["Red option", "Green option", "Pasta option"],
+        "Tue": ["...", "...", "..."],
+        "Wed": ["...", "...", "..."],
+        "Thu": ["...", "...", "..."],
+        "Fri": ["...", "...", "..."]
       }
     }
   ]
 }
+
+Each day's array is exactly 3 items: [Option 2 (meat/fish) → red, Option 1
+(vegetarian) → green, the day's Pasta row → pasta]. The pasta text will typically be
+one of "Penne pasta with house tomato sauce", "Penne pasta with a creamy cheese
+sauce", or "Creamy pesto penne pasta" — use the PDF's actual wording.
 
 Convert all dates to YYYY-MM-DD. If the PDF shows "13/04/26" assume 2026."""
 
@@ -91,7 +97,7 @@ def _expand_to_weekly_menu(extracted):
             weeks_out[monday] = week["days"]
     sorted_weeks = {k: weeks_out[k] for k in sorted(weeks_out.keys())}
     return {
-        "_comment": "WFA shared lunch menu. Each key is a Monday in YYYY-MM-DD. Each day holds [red_option, green_option].",
+        "_comment": "WFA shared lunch menu. Each key is a Monday in YYYY-MM-DD. Each day holds [red_option, green_option, pasta_option].",
         "_lastUpdated": date.today().isoformat(),
         "_termLabel": extracted.get("term_label", ""),
         "weeks": sorted_weeks,
