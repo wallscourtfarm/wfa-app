@@ -659,6 +659,40 @@ def api_word_pos_backfill():
         return _err(e)
 
 
+# ── API: Roster sync (Bromcom roster via shared-sync bus) ─────────────────────
+
+@cm_bp.route('/api/class/roster-sync', methods=['POST'])
+def api_roster_sync():
+    """Pull the UPN-keyed roster from the shared-sync bus and merge it into
+    every class file: refreshes names/classes, attaches UPNs to any
+    not-yet-UPN'd pupils, adds new arrivals and removes (archiving) leavers."""
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        from roster_sync import sync_roster
+        result = sync_roster(apply=True)
+        return jsonify(result)
+    except Exception as e:
+        return _err(e)
+
+
+@cm_bp.route('/api/class/roster-status')
+def api_roster_status():
+    """Last roster-sync metadata from data/roster_meta.json for the status chip."""
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        r2 = _req.get(f'https://api.github.com/repos/{DATA_REPO}/contents/data/roster_meta.json',
+                      headers=_HDR, timeout=10)
+        if r2.status_code != 200:
+            return jsonify({'ok': True, 'synced': False,
+                            'note': 'No roster sync has run yet'})
+        obj = json.loads(base64.b64decode(r2.json()['content']).decode())
+        return jsonify({'ok': True, 'synced': True, **obj})
+    except Exception as e:
+        return _err(e)
+
+
 # ── API: Update teacher label ─────────────────────────────────────────────────
 
 @cm_bp.route('/api/class/teacher/update', methods=['POST'])
