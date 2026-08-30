@@ -115,9 +115,9 @@ def class_manager():
     yr    = session.get('year_group', '4')
     opts  = get_class_options_for_year(yr, include_all=False)
     valid = [c[0] for c in opts]
-    cls   = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['4CK'])[0])
+    cls   = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['4CC'])[0])
     if cls not in valid:
-        cls = YEAR_GROUP_CLASSES.get(yr, ['4CK'])[0]
+        cls = YEAR_GROUP_CLASSES.get(yr, ['4CC'])[0]
     return render_template('class_manager.html',
         cls=cls, class_options=opts,
         tt_sets=TT_SETS, pair_colours=PAIR_COLOURS,
@@ -131,7 +131,7 @@ def api_class_list():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     yr  = session.get('year_group', '4')
-    cls = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['4CK'])[0])
+    cls = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['4CC'])[0])
     try:
         id_map = _all_pupils_map()   # for partner name lookup
 
@@ -187,7 +187,7 @@ def api_pupil_update():
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body      = request.get_json(force=True)
-        cls       = body.get('cls', '4CK')
+        cls       = body.get('cls', '4CC')
         pupil_id  = body.get('pupil_id', '')
         changes   = body.get('changes', {})
 
@@ -227,7 +227,7 @@ def api_pupil_add():
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body  = request.get_json(force=True)
-        cls   = body.get('cls', '4CK')
+        cls   = body.get('cls', '4CC')
         first = body.get('first', '').strip()
         last  = body.get('last', '').strip()
 
@@ -279,7 +279,7 @@ def api_pupil_remove():
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body     = request.get_json(force=True)
-        cls      = body.get('cls', '4CK')
+        cls      = body.get('cls', '4CC')
         pupil_id = body.get('pupil_id', '')
 
         obj, sha = _load_class_file(cls)
