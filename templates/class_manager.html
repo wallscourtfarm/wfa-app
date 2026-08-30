@@ -10,6 +10,7 @@
       <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
+    <button class="btn btn-secondary" onclick="syncRoster(this)" title="Pull the Bromcom roster (Pupil Tracker import): refresh names, add arrivals, remove leavers">⇄ Sync from Bromcom</button>
     <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import names</button>
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Import pupils with spelling mastery data">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
@@ -20,6 +21,13 @@
 </div>
 
 <div id="status-bar" class="status-bar hidden"></div>
+
+<!-- Roster status chip -->
+<div id="roster-chip" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;
+  border-radius:10px;padding:10px 18px;margin-bottom:12px;font-size:13.5px;color:#1e40af;
+  align-items:center;gap:8px;flex-wrap:wrap">
+  <span id="roster-chip-text">📡 Checking roster…</span>
+</div>
 
 <!-- Pair mode banner -->
 <div id="pair-banner" style="display:none;background:#fef9c3;border:1.5px solid #fbbf24;
@@ -558,6 +566,60 @@ async function load() {
 }
 
 function switchClass(val) { window.location = `/class-manager?cls=${val}`; }
+
+// ── Roster sync (Bromcom via shared-sync bus) ────────────────────────────────
+async function loadRosterStatus() {
+  const chip = document.getElementById('roster-chip');
+  const txt  = document.getElementById('roster-chip-text');
+  try {
+    const r = await fetch('/api/class/roster-status');
+    const d = await r.json();
+    if (!d.ok || !d.synced) { return; }   // no sync yet — leave chip hidden
+    const when = new Date(d.last_sync.replace(' ', 'T') + 'Z');
+    const ago  = Math.round((Date.now() - when.getTime()) / 60000);
+    const age  = ago < 1 ? 'just now'
+               : ago < 60 ? `${ago} min ago`
+               : ago < 60*24 ? `${Math.round(ago/60)} h ago`
+               : `${Math.round(ago/1440)} days ago`;
+    const bits = [`📡 Roster: Bromcom · ${d.roster_count} pupils · last synced ${age}`];
+    if (d.added)     bits.push(`+${d.added} added`);
+    if (d.removed)   bits.push(`−${d.removed} removed`);
+    if (d.renamed)   bits.push(`${d.renamed} renamed`);
+    if (d.unmatched) bits.push(`${d.unmatched} needing attention`);
+    txt.textContent = bits.join(' · ');
+    chip.style.display = 'flex';
+  } catch (e) { /* chip stays hidden */ }
+}
+
+async function syncRoster(btn) {
+  if (!confirm('Sync all class rosters from the Bromcom export in the Pupil Tracker?\n\n'
+    + '• new arrivals get added (with a fresh pupil ID)\n'
+    + '• name changes get refreshed (matched by UPN)\n'
+    + '• leavers get removed (archived in the data repo)\n\nProceed?')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Syncing…';
+  try {
+    const r = await fetch('/api/class/roster-sync', {method: 'POST'});
+    const d = await r.json();
+    if (!d.ok) {
+      showStatus('Sync failed: ' + (d.aborted || d.error || 'unknown error'), 'error');
+    } else {
+      const c = []
+        .concat(d.added.map(p => `+ ${p.name} (${p.cls})`))
+        .concat(d.removed.map(p => `− ${p.name} (${p.cls})`));
+      showStatus(`Roster synced — ${d.roster_count} pupils. `
+        + `Added: ${d.added.length} · Removed: ${d.removed.length} · `
+        + `Renamed: ${d.renamed.length} · Attention: ${d.unmatched.length}`, 'ok');
+      if (c.length) setTimeout(() => alert('Changes:\n' + c.join('\n')), 100);
+    }
+    loadPupils();
+    loadRosterStatus();
+  } catch (e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
 function sortBy(key) {
@@ -1421,6 +1483,7 @@ async function applyUsImport() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 load();
+loadRosterStatus();
 </script>
 
 
