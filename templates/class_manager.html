@@ -575,7 +575,9 @@ async function loadRosterStatus() {
     const r = await fetch('/api/class/roster-status');
     const d = await r.json();
     if (!d.ok || !d.synced) { return; }   // no sync yet — leave chip hidden
-    const when = new Date(d.last_sync.replace(' ', 'T') + 'Z');
+    // last_sync is ISO ("2026-08-30T14:23:30Z"); tolerate a space-separated variant too
+    const when = new Date(d.last_sync.includes(' ') && !d.last_sync.endsWith('Z')
+      ? d.last_sync.replace(' ', 'T') + 'Z' : d.last_sync);
     const ago  = Math.round((Date.now() - when.getTime()) / 60000);
     const age  = ago < 1 ? 'just now'
                : ago < 60 ? `${ago} min ago`
