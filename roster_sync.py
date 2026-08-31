@@ -41,6 +41,13 @@ ROSTER_URL = os.environ.get(
     'ROSTER_SYNC_URL',
     'https://script.google.com/macros/s/AKfycbxHg89VK1uqbWAJcqruqJFjEaavdWN74eB1KS-U_cMr75oVsBVZSi2X38l018oOYW7-4w/exec?action=getPupils&token=2013')
 
+# Same hub, classes endpoint — teacher_name/class_display come from here now
+# (Roster Import is the only place that data is ever edited), replacing the
+# old per-class manual "Class settings" editor.
+CLASSES_URL = os.environ.get(
+    'ROSTER_SYNC_CLASSES_URL',
+    'https://script.google.com/macros/s/AKfycbxHg89VK1uqbWAJcqruqJFjEaavdWN74eB1KS-U_cMr75oVsBVZSi2X38l018oOYW7-4w/exec?action=getClasses&token=2013')
+
 ARCHIVE_PATH = 'data/archived/roster_leavers.json'
 META_PATH    = 'data/roster_meta.json'
 
@@ -83,6 +90,20 @@ def fetch_roster():
     if not isinstance(pupils, list):
         raise ValueError('Roster endpoint returned unexpected payload')
     return pupils
+
+
+def fetch_classes():
+    """Fetch the hub's class list (code/display/teacherInitials). Non-fatal
+    on failure — a stale teacher label is a much smaller problem than
+    blocking the whole roster sync over it."""
+    try:
+        r = requests.get(CLASSES_URL, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        classes = data.get('classes') if isinstance(data, dict) else data
+        return classes if isinstance(classes, list) else []
+    except Exception:
+        return []
 
 
 # ── GitHub I/O (fresh, uncached — sync writes need real shas) ────────────────
@@ -161,6 +182,21 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
         files[cid] = {'obj': obj or {'class_id': cid, 'pupils': []}, 'sha': sha,
                       'changed': False}
         total_pupils += len(files[cid]['obj'].get('pupils', []))
+
+    # Refresh teacher_name/class_display from the hub (matched by display
+    # name, since that's how class files are keyed here) — self-healing,
+    # replaces the old manual "Class settings" editor.
+    for hub_cls in fetch_classes():
+        cid = str(hub_cls.get('display') or '').strip()
+        f = files.get(cid)
+        if not f:
+            continue
+        initials = str(hub_cls.get('teacherInitials') or '').strip()
+        if initials and f['obj'].get('teacher') != initials:
+            f['obj']['teacher'] = initials
+            f['obj']['class_display'] = initials
+            f['obj']['teacher_name'] = initials
+            f['changed'] = True
 
     # Safety valve against partial exports upstream
     if total_pupils and len(by_upn) < MIN_ROSTER_RATIO * total_pupils:

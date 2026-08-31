@@ -6,8 +6,7 @@ import os, json, base64, traceback, random
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
-                          get_class_options, get_class_options_for_year,
-                          update_teacher_label)
+                          get_class_options, get_class_options_for_year)
 from word_bank import next_active_index
 from phonics_bank import PHONICS_SETS
 
@@ -554,25 +553,6 @@ def api_roster_status():
                             'note': 'No roster sync has run yet'})
         obj = json.loads(base64.b64decode(r2.json()['content']).decode())
         return jsonify({'ok': True, 'synced': True, **obj})
-    except Exception as e:
-        return _err(e)
-
-
-# ── API: Update teacher label ─────────────────────────────────────────────────
-
-@cm_bp.route('/api/class/teacher/update', methods=['POST'])
-def api_teacher_update():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    try:
-        body         = request.get_json(force=True)
-        class_id     = body.get('class_id', '')
-        teacher_code = body.get('teacher_code', '').strip().upper()
-        teacher_name = body.get('teacher_name', '').strip()
-        if not class_id or not teacher_code:
-            return jsonify({'ok': False, 'error': 'class_id and teacher_code are required'})
-        result = update_teacher_label(class_id, teacher_code, teacher_name)
-        return jsonify(result)
     except Exception as e:
         return _err(e)
 
