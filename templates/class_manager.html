@@ -13,7 +13,6 @@
     <button class="btn btn-secondary" onclick="syncRoster(this)" title="Pull the Bromcom roster (Pupil Tracker import): refresh names, add arrivals, remove leavers">⇄ Sync from Bromcom</button>
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
-    <button class="btn btn-secondary" onclick="openSettingsModal()" title="Edit class teacher label">⚙ Settings</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
   </div>
 </div>
@@ -211,36 +210,6 @@
         </select>
       </div>
       <button class="btn btn-secondary" onclick="closePairModal()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Class settings modal ────────────────────────────────────────────────── -->
-<div id="settings-modal" class="cm-modal-wrap" style="display:none">
-  <div class="cm-modal" style="max-width:420px">
-    <div class="cm-modal-hdr">
-      <h3>⚙ Class settings</h3>
-      <button onclick="closeSettingsModal()" class="cm-close">&times;</button>
-    </div>
-    <div class="cm-modal-body">
-      <p style="font-size:13px;color:#64748b;margin:0">
-        Class ID <strong>{{ cls }}</strong> never changes.
-        Update the teacher label here if a teacher changes mid-year.
-      </p>
-      <div class="cm-field">
-        <label>Teacher initials / code</label>
-        <input id="settings-code" type="text" class="cm-input"
-          placeholder="e.g. IM" maxlength="10" style="text-transform:uppercase">
-      </div>
-      <div class="cm-field">
-        <label>Teacher full name <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
-        <input id="settings-name" type="text" class="cm-input" placeholder="e.g. Mr McLean">
-      </div>
-    </div>
-    <div class="cm-modal-footer">
-      <button class="btn btn-primary" onclick="saveSettings()">Save label</button>
-      <button class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
-      <span class="print-spinner hidden" id="spin-settings"></span>
     </div>
   </div>
 </div>
@@ -985,37 +954,6 @@ async function saveTableInline(input) {
   } finally {
     input.style.opacity = '1';
   }
-}
-
-// ── Class settings modal ──────────────────────────────────────────────────────
-function openSettingsModal() {
-  document.getElementById('settings-code').value = '';
-  document.getElementById('settings-name').value = '';
-  document.getElementById('settings-modal').style.display = 'flex';
-  setTimeout(() => document.getElementById('settings-code').focus(), 50);
-}
-
-function closeSettingsModal() {
-  document.getElementById('settings-modal').style.display = 'none';
-}
-
-async function saveSettings() {
-  const code = document.getElementById('settings-code').value.trim().toUpperCase();
-  const name = document.getElementById('settings-name').value.trim();
-  if (!code) { document.getElementById('settings-code').focus(); return; }
-  showSpin('settings', true);
-  try {
-    const resp = await fetch('/api/class/teacher/update', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ class_id: CLS_ID, teacher_code: code, teacher_name: name }),
-    });
-    const d = await resp.json();
-    if (d.ok) {
-      closeSettingsModal();
-      showStatus(`Teacher label updated to ${code}.`);
-    } else showStatus('Save failed: ' + d.error, 'error');
-  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
-  finally { showSpin('settings', false); }
 }
 
 // ── Mastery import modal ──────────────────────────────────────────────────────

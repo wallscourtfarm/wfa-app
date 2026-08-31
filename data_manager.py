@@ -851,27 +851,8 @@ def save_class(class_id, data, message='Update class'):
     return _put_file(path, data, sha, message)
 
 
-# ── Teacher label update ───────────────────────────────────────────────────────
-
-def update_teacher_label(class_id, teacher_code, teacher_name=''):
-    """
-    Update the teacher label fields in a class JSON.
-    The class_id (filename) never changes — only the display fields do.
-    teacher_code: short initials shown in UI (e.g. 'IM')
-    teacher_name: optional full name (e.g. 'Mr McLean')
-    """
-    path = f'data/classes/{class_id}.json'
-    data, sha = _get_file(path)
-    if not data:
-        return {'ok': False, 'error': f'Class {class_id} not found'}
-    data['teacher']       = teacher_code
-    data['class_display'] = teacher_code
-    if teacher_name:
-        data['teacher_name'] = teacher_name
-    elif 'teacher_name' not in data:
-        data['teacher_name'] = teacher_code
-    ok = _put_file(path, data, sha, f'Update teacher label: {class_id} -> {teacher_code}')
-    return {'ok': ok}
+# Teacher labels are refreshed from the hub by roster_sync.py now — see
+# fetch_classes() there. No manual editor anymore.
 
 
 def get_class_options_for_year(yr, include_all=True):
