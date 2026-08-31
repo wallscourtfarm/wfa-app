@@ -11,12 +11,10 @@
       {% endfor %}
     </select>
     <button class="btn btn-secondary" onclick="syncRoster(this)" title="Pull the Bromcom roster (Pupil Tracker import): refresh names, add arrivals, remove leavers">⇄ Sync from Bromcom</button>
-    <button class="btn btn-secondary" onclick="openImportModal()" title="Bulk import pupils from CSV">📥 Import names</button>
-<button class="btn btn-secondary" onclick="openMasteryModal()" title="Import pupils with spelling mastery data">📊 Import mastery</button>
+<button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
     <button class="btn btn-secondary" onclick="openSettingsModal()" title="Edit class teacher label">⚙ Settings</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
-    <button class="btn btn-primary" onclick="openAddModal()">+ Add pupil</button>
   </div>
 </div>
 
@@ -102,13 +100,16 @@
       <div class="cm-field-row">
         <div class="cm-field">
           <label>First name</label>
-          <input id="edit-first" type="text" class="cm-input">
+          <input id="edit-first" type="text" class="cm-input" disabled title="Set from Bromcom via Roster Import">
         </div>
         <div class="cm-field">
           <label>Last name</label>
-          <input id="edit-last" type="text" class="cm-input">
+          <input id="edit-last" type="text" class="cm-input" disabled title="Set from Bromcom via Roster Import">
         </div>
       </div>
+      <p style="font-size:12px;color:#94a3b8;margin:-6px 0 8px">
+        Name and class come from Bromcom — change them in <a href="https://staff.wallscourt-farm-academy.co.uk/roster-import/" target="_blank">Roster Import</a>.
+      </p>
       <div class="cm-field-row">
         <div class="cm-field">
           <label>Group</label>
@@ -184,88 +185,6 @@
       <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
       <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
       <span class="print-spinner hidden" id="spin-edit"></span>
-      <div style="flex:1"></div>
-      <!-- Move picker -->
-      <div id="move-picker" style="display:flex;gap:6px;align-items:center">
-        <select id="move-to-cls" class="cm-input" style="font-size:13px;padding:5px 8px;max-width:160px">
-          <!-- populated on open -->
-        </select>
-        <button class="btn btn-ghost btn-sm" onclick="moveCurrentPupil()"
-          style="color:#7c3aed;border-color:#7c3aed;white-space:nowrap">Move →</button>
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="removeCurrentPupil()"
-        style="color:#dc2626;border-color:#dc2626">Remove</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Add modal ───────────────────────────────────────────────────────────── -->
-<div id="add-modal" class="cm-modal-wrap" style="display:none">
-  <div class="cm-modal">
-    <div class="cm-modal-hdr">
-      <h3>Add pupil</h3>
-      <button onclick="closeAddModal()" class="cm-close">&times;</button>
-    </div>
-    <div class="cm-modal-body">
-      <div class="cm-field-row">
-        <div class="cm-field">
-          <label>First name <span style="color:#dc2626">*</span></label>
-          <input id="add-first" type="text" class="cm-input" placeholder="First name">
-        </div>
-        <div class="cm-field">
-          <label>Last name</label>
-          <input id="add-last" type="text" class="cm-input" placeholder="Last name">
-        </div>
-      </div>
-      <div class="cm-field-row">
-        <div class="cm-field">
-          <label>Group</label>
-          <select id="add-group" class="cm-input" onchange="toggleGpcField('add')">
-            <option value="main">Main</option>
-            <option value="phonics">Phonics</option>
-          </select>
-        </div>
-        <div class="cm-field">
-          <label>Table</label>
-          <input id="add-table" type="text" class="cm-input" placeholder="e.g. 1">
-        </div>
-      </div>
-      <div class="cm-field" id="add-gpc-field" style="display:none">
-        <label>Phonics phase &amp; set</label>
-        <div class="cm-field-row">
-          <div class="cm-field">
-            <select id="add-phonics-phase" class="cm-input" onchange="populatePhonicsSets('add')"></select>
-          </div>
-          <div class="cm-field">
-            <select id="add-phonics-set" class="cm-input" onchange="applyPhonicsSet('add')"></select>
-          </div>
-        </div>
-        <div style="font-size:11px;color:#64748b;margin-top:4px">
-          <a href="#" onclick="togglePhonicsAdvanced('add');return false;">Edit GPCs directly</a>
-        </div>
-        <input id="add-phonics-gpcs" type="text" class="cm-input" placeholder="e.g. ai, ar" style="display:none;margin-top:6px">
-      </div>
-      <div class="cm-field">
-        <label>
-          <input type="checkbox" id="add-adapted-hl" style="margin-right:6px">
-          Adapted home learning
-        </label>
-      </div>
-      <div class="cm-field-row">
-        <div class="cm-field">
-          <label>Unlocking Spelling ID</label>
-          <input id="add-us-code" type="text" class="cm-input" placeholder="e.g. BO46">
-        </div>
-        <div class="cm-field">
-          <label>Unlocking Spelling PIN</label>
-          <input id="add-us-pin" type="text" class="cm-input" placeholder="e.g. 2818">
-        </div>
-      </div>
-    </div>
-    <div class="cm-modal-footer">
-      <button class="btn btn-primary" onclick="confirmAdd()">Add pupil</button>
-      <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
-      <span class="print-spinner hidden" id="spin-add"></span>
     </div>
   </div>
 </div>
@@ -326,45 +245,6 @@
   </div>
 </div>
 
-<!-- ── CSV import modal ─────────────────────────────────────────────────────── -->
-<div id="import-modal" class="cm-modal-wrap" style="display:none">
-  <div class="cm-modal" style="max-width:560px">
-    <div class="cm-modal-hdr">
-      <h3>📥 Import pupils</h3>
-      <button onclick="closeImportModal()" class="cm-close">&times;</button>
-    </div>
-    <div class="cm-modal-body">
-      <div class="cm-field">
-        <label>Import into class</label>
-        <select id="import-cls" class="cm-input" onchange="updateImportPreview()">
-          {% for val, label in class_options %}
-          {% if not val.endswith('_all') %}
-          <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
-          {% endif %}
-          {% endfor %}
-        </select>
-      </div>
-      <div class="cm-field">
-        <label>Paste names — one per line, first name then last name</label>
-        <p style="font-size:12px;color:#94a3b8;margin:0 0 6px">
-          Format: <code>First Last</code> or <code>First, Last</code> or two columns.
-          A header row is ignored automatically.
-        </p>
-        <textarea id="import-csv" class="cm-input" rows="10"
-          placeholder="Amelia Smith&#10;James Brown&#10;Olivia Jones"
-          oninput="updateImportPreview()"
-          style="font-family:monospace;font-size:13px;resize:vertical"></textarea>
-      </div>
-      <div id="import-preview" style="font-size:13px;color:#1e40af;background:#eff6ff;
-        border-radius:8px;padding:10px 14px;display:none"></div>
-    </div>
-    <div class="cm-modal-footer">
-      <button class="btn btn-primary" id="import-btn" onclick="confirmImport()" disabled>Import</button>
-      <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
-      <span class="print-spinner hidden" id="spin-import"></span>
-    </div>
-  </div>
-</div>
 
 <style>
 .cm-table { width:100%; border-collapse:collapse; font-size:14px; }
@@ -518,8 +398,6 @@ const CLS_ID       = {{ cls | tojson }};
 const TT_SETS      = {{ tt_sets | tojson }};
 const ALL_CLS      = {{ class_options | tojson }};
 const PHONICS_SETS = {{ phonics_sets_json | safe }};
-// All individual classes except _all entries, excluding current
-const OTHER_CLASSES = ALL_CLS.filter(([v]) => !v.endsWith('_all') && v !== CLS_ID);
 
 let _pupils      = [];
 let _allPupils   = [];
@@ -1044,11 +922,6 @@ function openEditModal(pid, e) {
   document.getElementById('edit-us-code').value     = p.us_code || '';
   document.getElementById('edit-us-pin').value      = p.us_pin || '';
 
-  // Populate move-to select with all classes except current
-  const sel = document.getElementById('move-to-cls');
-  sel.innerHTML = OTHER_CLASSES.map(([v, l]) =>
-    `<option value="${v}">${l}</option>`).join('');
-
   document.getElementById('edit-modal').style.display = 'flex';
 }
 
@@ -1065,8 +938,6 @@ async function saveEdit() {
       body: JSON.stringify({
         cls: CLS_ID, pupil_id: pid,
         changes: {
-          first:      document.getElementById('edit-first').value.trim(),
-          last:       document.getElementById('edit-last').value.trim(),
           group:      document.getElementById('edit-group').value,
           phonics_gpcs: document.getElementById('edit-phonics-gpcs').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
           tt_set:     document.getElementById('edit-tt-set').value,
@@ -1117,90 +988,6 @@ async function saveTableInline(input) {
   }
 }
 
-async function moveCurrentPupil() {
-  const pid    = document.getElementById('edit-pupil-id').value;
-  const name   = document.getElementById('edit-first').value;
-  const toCls  = document.getElementById('move-to-cls').value;
-  const toLabel = OTHER_CLASSES.find(([v]) => v === toCls)?.[1] || toCls;
-  if (!toCls) { alert('Select a destination class.'); return; }
-  if (!confirm(`Move ${name} to ${toLabel}?`)) return;
-  try {
-    const resp = await fetch('/api/class/pupil/move', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ from_cls: CLS_ID, to_cls: toCls, pupil_id: pid }),
-    });
-    const d = await resp.json();
-    if (d.ok) {
-      closeEditModal();
-      showStatus(`${d.name} moved to ${toLabel}.`);
-      await load();
-    } else showStatus('Move failed: ' + d.error, 'error');
-  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
-}
-
-async function removeCurrentPupil() {
-  const pid  = document.getElementById('edit-pupil-id').value;
-  const name = (document.getElementById('edit-first').value + ' ' +
-                document.getElementById('edit-last').value).trim();
-  if (!confirm(`Permanently remove ${name}? This cannot be undone.`)) return;
-  try {
-    const resp = await fetch('/api/class/pupil/remove', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS_ID, pupil_id: pid }),
-    });
-    const d = await resp.json();
-    if (d.ok) { closeEditModal(); showStatus(`${d.name} removed.`); await load(); }
-    else showStatus('Remove failed: ' + d.error, 'error');
-  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
-}
-
-// ── Add modal ─────────────────────────────────────────────────────────────────
-function openAddModal() {
-  document.getElementById('add-first').value = '';
-  document.getElementById('add-last').value  = '';
-  document.getElementById('add-group').value = 'main';
-  document.getElementById('add-phonics-gpcs').value = '';
-  document.getElementById('add-phonics-gpcs').style.display = 'none';
-  document.getElementById('add-phonics-phase').value = '';
-  populatePhonicsSets('add');
-  document.getElementById('add-table').value = '';
-  document.getElementById('add-us-code').value = '';
-  document.getElementById('add-us-pin').value = '';
-  toggleGpcField('add');
-  document.getElementById('add-adapted-hl').checked = false;
-  document.getElementById('add-modal').style.display = 'flex';
-  setTimeout(() => document.getElementById('add-first').focus(), 50);
-}
-
-function closeAddModal() {
-  document.getElementById('add-modal').style.display = 'none';
-}
-
-async function confirmAdd() {
-  const first = document.getElementById('add-first').value.trim();
-  if (!first) { document.getElementById('add-first').focus(); return; }
-  showSpin('add', true);
-  try {
-    const resp = await fetch('/api/class/pupil/add', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        cls: CLS_ID, first,
-        last:       document.getElementById('add-last').value.trim(),
-        group:      document.getElementById('add-group').value,
-        phonics_gpcs: document.getElementById('add-phonics-gpcs').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
-        table:      document.getElementById('add-table').value.trim(),
-        adapted_hl: document.getElementById('add-adapted-hl').checked,
-        us_code:    document.getElementById('add-us-code').value.trim(),
-        us_pin:     document.getElementById('add-us-pin').value.trim(),
-      }),
-    });
-    const d = await resp.json();
-    if (d.ok) { closeAddModal(); showStatus(`${first} added (${d.pupil_id}).`); await load(); }
-    else showStatus('Add failed: ' + d.error, 'error');
-  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
-  finally { showSpin('add', false); }
-}
-
 // ── Class settings modal ──────────────────────────────────────────────────────
 function openSettingsModal() {
   document.getElementById('settings-code').value = '';
@@ -1231,89 +1018,6 @@ async function saveSettings() {
   } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
   finally { showSpin('settings', false); }
 }
-
-// ── CSV import modal ──────────────────────────────────────────────────────────
-function openImportModal() {
-  document.getElementById('import-csv').value = '';
-  document.getElementById('import-preview').style.display = 'none';
-  document.getElementById('import-btn').disabled = true;
-  document.getElementById('import-modal').style.display = 'flex';
-  setTimeout(() => document.getElementById('import-csv').focus(), 50);
-}
-
-function closeImportModal() {
-  document.getElementById('import-modal').style.display = 'none';
-}
-
-function parseImportCSV(text) {
-  // Accept: "First Last", "First, Last", "First\tLast", or two-column CSV
-  const lines = text.trim().split(/\n/);
-  const results = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    // Detect header
-    if (i === 0 && /^(first|name|forename)/i.test(line)) continue;
-    let first = '', last = '';
-    if (line.includes(',')) {
-      const parts = line.split(',').map(s => s.trim());
-      // Could be "Last, First" or "First, Last" — assume "First, Last"
-      first = parts[0]; last = parts[1] || '';
-    } else if (line.includes('\t')) {
-      const parts = line.split('\t');
-      first = parts[0].trim(); last = (parts[1] || '').trim();
-    } else {
-      const parts = line.split(/\s+/);
-      first = parts[0]; last = parts.slice(1).join(' ');
-    }
-    if (first) results.push({ first, last });
-  }
-  return results;
-}
-
-function updateImportPreview() {
-  const text    = document.getElementById('import-csv').value;
-  const parsed  = parseImportCSV(text);
-  const preview = document.getElementById('import-preview');
-  const btn     = document.getElementById('import-btn');
-  if (!parsed.length) {
-    preview.style.display = 'none';
-    btn.disabled = true;
-    return;
-  }
-  const sample = parsed.slice(0, 5).map(p => `${p.first} ${p.last}`.trim()).join(', ');
-  const more   = parsed.length > 5 ? ` …and ${parsed.length - 5} more` : '';
-  preview.textContent = `${parsed.length} pupil${parsed.length !== 1 ? 's' : ''} detected: ${sample}${more}`;
-  preview.style.display = 'block';
-  btn.disabled = false;
-}
-
-async function confirmImport() {
-  const cls  = document.getElementById('import-cls').value;
-  const csv  = document.getElementById('import-csv').value;
-  const parsed = parseImportCSV(csv);
-  if (!parsed.length) return;
-  if (!confirm(`Import ${parsed.length} pupils into ${cls}?`)) return;
-  showSpin('import', true);
-  document.getElementById('import-btn').disabled = true;
-  try {
-    // Convert to simple CSV for backend
-    const csvText = parsed.map(p => `${p.first},${p.last}`).join('\n');
-    const resp = await fetch('/api/class/import', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ class_id: cls, csv: csvText }),
-    });
-    const d = await resp.json();
-    if (d.ok) {
-      closeImportModal();
-      const errMsg = d.errors?.length ? ` (${d.errors.length} skipped)` : '';
-      showStatus(`${d.imported} pupils imported into ${cls}${errMsg}.`);
-      if (cls === CLS_ID) await load();
-    } else showStatus('Import failed: ' + d.error, 'error');
-  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
-  finally { showSpin('import', false); document.getElementById('import-btn').disabled = false; }
-}
-
 
 // ── Mastery import modal ──────────────────────────────────────────────────────
 function openMasteryModal() {

@@ -93,7 +93,7 @@
         🖨️ Print
       </a>
 
-      <div class="nav-dropdown {% if request.endpoint in ['settings.settings','live.session_management','class_manager.class_manager','rollover.rollover_page'] %}active{% endif %}">
+      <div class="nav-dropdown {% if request.endpoint in ['settings.settings','live.session_management','class_manager.class_manager'] %}active{% endif %}">
         <span class="nav-item nav-dropdown-toggle">⚙️ Admin ▾</span>
         <div class="dropdown-menu">
           <a href="{{ url_for('settings.settings') }}"
@@ -107,10 +107,6 @@
           <a href="{{ url_for('class_manager.class_manager') }}"
              class="{% if request.endpoint=='class_manager.class_manager' %}active{% endif %}">
             👤 Manage Pupils
-          </a>
-          <a href="{{ url_for('rollover.rollover_page') }}"
-             class="{% if request.endpoint=='rollover.rollover_page' %}active{% endif %}">
-            🔄 Year-End Rollover
           </a>
         </div>
       </div>

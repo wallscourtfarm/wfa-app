@@ -7,7 +7,7 @@ import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
                           get_class_options, get_class_options_for_year,
-                          update_teacher_label, bulk_import_pupils, year_end_rollover)
+                          update_teacher_label)
 from word_bank import next_active_index
 from phonics_bank import PHONICS_SETS
 
@@ -88,18 +88,6 @@ def _all_pupils_map():
                     'cls_id': cid,
                 }
     return result
-
-def _next_pupil_id():
-    """Find the highest p-number across all classes and return the next one."""
-    max_n = 0
-    for cid in ALL_CLASSES:
-        obj, _ = _load_class_file(cid)
-        if obj:
-            for p in obj.get('pupils', []):
-                pid = p.get('id', '')
-                if pid.startswith('p') and pid[1:].isdigit():
-                    max_n = max(max_n, int(pid[1:]))
-    return f'p{max_n + 1:02d}'
 
 def _cls_short(cls_id):
     """4CK -> CK, 5IM -> IM (strips leading year digit)"""
@@ -191,7 +179,9 @@ def api_pupil_update():
         pupil_id  = body.get('pupil_id', '')
         changes   = body.get('changes', {})
 
-        ALLOWED = {'first', 'last', 'group', 'phonics_gpcs', 'tt_set', 'tt_mode',
+        # first/last/cls are Bromcom-owned identity fields — set only via
+        # Roster Import, never editable per-pupil here.
+        ALLOWED = {'group', 'phonics_gpcs', 'tt_set', 'tt_mode',
                    'table', 'adapted_hl', 'us_code', 'us_pin', 'language', 'home_language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
@@ -215,131 +205,6 @@ def api_pupil_update():
                      for p in obj['pupils'] if p['id'] == pupil_id), pupil_id)
         ok = _save_class_file(cls, obj, sha, f'Edit pupil {name} ({pupil_id})')
         return jsonify({'ok': ok})
-    except Exception as e:
-        return _err(e)
-
-
-# ── API: Add pupil ────────────────────────────────────────────────────────────
-
-@cm_bp.route('/api/class/pupil/add', methods=['POST'])
-def api_pupil_add():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    try:
-        body  = request.get_json(force=True)
-        cls   = body.get('cls', '4CC')
-        first = body.get('first', '').strip()
-        last  = body.get('last', '').strip()
-
-        if not first:
-            return jsonify({'ok': False, 'error': 'First name is required'})
-
-        obj, sha = _load_class_file(cls)
-        if not obj:
-            return jsonify({'ok': False, 'error': f'Could not load {cls}'})
-
-        new_id    = _next_pupil_id()
-        new_pupil = {
-            'id':              new_id,
-            'first':           first,
-            'last':            last,
-            'cls':             _cls_short(cls),
-            'group':           body.get('group', 'main'),
-            'phonics_gpcs':    body.get('phonics_gpcs', []),
-            'tt_set':          body.get('tt_set', '2'),
-            'tt_mode':         'x',
-            'table':           body.get('table', ''),
-            'adapted_hl':      bool(body.get('adapted_hl', False)),
-            'language':        body.get('language', ''),
-            'pair_id':         '',
-            'pair_colour':     '',
-            # New pupils start at the very beginning of the whole CEW/Key
-            # Spelling list (position 0), not their year group's zone —
-            # mastered=[] means we have no evidence they know anything yet.
-            'word_pos':        0,
-            'mastered':        [],
-            'rule_confidence': {},
-            'us_code':           body.get('us_code', ''),
-            'us_pin':            body.get('us_pin', ''),
-            'homophone_mastered': [],
-            'homophone_history':  {},
-        }
-        obj.setdefault('pupils', []).append(new_pupil)
-        ok = _save_class_file(cls, obj, sha, f'Add pupil {first} {last} ({new_id})')
-        return jsonify({'ok': ok, 'pupil_id': new_id})
-    except Exception as e:
-        return _err(e)
-
-
-# ── API: Remove pupil ─────────────────────────────────────────────────────────
-
-@cm_bp.route('/api/class/pupil/remove', methods=['POST'])
-def api_pupil_remove():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    try:
-        body     = request.get_json(force=True)
-        cls      = body.get('cls', '4CC')
-        pupil_id = body.get('pupil_id', '')
-
-        obj, sha = _load_class_file(cls)
-        if not obj:
-            return jsonify({'ok': False, 'error': f'Could not load {cls}'})
-
-        target = next((p for p in obj.get('pupils', []) if p['id'] == pupil_id), None)
-        if not target:
-            return jsonify({'ok': False, 'error': f'Pupil {pupil_id} not found'})
-
-        name = f"{target.get('first','')} {target.get('last','')}".strip()
-
-        # If they have a pair, clear the partner's pair_id too (may be in other class)
-        partner_id = target.get('pair_id', '')
-        if partner_id:
-            _clear_pair_field(partner_id, pupil_id)
-
-        obj['pupils'] = [p for p in obj['pupils'] if p['id'] != pupil_id]
-        ok = _save_class_file(cls, obj, sha, f'Remove pupil {name} ({pupil_id})')
-        return jsonify({'ok': ok, 'name': name})
-    except Exception as e:
-        return _err(e)
-
-
-# ── API: Move pupil ───────────────────────────────────────────────────────────
-
-@cm_bp.route('/api/class/pupil/move', methods=['POST'])
-def api_pupil_move():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    try:
-        body     = request.get_json(force=True)
-        from_cls = body.get('from_cls', '')
-        to_cls   = body.get('to_cls', '')
-        pupil_id = body.get('pupil_id', '')
-
-        if from_cls == to_cls:
-            return jsonify({'ok': False, 'error': 'Source and destination are the same'})
-
-        src, src_sha = _load_class_file(from_cls)
-        dst, dst_sha = _load_class_file(to_cls)
-        if not src or not dst:
-            return jsonify({'ok': False, 'error': 'Could not load class files'})
-
-        target = next((p for p in src.get('pupils', []) if p['id'] == pupil_id), None)
-        if not target:
-            return jsonify({'ok': False, 'error': f'Pupil {pupil_id} not found in {from_cls}'})
-
-        name = f"{target.get('first','')} {target.get('last','')}".strip()
-
-        # Update cls field and move
-        target['cls'] = _cls_short(to_cls)
-        src['pupils'] = [p for p in src['pupils'] if p['id'] != pupil_id]
-        dst.setdefault('pupils', []).append(target)
-
-        ok1 = _save_class_file(from_cls, src, src_sha, f'Move {name} out to {to_cls}')
-        dst2, dst_sha2 = _load_class_file(to_cls)   # re-fetch sha after first write
-        ok2 = _save_class_file(to_cls, dst, dst_sha, f'Move {name} in from {from_cls}')
-
-        return jsonify({'ok': ok1 and ok2, 'name': name})
     except Exception as e:
         return _err(e)
 
@@ -707,41 +572,6 @@ def api_teacher_update():
         if not class_id or not teacher_code:
             return jsonify({'ok': False, 'error': 'class_id and teacher_code are required'})
         result = update_teacher_label(class_id, teacher_code, teacher_name)
-        return jsonify(result)
-    except Exception as e:
-        return _err(e)
-
-
-# ── API: CSV bulk import ──────────────────────────────────────────────────────
-
-@cm_bp.route('/api/class/import', methods=['POST'])
-def api_bulk_import():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    try:
-        body     = request.get_json(force=True)
-        class_id = body.get('class_id', '')
-        csv_text = body.get('csv', '')
-        if not class_id or not csv_text.strip():
-            return jsonify({'ok': False, 'error': 'class_id and csv are required'})
-        result = bulk_import_pupils(class_id, csv_text)
-        return jsonify(result)
-    except Exception as e:
-        return _err(e)
-
-
-# ── API: Year-end rollover ────────────────────────────────────────────────────
-
-@cm_bp.route('/api/rollover', methods=['POST'])
-def api_rollover():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    try:
-        body       = request.get_json(force=True)
-        year_group = body.get('year_group', '')
-        if not year_group:
-            return jsonify({'ok': False, 'error': 'year_group is required'})
-        result = year_end_rollover(str(year_group))
         return jsonify(result)
     except Exception as e:
         return _err(e)
