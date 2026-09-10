@@ -962,7 +962,7 @@ BLACK = (0, 0, 0)
 WHITE = (1, 1, 1)
 
 TT_URL = 'https://play.ttrockstars.com/auth/school/student/81920'
-US_GAMES_URL = 'https://games.wallscourt-farm-academy.co.uk/spelling-games/play/index.html'
+US_GAMES_URL = 'https://games.wallscourt-farm-academy.co.uk/spelling-games/index.html'
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
 US_QR_PATH  = os.path.join(_ASSETS_DIR, 'spelling_qr.png')
 
