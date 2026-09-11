@@ -8,7 +8,7 @@ wa_bp = Blueprint('word_assessment', __name__)
 
 CLASS_OPTIONS = get_class_options()
 DEFAULT_CLASS = 'all'
-SECTION_KEYS  = ['Y1/Y2', 'Y3', 'Y4']
+SECTION_KEYS  = ['Y1/Y2', 'Y3', 'Y4', 'Y5', 'Y6']
 
 PAT       = os.environ.get('GITHUB_TOKEN', '')
 DATA_REPO = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')

@@ -44,6 +44,8 @@ def _all_sections():
         "Y1/Y2": ("Commonly misspelled Y1 / Y2 words", FOCUS_Y2),
         "Y3":    ("Year 3 key spellings",               _words_for_year("3")),
         "Y4":    ("Year 4 key spellings",               _words_for_year("4")),
+        "Y5":    ("Year 5 key spellings",               _words_for_year("5")),
+        "Y6":    ("Year 6 key spellings",               _words_for_year("6")),
     }
 
 
