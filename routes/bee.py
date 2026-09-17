@@ -26,6 +26,8 @@ def spelling_bee():
     if group_filter != 'all':
         pupils = [p for p in pupils if p['group'] == group_filter]
 
+    pupils.sort(key=lambda p: p['first'].lower())
+
     class_options = get_class_options_for_year(yr)
     return render_template('bee.html', pupils=pupils, rules_info=rules_info,
                            week_ref=week_ref, group_filter=group_filter,
