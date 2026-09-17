@@ -297,11 +297,11 @@ async function loadULSWeeks() {
   });
   // Trigger week change if a saved value was found
   if (savedWeekCode && allWeeks.find(w => w.code === savedWeekCode)) {
-    onWeekChange();
+    onWeekChange(true);
   }
 }
 
-async function onWeekChange() {
+async function onWeekChange(isRestore = false) {
   const code = document.getElementById('uls_week').value;
   if (!code) {
     document.getElementById('lesson_summary').style.display = 'none';
@@ -331,13 +331,21 @@ async function onWeekChange() {
   });
   document.getElementById('lesson_summary').style.display = 'block';
 
-  // Drop any previously-selected words that don't belong to this week's
-  // lessons. Without this, switching week/lesson set leaves stale words
-  // counted toward the 5-word cap with no button to remove them, since
-  // the mix picker only renders buttons for the current lesson pool.
-  const pool = new Set();
-  currentLessons.forEach(l => l.hlWords.forEach(w => pool.add(w)));
-  selectedWords = selectedWords.filter(w => pool.has(w));
+  // Each week starts with a clean slate: a word carried over from a
+  // different week's selection (even one that happens to reappear in this
+  // week's lessons, e.g. "misbehave" in both T1W1 and T1W2) shouldn't come
+  // pre-selected. Only skip the reset when restoring the already-saved week
+  // on page load, and even then prune anything that no longer belongs to
+  // this week's lessons — otherwise stale words count toward the 5-word cap
+  // with no button to remove them, since the mix picker only renders
+  // buttons for the current lesson pool.
+  if (isRestore) {
+    const pool = new Set();
+    currentLessons.forEach(l => l.hlWords.forEach(w => pool.add(w)));
+    selectedWords = selectedWords.filter(w => pool.has(w));
+  } else {
+    selectedWords = [];
+  }
 
   // Update HL lesson dropdown
   refreshHLLessonDropdown();
