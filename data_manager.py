@@ -2,7 +2,7 @@
 data_manager.py — WFA Flask app data layer
 Data lives in wallscourtfarm/spelling-homelearning GitHub repo.
 """
-import os, json, base64, requests, time
+import os, json, base64, re, requests, time
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from word_bank import WORD_BANK, get_active_words, mastery_stats, next_active_index
@@ -348,9 +348,47 @@ def _group_words_by_lesson(words, lessons):
     return groups
 
 
-def load_bee_pupils(class_id='4CK'):
-    data = load_class(class_id)
-    wc   = load_weekly_config(get_year_group(class_id) or '4')
+def _week_sort_key(code):
+    m = re.match(r'T(\d+)W(\d+)', code or '')
+    return (int(m.group(1)), int(m.group(2))) if m else (99, 99)
+
+
+def _week_snapshot(wc, week_ref):
+    """Resolve the ULS config for a specific week, falling back to the year
+    group's current live settings when no week is requested or that week
+    has no snapshot yet (e.g. data saved before per-week snapshots existed).
+    This is what lets the Spelling Bee keep marking against an earlier
+    week's words/rules after Settings has moved on to a later week."""
+    if not week_ref:
+        return wc
+    snap = (wc.get('weeks') or {}).get(week_ref)
+    if not snap:
+        return wc
+    merged = dict(wc)
+    merged.update(snap)
+    return merged
+
+
+def get_bee_weeks(year_group):
+    """List of {code, label} weeks available for the Bee's own week
+    selector, plus the year group's current week_ref. Always includes the
+    current week even if it has no snapshot yet, so the selector never
+    comes back empty for a year group that hasn't saved Settings since
+    this feature shipped."""
+    wc      = load_weekly_config(year_group)
+    weeks   = dict(wc.get('weeks') or {})
+    current = wc.get('week_ref', '')
+    if current and current not in weeks:
+        weeks[current] = {'week_ref': current, 'rule_title': wc.get('rule_title', '')}
+    codes = sorted(weeks.keys(), key=_week_sort_key)
+    out = [{'code': c, 'label': (f"{c} — {weeks[c].get('rule_title','')}".rstrip(' —'))} for c in codes]
+    return out, current
+
+
+def load_bee_pupils(class_id='4CK', week_ref=None):
+    data    = load_class(class_id)
+    wc_full = load_weekly_config(get_year_group(class_id) or '4')
+    wc      = _week_snapshot(wc_full, week_ref)
     if not data: return [], {}, ''
     # ULS: get this week's lesson focuses
     from uls_lessons import get_lesson, TERM_LABELS
@@ -530,14 +568,20 @@ def save_rule_confidence(confidence):
 
 # ── Bee → rule confidence ─────────────────────────────────────────────────────
 
-def _bee_rules_by_class(assessments):
+def _bee_rules_by_class(assessments, week_ref=None):
     """Group a Bee save's assessments by class, and for each class resolve
-    that year group's rule words this week — the same 5 words already
-    selected for Home Learning (weekly_config's selected_words), grouped by
-    whichever rule/lesson each word actually belongs to (a week can mix
-    several rules in one 5-word pick, e.g. -ing/-ed/-ly together):
+    that week's rule words — the same 5 words already selected for Home
+    Learning (weekly_config's selected_words), grouped by whichever
+    rule/lesson each word actually belongs to (a week can mix several rules
+    in one 5-word pick, e.g. -ing/-ed/-ly together):
     {lesson_id: {'title': focus, 'total': n_words_for_that_rule}}.
-    Shared helper for both functions below."""
+    Shared helper for both functions below.
+
+    week_ref pins this to the week the Bee page was actually marking
+    against (see bee.py's week selector) rather than whatever Settings
+    currently has live — otherwise a Settings change to a later week while
+    someone is still marking an earlier week would silently attribute (or
+    drop) their results against the wrong rule."""
     from uls_lessons import get_lesson
 
     by_class = {}
@@ -548,7 +592,8 @@ def _bee_rules_by_class(assessments):
     for cls_id, ass_list in by_class.items():
         if not cls_id:
             continue
-        wc = load_weekly_config(get_year_group(cls_id) or '4')
+        wc_full = load_weekly_config(get_year_group(cls_id) or '4')
+        wc = _week_snapshot(wc_full, week_ref)
         words = wc.get('selected_words', [])
         lesson_ids = wc.get('lesson_ids', [])
         lessons = [get_lesson(lid) for lid in lesson_ids if get_lesson(lid)]
@@ -559,7 +604,7 @@ def _bee_rules_by_class(assessments):
     return result
 
 
-def update_rule_confidence_from_bee(assessments):
+def update_rule_confidence_from_bee(assessments, week_ref=None):
     """
     Given a list of {pupil_id, cls, rules: [{lesson_id, correct_words}]}
     dicts from a Bee save, tally word-level correctness per rule (across all
@@ -573,7 +618,7 @@ def update_rule_confidence_from_bee(assessments):
     if not assessments:
         return False
 
-    by_class = _bee_rules_by_class(assessments)
+    by_class = _bee_rules_by_class(assessments, week_ref)
 
     # Tally per lesson: {lesson_id: [total_words_possible, total_correct]}
     tally = {}
@@ -611,7 +656,7 @@ def update_rule_confidence_from_bee(assessments):
     return save_rule_confidence(conf)
 
 
-def update_pupil_rule_confidence_from_bee(assessments):
+def update_pupil_rule_confidence_from_bee(assessments, week_ref=None):
     """
     Companion to update_rule_confidence_from_bee: appends a rule_confidence
     entry to each individually-assessed pupil's own record (the same field
@@ -626,7 +671,7 @@ def update_pupil_rule_confidence_from_bee(assessments):
     if not assessments:
         return {'ok': True, 'updated': 0}
 
-    by_class = _bee_rules_by_class(assessments)
+    by_class = _bee_rules_by_class(assessments, week_ref)
     today = datetime.now(timezone.utc).date().isoformat()
 
     total_updated = 0

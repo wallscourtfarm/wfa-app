@@ -8,7 +8,7 @@
     <div class="filter-group">
       <span class="filter-label">Class</span>
       {% for val, label in class_options %}
-      <a href="?cls={{ val }}&group={{ group_filter }}"
+      <a href="?cls={{ val }}&group={{ group_filter }}&week={{ selected_week }}"
          class="btn {% if cls==val %}btn-primary{% else %}btn-secondary{% endif %}">
         {{ label.split('—')[1].strip() if '—' in label else label }}
       </a>
@@ -17,10 +17,23 @@
     <div class="filter-sep"></div>
     <div class="filter-group">
       <span class="filter-label">Group</span>
-      <a href="?cls={{ cls }}&group=all"      class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
-      <a href="?cls={{ cls }}&group=main"     class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-ghost{% endif %}">Main</a>
-      <a href="?cls={{ cls }}&group=revision" class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-ghost{% endif %}">Phonics</a>
+      <a href="?cls={{ cls }}&group=all&week={{ selected_week }}"      class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+      <a href="?cls={{ cls }}&group=main&week={{ selected_week }}"     class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-ghost{% endif %}">Main</a>
+      <a href="?cls={{ cls }}&group=revision&week={{ selected_week }}" class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-ghost{% endif %}">Phonics</a>
     </div>
+    {% if bee_weeks|length > 1 %}
+    <div class="filter-sep"></div>
+    <div class="filter-group">
+      <span class="filter-label">Week</span>
+      {% for w in bee_weeks %}
+      <a href="?cls={{ cls }}&group={{ group_filter }}&week={{ w.code }}"
+         title="{{ w.label }}"
+         class="btn {% if selected_week==w.code %}btn-primary{% else %}btn-secondary{% endif %}">
+        {{ w.code }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -161,6 +174,7 @@
 {% block scripts %}
 <script>
 const CLS = "{{ cls }}";
+const WEEK_REF = "{{ selected_week }}";
 let _sessionId = null;
 
 function showSpin(id, show) { document.getElementById('spin-'+id)?.classList.toggle('hidden',!show); }
@@ -346,7 +360,7 @@ async function saveAll(manual = false) {
     const res  = await fetch('/api/bee/save', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cls: CLS, assessments}),
+      body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, assessments}),
     });
     const data = await res.json();
     if (data.ok) {

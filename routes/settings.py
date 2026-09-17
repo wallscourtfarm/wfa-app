@@ -1,9 +1,34 @@
 import os
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import load_weekly_config, save_weekly_config, ALL_CLASSES, get_class_options, load_term_dates, term_dates_by_term, current_week_ref
 
 settings_bp = Blueprint('settings', __name__)
 CLASS_OPTIONS = get_class_options(include_all_per_year=False)
+
+
+def _snapshot_current_uls_week(wc):
+    """Snapshot wc's own current ULS fields into wc['weeks'][wc['week_ref']],
+    if it has one. Called both before and after applying a save's changes,
+    so the OUTGOING week (as it stood before this save) is preserved even
+    when this save is switching to a different week — otherwise the first
+    time a new week gets set up, the previous week's Bee data would be
+    overwritten with no snapshot ever having been taken of it."""
+    if wc.get('programme') != 'uls' or not wc.get('week_ref'):
+        return
+    weeks = wc.setdefault('weeks', {})
+    weeks[wc['week_ref']] = {
+        'term':           wc.get('term', ''),
+        'week':           wc.get('week'),
+        'week_ref':       wc.get('week_ref', ''),
+        'lesson_ids':     wc.get('lesson_ids', []),
+        'hl_mode':        wc.get('hl_mode', ''),
+        'hl_lesson_id':   wc.get('hl_lesson_id', ''),
+        'selected_words': wc.get('selected_words', []),
+        'rule_title':     wc.get('rule_title', ''),
+        'year_group':     wc.get('year_group', ''),
+        'saved_at':       datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @settings_bp.route('/api/debug/learners')
@@ -189,6 +214,10 @@ def api_settings_save():
     yr = session.get('year_group', '4')
     wc = load_weekly_config(yr)
 
+    # Preserve whatever week was live coming into this save, before any of
+    # its fields get overwritten below — see _snapshot_current_uls_week.
+    _snapshot_current_uls_week(wc)
+
     year_group = body.get('year_group', '').strip()
     if year_group:
         wc['year_group'] = year_group
@@ -253,6 +282,11 @@ def api_settings_save():
     week_ref = body.get('week_ref', '').strip()
     if week_ref and not week:
         wc['week_ref'] = week_ref
+
+    # Snapshot this save's resulting week too (covers a same-week re-save,
+    # e.g. tweaking this week's word selection), so the Bee always has an
+    # up-to-date snapshot for whichever week Settings currently has live.
+    _snapshot_current_uls_week(wc)
 
     ok = save_weekly_config(yr, wc)
     return jsonify({'ok': ok, 'error': None if ok else 'GitHub write failed'})
