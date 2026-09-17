@@ -331,6 +331,14 @@ async function onWeekChange() {
   });
   document.getElementById('lesson_summary').style.display = 'block';
 
+  // Drop any previously-selected words that don't belong to this week's
+  // lessons. Without this, switching week/lesson set leaves stale words
+  // counted toward the 5-word cap with no button to remove them, since
+  // the mix picker only renders buttons for the current lesson pool.
+  const pool = new Set();
+  currentLessons.forEach(l => l.hlWords.forEach(w => pool.add(w)));
+  selectedWords = selectedWords.filter(w => pool.has(w));
+
   // Update HL lesson dropdown
   refreshHLLessonDropdown();
   updateMixPicker();
