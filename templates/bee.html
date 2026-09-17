@@ -19,7 +19,7 @@
       <span class="filter-label">Group</span>
       <a href="?cls={{ cls }}&group=all&week={{ selected_week }}"      class="btn {% if group_filter=='all'      %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
       <a href="?cls={{ cls }}&group=main&week={{ selected_week }}"     class="btn {% if group_filter=='main'     %}btn-primary{% else %}btn-ghost{% endif %}">Main</a>
-      <a href="?cls={{ cls }}&group=revision&week={{ selected_week }}" class="btn {% if group_filter=='revision' %}btn-primary{% else %}btn-ghost{% endif %}">Phonics</a>
+      <a href="?cls={{ cls }}&group=phonics&week={{ selected_week }}" class="btn {% if group_filter=='phonics' %}btn-primary{% else %}btn-ghost{% endif %}">Phonics</a>
     </div>
     {% if bee_weeks|length > 1 %}
     <div class="filter-sep"></div>
@@ -124,13 +124,16 @@
         {% if p.is_phonics %}<span class="rev-badge">{{ p.gpc_label or 'Phonics' }}</span>{% endif %}
       </div>
       <div class="bee-words">
-        {% set all_words = p.phonics_words if p.is_phonics else p.words %}
-        {% if all_words %}
-          {% for w in all_words %}
-          <button type="button" class="word-pill{% if p.is_phonics %} word-pill--phonics{% endif %}"
+        {% for w in p.words %}
+        <button type="button" class="word-pill" data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
+        {% endfor %}
+        {% if p.is_phonics %}
+          {% for w in p.phonics_words %}
+          <button type="button" class="word-pill word-pill--phonics"
                   data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
           {% endfor %}
-        {% else %}
+        {% endif %}
+        {% if not p.words and not (p.is_phonics and p.phonics_words) %}
           <span class="no-words">No words</span>
         {% endif %}
         {% if p.words_updated_at %}
