@@ -165,11 +165,7 @@
         </div>
         <div class="cm-field">
           <label>Reading level</label>
-          <select id="edit-reading-level" class="cm-input">
-            <option value="standard">Standard (Y5)</option>
-            <option value="y3">Y3</option>
-            <option value="phonics">Phonics</option>
-          </select>
+          <select id="edit-reading-level" class="cm-input"></select>
         </div>
       </div>
       <div class="cm-field-row">
@@ -378,7 +374,8 @@
 const CLS_ID       = {{ cls | tojson }};
 const TT_SETS      = {{ tt_sets | tojson }};
 const ALL_CLS      = {{ class_options | tojson }};
-const PHONICS_SETS = {{ phonics_sets_json | safe }};
+const PHONICS_SETS   = {{ phonics_sets_json | safe }};
+const READING_LADDER = {{ reading_ladder_json | safe }};   // own level first, always ends 'phonics'
 
 let _pupils      = [];
 let _allPupils   = [];
@@ -501,7 +498,7 @@ function applySort() {
       case 'tt_set':       return p.tt_set === 'All' ? Infinity : parseInt(p.tt_set, 10);
       case 'table':        return p.table && !isNaN(parseInt(p.table, 10)) ? parseInt(p.table, 10) : Infinity;
       case 'maths_level':   return p.maths_level === 'adapted' ? 1 : 0;
-      case 'reading_level': return { standard: 0, y3: 1, phonics: 2 }[p.reading_level] ?? 0;
+      case 'reading_level': return p.reading_level === 'phonics' ? -1 : parseInt(p.reading_level, 10) || 0;
       case 'partner_name': return p.partner_name ? p.partner_name.toLowerCase() : '￿';
       case 'word_pos':     return p.word_pos;
       default:             return nameOf(p);
@@ -516,9 +513,9 @@ function applySort() {
 }
 
 function readingLevelBadge(level) {
-  if (level === 'y3') return '<span class="group-badge group-phonics">Y3</span>';
+  if (!level || level === READING_LADDER[0]) return '—';   // own/standard level — nothing to flag
   if (level === 'phonics') return '<span class="group-badge group-phonics">Phonics</span>';
-  return '—';
+  return `<span class="group-badge group-phonics">Y${level}</span>`;
 }
 
 function updateSortArrows() {
@@ -906,7 +903,7 @@ function openEditModal(pid, e) {
   document.getElementById('edit-tt-mode').value     = p.tt_mode;
   document.getElementById('edit-table').value       = p.table || '';
   document.getElementById('edit-maths-level').value   = p.maths_level || 'standard';
-  document.getElementById('edit-reading-level').value = p.reading_level || 'standard';
+  document.getElementById('edit-reading-level').value = p.reading_level || READING_LADDER[0];
   document.getElementById('edit-home-language').value = p.home_language || '';
   document.getElementById('edit-us-code').value     = p.us_code || '';
   document.getElementById('edit-us-pin').value      = p.us_pin || '';
@@ -1146,7 +1143,17 @@ async function applyUsImport() {
   }
 }
 
+function populateReadingLevelSelect() {
+  const sel = document.getElementById('edit-reading-level');
+  sel.innerHTML = READING_LADDER.map(lvl => {
+    const label = lvl === 'phonics' ? 'Phonics'
+      : (lvl === READING_LADDER[0] ? `Y${lvl} (Standard)` : `Y${lvl}`);
+    return `<option value="${lvl}">${label}</option>`;
+  }).join('');
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+populateReadingLevelSelect();
 load();
 loadRosterStatus();
 </script>

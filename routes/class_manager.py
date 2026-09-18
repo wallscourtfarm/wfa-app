@@ -6,7 +6,7 @@ import os, json, base64, traceback, random
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
-                          get_class_options, get_class_options_for_year)
+                          get_class_options, get_class_options_for_year, get_year_group)
 from word_bank import next_active_index
 from phonics_bank import PHONICS_SETS
 
@@ -92,6 +92,22 @@ def _cls_short(cls_id):
     """4CK -> CK, 5IM -> IM (strips leading year digit)"""
     return cls_id.lstrip('0123456789') if cls_id else cls_id
 
+def reading_ladder_for_year(year_group):
+    """
+    The reading-level ladder available to a class in this year group, own
+    level first, always ending in 'phonics'. Mirrors
+    spelling-homelearning/data_manager.py's reading_ladder_for_year exactly
+    — keep the two in sync if this ever changes.
+    """
+    n = int(year_group)
+    levels = [n]
+    if n >= 2:
+        levels.append(n - 1)
+    landmark = 3 if n in (5, 6) else 2 if n in (3, 4) else None
+    if landmark is not None and landmark not in levels:
+        levels.append(landmark)
+    return [str(l) for l in levels] + ['phonics']
+
 
 # ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -108,7 +124,8 @@ def class_manager():
     return render_template('class_manager.html',
         cls=cls, class_options=opts,
         tt_sets=TT_SETS, pair_colours=PAIR_COLOURS,
-        phonics_sets_json=json.dumps(PHONICS_SETS))
+        phonics_sets_json=json.dumps(PHONICS_SETS),
+        reading_ladder_json=json.dumps(reading_ladder_for_year(yr)))
 
 
 # ── API: List pupils ──────────────────────────────────────────────────────────
@@ -125,6 +142,8 @@ def api_class_list():
         obj, _ = _load_class_file(cls)
         if not obj:
             return jsonify({'ok': False, 'error': f'Could not load {cls}'}), 404
+
+        own_year = get_year_group(cls) or yr
 
         pupils = []
         for p in obj.get('pupils', []):
@@ -144,7 +163,7 @@ def api_class_list():
                 'partner_cls':  partner.get('cls_id', '') if partner else '',
                 'table':        str(p.get('table', '')),
                 'maths_level':   p.get('maths_level', 'standard'),
-                'reading_level': p.get('reading_level', 'standard'),
+                'reading_level': p.get('reading_level', own_year),
                 'home_language': p.get('home_language', ''),
                 'us_code':      p.get('us_code', ''),
                 'us_pin':       p.get('us_pin', ''),
@@ -186,12 +205,16 @@ def api_pupil_update():
                    'language', 'home_language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
 
-        MATHS_LEVELS   = {'standard', 'adapted'}
-        READING_LEVELS = {'standard', 'y3', 'phonics'}
+        MATHS_LEVELS = {'standard', 'adapted'}
         if 'maths_level' in changes and changes['maths_level'] not in MATHS_LEVELS:
             return jsonify({'ok': False, 'error': f"Invalid maths_level: {changes['maths_level']}"})
-        if 'reading_level' in changes and changes['reading_level'] not in READING_LEVELS:
-            return jsonify({'ok': False, 'error': f"Invalid reading_level: {changes['reading_level']}"})
+        if 'reading_level' in changes:
+            cls_year = get_year_group(cls) or session.get('year_group', '4')
+            valid_reading_levels = set(reading_ladder_for_year(cls_year))
+            if changes['reading_level'] not in valid_reading_levels:
+                return jsonify({'ok': False, 'error':
+                    f"Invalid reading_level for {cls}: {changes['reading_level']} "
+                    f"(valid: {sorted(valid_reading_levels)})"})
 
         obj, sha = _load_class_file(cls)
         if not obj:
