@@ -143,7 +143,8 @@ def api_class_list():
                 'partner_name': f"{partner.get('first','')} {partner.get('last','')}".strip() if partner else '',
                 'partner_cls':  partner.get('cls_id', '') if partner else '',
                 'table':        str(p.get('table', '')),
-                'adapted_hl':    bool(p.get('adapted_hl', False)),
+                'maths_level':   p.get('maths_level', 'standard'),
+                'reading_level': p.get('reading_level', 'standard'),
                 'home_language': p.get('home_language', ''),
                 'us_code':      p.get('us_code', ''),
                 'us_pin':       p.get('us_pin', ''),
@@ -181,8 +182,16 @@ def api_pupil_update():
         # first/last/cls are Bromcom-owned identity fields — set only via
         # Roster Import, never editable per-pupil here.
         ALLOWED = {'group', 'phonics_gpcs', 'tt_set', 'tt_mode',
-                   'table', 'adapted_hl', 'us_code', 'us_pin', 'language', 'home_language'}
+                   'table', 'maths_level', 'reading_level', 'us_code', 'us_pin',
+                   'language', 'home_language'}
         changes = {k: v for k, v in changes.items() if k in ALLOWED}
+
+        MATHS_LEVELS   = {'standard', 'adapted'}
+        READING_LEVELS = {'standard', 'y3', 'phonics'}
+        if 'maths_level' in changes and changes['maths_level'] not in MATHS_LEVELS:
+            return jsonify({'ok': False, 'error': f"Invalid maths_level: {changes['maths_level']}"})
+        if 'reading_level' in changes and changes['reading_level'] not in READING_LEVELS:
+            return jsonify({'ok': False, 'error': f"Invalid reading_level: {changes['reading_level']}"})
 
         obj, sha = _load_class_file(cls)
         if not obj:
@@ -192,8 +201,6 @@ def api_pupil_update():
         for p in obj.get('pupils', []):
             if p['id'] == pupil_id:
                 p.update(changes)
-                if 'adapted_hl' in changes:
-                    p['adapted_hl'] = bool(changes['adapted_hl'])
                 found = True
                 break
 
