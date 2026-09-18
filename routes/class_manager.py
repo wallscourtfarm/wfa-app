@@ -6,7 +6,8 @@ import os, json, base64, traceback, random
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
-                          get_class_options, get_class_options_for_year, get_year_group)
+                          get_class_options, get_class_options_for_year, get_year_group,
+                          _get_file)
 from word_bank import next_active_index
 from phonics_bank import PHONICS_SETS
 
@@ -92,12 +93,13 @@ def _cls_short(cls_id):
     """4CK -> CK, 5IM -> IM (strips leading year digit)"""
     return cls_id.lstrip('0123456789') if cls_id else cls_id
 
-def reading_ladder_for_year(year_group):
+def _reading_ladder_fallback(year_group):
     """
-    The reading-level ladder available to a class in this year group, own
-    level first, always ending in 'phonics'. Mirrors
-    spelling-homelearning/data_manager.py's reading_ladder_for_year exactly
-    — keep the two in sync if this ever changes.
+    Computes the same ladder as data/reading_ladder.json — used only if
+    that file can't be fetched, so Class Manager never hard-fails over
+    this. Keep in sync with the JSON if the rule ever changes; the JSON
+    is the actual source of truth (shared with the Streamlit generator's
+    identical fallback in spelling-homelearning/data_manager.py).
     """
     n = int(year_group)
     levels = [n]
@@ -107,6 +109,19 @@ def reading_ladder_for_year(year_group):
     if landmark is not None and landmark not in levels:
         levels.append(landmark)
     return [str(l) for l in levels] + ['phonics']
+
+def reading_ladder_for_year(year_group):
+    """
+    The reading-level ladder available to a class in this year group, own
+    level first, always ending in 'phonics'. Single source of truth is
+    data/reading_ladder.json in the data repo (same file the Streamlit
+    home-learning generator reads) — edit that file, not this code, to
+    change the ladder rule.
+    """
+    data, _ = _get_file("data/reading_ladder.json")
+    if data and str(year_group) in data:
+        return data[str(year_group)]
+    return _reading_ladder_fallback(year_group)
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
