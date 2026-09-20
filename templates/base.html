@@ -26,7 +26,7 @@
   <nav class="topnav">
     <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">
       <img src="{{ url_for('static', filename='wfa_logo.webp') }}" alt="Wallscourt Farm Academy" class="nav-logo">
-      <span class="nav-version">18.09.26b</span>
+      <span class="nav-version">20.09.26a</span>
     </a>
     <div class="year-switcher">
       {% for yr in all_year_groups %}
@@ -68,11 +68,6 @@
           {% endif %}
         </div>
       </div>
-
-      <a href="{{ url_for('learners.learners') }}"
-         class="nav-item {% if request.endpoint=='learners.learners' %}active{% endif %}">
-        👤 Pupils
-      </a>
 
       <a href="{{ url_for('insights.insights') }}"
          class="nav-item {% if request.endpoint=='insights.insights' %}active{% endif %}">

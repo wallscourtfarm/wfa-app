@@ -22,7 +22,6 @@ from routes.auth          import auth_bp
 from routes.dashboard     import dash_bp
 from routes.tt            import tt_bp
 from routes.bee           import bee_bp
-from routes.learners      import learners_bp
 from routes.home_learning import hl_bp
 from routes.settings      import settings_bp
 from routes.rules         import rules_bp
@@ -40,7 +39,7 @@ from routes.word_puzzles import wp_bp
 from routes.claude_proxy import proxy_bp
 from routes.evidence import evidence_bp
 
-for bp in [auth_bp, dash_bp, tt_bp, bee_bp, learners_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, menu_bp, hw_bp, wp_bp, proxy_bp, evidence_bp]:
+for bp in [auth_bp, dash_bp, tt_bp, bee_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, menu_bp, hw_bp, wp_bp, proxy_bp, evidence_bp]:
     app.register_blueprint(bp)
 
 # ── Year group session context ─────────────────────────────────────────────────

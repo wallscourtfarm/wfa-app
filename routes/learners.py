@@ -1,10 +1,10 @@
-from flask import Blueprint, render_template, session, redirect, url_for, request
-from data_manager import load_learners, get_class_options, get_class_options_for_year, get_ref_class, latest_rule_confidence_entry
+from data_manager import latest_rule_confidence_entry
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
 
-learners_bp = Blueprint('learners', __name__)
-CLASS_OPTIONS = get_class_options()
+# The '/learners' (Pupils) page was removed 2026-09-20 — Dashboard shows
+# everything it did (and more), Admin > Manage Pupils covers the rest
+# (partner pairing). These helpers stay: routes/dashboard.py still uses them.
 
 STAGE_YEARS = {2: 'Y2', 3: 'Y3', 4: 'Y4', 5: 'Y5'}
 
@@ -73,18 +73,3 @@ def _enrich(pupils, homophone_words_by_stage):
             'rc_latest':     rc_latest,
         })
     return enriched
-
-
-@learners_bp.route('/learners')
-def learners():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-    yr  = session.get('year_group', '4')
-    cls = request.args.get('cls', f'Y{yr}_all')
-    if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
-        cls = 'all'
-    pupils = load_learners(cls)
-    hw_by_stage = _homophone_words_by_stage()
-    pupils = _enrich(pupils, hw_by_stage)
-    return render_template('learners.html', pupils=pupils, cls=cls,
-                           class_options=get_class_options_for_year(session.get("year_group","4")))
