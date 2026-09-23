@@ -209,13 +209,13 @@ async function generateWordListMaterials() {
     const fetches = [
       fetch('/api/print/paired-lists', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS, print_order: printOrder}),
+        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, print_order: printOrder}),
       }),
     ];
     if (includeRec) {
       fetches.push(fetch('/api/print/recording-sheet', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS}),
+        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF}),
       }));
     }
     const responses = await Promise.all(fetches);
@@ -243,7 +243,7 @@ async function createSession() {
     const resp = await fetch('/api/live/bee/create', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cls: CLS}),
+      body: JSON.stringify({cls: CLS, week_ref: WEEK_REF}),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
