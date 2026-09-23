@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
+from data_manager import _week_snapshot, load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -23,10 +23,10 @@ def _load_pupils(cls):
     return pupils
 
 
-def _get_rules(cls):
+def _get_rules(cls, week_ref=None):
     """Return (main_rule_like, rev_rule_like, week_ref).
     Now uses ULS selected_words from weekly config; falls back to old Spelling Shed rule_id."""
-    wc      = load_weekly_config(get_year_group(cls) or session.get('year_group', '4'))
+    wc      = _week_snapshot(load_weekly_config(get_year_group(cls) or session.get('year_group', '4')), week_ref)
     week_ref = wc.get('week_ref', 'TxWy')
 
     # ULS path: build a pseudo-rule tuple from selected_words + lesson focus
@@ -125,7 +125,7 @@ def api_paired_lists():
         pupils = _load_pupils(cls)
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
-        main_rule, rev_rule, week_ref = _get_rules(cls)
+        main_rule, rev_rule, week_ref = _get_rules(cls, body.get('week_ref'))
         main_words    = list(main_rule[3]) if main_rule else []
         rev_words     = list(rev_rule[3])  if rev_rule  else []
         key_words_map = _build_key_words_map(pupils)
@@ -152,11 +152,12 @@ def api_recording_sheet():
     r = _auth()
     if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
-        cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
+        body = request.get_json(force=True)
+        cls = body.get('cls', DEFAULT_CLASS)
         pupils = _load_pupils(cls)
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
-        _, _, week_ref = _get_rules(cls)
+        _, _, week_ref = _get_rules(cls, body.get('week_ref'))
         from pdf_builder import build_recording_sheet
         data = build_recording_sheet(pupils, week_ref)
         return jsonify({
