@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee, update_pupil_rule_confidence_from_bee, get_bee_weeks, YEAR_GROUP_CLASSES, _resolve_classes, get_class_options_for_year
+from data_manager import week_needing_marking, load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee, update_pupil_rule_confidence_from_bee, get_bee_weeks, YEAR_GROUP_CLASSES, _resolve_classes, get_class_options_for_year
 
 bee_bp = Blueprint('bee', __name__)
 
@@ -18,7 +18,9 @@ def spelling_bee():
     # currently has "live", so setting up a future week there doesn't pull
     # the rug out from under someone still marking an earlier week.
     bee_weeks, current_week_ref = get_bee_weeks(yr)
-    selected_week = request.args.get('week', '') or current_week_ref
+    # Default to the week that still needs marking rather than today's
+    # calendar week — see data_manager.week_needing_marking for why.
+    selected_week = request.args.get('week', '') or week_needing_marking(cls, current_week_ref)
 
     # Resolve _all to the actual classes for this year
     class_ids = _resolve_classes(cls)
