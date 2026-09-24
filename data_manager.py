@@ -12,6 +12,7 @@ DATA_REPO    = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning
 BRANCH       = 'main'
 HEADERS      = {'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
 BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
+BLOB_URL     = f'https://api.github.com/repos/{DATA_REPO}/git/blobs'
 
 TT_ORDER   = ['2','5','4','8','3','6','9','7','11','12','All']
 
@@ -96,13 +97,38 @@ def _get_file(path):
         if now < expires:
             return cached_data, cached_sha
     r = requests.get(f'{BASE_URL}/{path}', headers=HEADERS, timeout=10)
-    if r.status_code == 200:
-        d = r.json()
-        data = json.loads(base64.b64decode(d['content']).decode('utf-8'))
-        sha  = d['sha']
-        _CACHE[path] = (data, sha, now + _CACHE_TTL)
-        return data, sha
-    return None, None
+    if r.status_code != 200:
+        return None, None
+    d   = r.json()
+    sha = d['sha']
+
+    # GitHub's contents API silently stops returning file content once a
+    # file passes 1 MB — the response still says 200 with a real sha, but
+    # `content` comes back empty and `encoding` is "none". Decoding that
+    # gave json.loads(""), which raised and surfaced as a 500, so the tool
+    # just said "try again" forever. Found 24.09.26 when 5IM.json crossed
+    # the limit (1,054,065 bytes) and Spelling Bee saves stopped.
+    #
+    # The blobs API serves the same object up to 100 MB, so fall back to it
+    # rather than failing. Only pays the extra request for big files.
+    raw = d.get('content') or ''
+    if not raw:
+        b = requests.get(f'{BLOB_URL}/{sha}', headers=HEADERS, timeout=20)
+        if b.status_code != 200:
+            return None, None
+        raw = b.json().get('content') or ''
+        if not raw:
+            return None, None
+
+    try:
+        data = json.loads(base64.b64decode(raw).decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        # Never raise out of a read — the callers all handle a None by
+        # reporting a real error to the user instead of a 500.
+        return None, None
+
+    _CACHE[path] = (data, sha, now + _CACHE_TTL)
+    return data, sha
 
 def _put_file(path, data, sha, message):
     content = base64.b64encode(
