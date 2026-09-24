@@ -7,8 +7,8 @@ import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
                           get_class_options, get_class_options_for_year, get_year_group,
-                          _get_file)
-from word_bank import next_active_index
+                          _get_file, set_spelling_start, week_needing_marking, get_bee_weeks)
+from word_bank import next_active_index, year_at_index
 from phonics_bank import PHONICS_SETS
 
 cm_bp = Blueprint('class_manager', __name__)
@@ -184,6 +184,8 @@ def api_class_list():
                 'us_pin':       p.get('us_pin', ''),
                 'cls':          p.get('cls', _cls_short(cls)),
                 'word_pos':     next_active_index(p.get('word_pos', 0), set(p.get('mastered', []))),
+                'word_year':    year_at_index(next_active_index(p.get('word_pos', 0), set(p.get('mastered', [])))),
+                'mastered_count': len(p.get('mastered', [])),
             })
 
         pupils.sort(key=lambda p: (p['first'].lower(), p['last'].lower()))
@@ -249,6 +251,29 @@ def api_pupil_update():
                      for p in obj['pupils'] if p['id'] == pupil_id), pupil_id)
         ok = _save_class_file(cls, obj, sha, f'Edit pupil {name} ({pupil_id})')
         return jsonify({'ok': ok})
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Spelling start point ─────────────────────────────────────────────────
+
+@cm_bp.route('/api/class/spelling-start', methods=['POST'])
+def api_spelling_start():
+    """Move one or more pupils to the start of a year group's key-spelling set."""
+    r = _auth()
+    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    try:
+        body  = request.get_json(force=True)
+        cls   = body.get('cls', '')
+        if cls not in ALL_CLASSES:
+            return jsonify({'ok': False, 'error': f'Unknown class: {cls}'})
+        reissue = None
+        if body.get('reissue'):
+            _, current = get_bee_weeks(get_year_group(cls) or session.get('year_group', '4'))
+            reissue = week_needing_marking(cls, current) or None
+        res = set_spelling_start(cls, body.get('pupil_ids', []), body.get('start_year', ''), reissue)
+        res['reissue_week'] = reissue
+        return jsonify(res)
     except Exception as e:
         return _err(e)
 

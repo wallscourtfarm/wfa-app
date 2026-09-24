@@ -13,6 +13,7 @@
     <button class="btn btn-secondary" onclick="syncRoster(this)" title="Pull the Bromcom roster (Pupil Tracker import): refresh names, add arrivals, remove leavers">⇄ Sync from Bromcom</button>
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
+    <button class="btn btn-secondary" onclick="openStartModal()" title="Choose which year group's spelling set pupils start from — e.g. a new starter joining in Y6 from the start of Y4">🐝 Spelling start point</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
   </div>
 </div>
@@ -187,11 +188,59 @@
           <input id="edit-us-pin" type="text" class="cm-input" placeholder="e.g. 2818">
         </div>
       </div>
+      <p style="font-size:12px;color:#64748b;margin:4px 0 0">
+        Spelling words: <a href="#" onclick="openStartModal(document.getElementById('edit-pupil-id').value);return false;">set this pupil's start point…</a>
+      </p>
     </div>
     <div class="cm-modal-footer" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
       <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
       <span class="print-spinner hidden" id="spin-edit"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Spelling start point modal ──────────────────────────────────────────── -->
+<div id="start-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:560px">
+    <div class="cm-modal-hdr">
+      <h3>🐝 Spelling start point</h3>
+      <button onclick="closeStartModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0 0 10px;line-height:1.6">
+        Choose where the selected pupils' key spellings begin. They work forward from the
+        start of that year's set; earlier words are not marked as mastered.
+      </p>
+      <div class="cm-field">
+        <label>Start at the beginning of</label>
+        <select id="start-year" class="cm-input" onchange="updateStartPreview()">
+          <option value="R">Reception set</option>
+          <option value="1">Year 1 set</option>
+          <option value="2">Year 2 set</option>
+          <option value="3">Year 3 set</option>
+          <option value="4" selected>Year 4 set</option>
+          <option value="5">Year 5 set</option>
+          <option value="6">Year 6 set</option>
+        </select>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 4px">
+        <label style="font-size:13px;font-weight:600">Pupils</label>
+        <span style="font-size:12px"><a href="#" onclick="startSelect('new');return false;">Select those with no history</a> ·
+          <a href="#" onclick="startSelect('none');return false;">Clear</a></span>
+      </div>
+      <div id="start-list" style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px"></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-top:12px;line-height:1.5">
+        <input type="checkbox" id="start-reissue" style="margin-top:3px">
+        <span>Also replace the words already printed for the week awaiting marking
+          <span style="color:#64748b">(only for pupils not yet marked for that week — leave unticked to start from next week)</span></span>
+      </label>
+      <p id="start-preview" style="font-size:12.5px;color:#0369a1;margin:10px 0 0"></p>
+    </div>
+    <div class="cm-modal-footer" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-primary" onclick="saveStart()">Set start point</button>
+      <button class="btn btn-secondary" onclick="closeStartModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-start"></span>
     </div>
   </div>
 </div>
@@ -619,7 +668,7 @@ function render() {
               style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">
               Unpair</button>` : ''}`}
       </td>
-      <td style="color:#94a3b8;font-size:12px">${p.word_pos}</td>
+      <td style="color:#94a3b8;font-size:12px" title="Currently working on ${p.word_year ? (p.word_year==='R' ? 'Reception' : 'Year '+p.word_year) : ''} words">${p.word_year ? (p.word_year==='R' ? 'R' : 'Y'+p.word_year) + ' · ' : ''}${p.word_pos}</td>
       <td>
         <button class="btn btn-secondary btn-sm" onclick="openEditModal('${p.id}', event)">Edit</button>
       </td>
@@ -909,6 +958,58 @@ function openEditModal(pid, e) {
   document.getElementById('edit-us-pin').value      = p.us_pin || '';
 
   document.getElementById('edit-modal').style.display = 'flex';
+}
+
+// ── Spelling start point ────────────────────────────────────────────────────
+function openStartModal(pid) {
+  const list = document.getElementById('start-list');
+  list.innerHTML = _pupils.map(p => {
+    const yr = p.word_year ? (p.word_year === 'R' ? 'R' : 'Y' + p.word_year) : '';
+    const isNew = !p.mastered_count;
+    return `<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13.5px">
+      <input type="checkbox" class="start-cb" value="${p.id}" data-new="${isNew ? 1 : 0}" ${p.id === pid ? 'checked' : ''}>
+      <span style="flex:1">${p.first} ${p.last || ''}</span>
+      <span style="font-size:12px;color:#94a3b8">${isNew ? 'no history · ' : ''}now at ${yr || '?'}</span></label>`;
+  }).join('') || '<p style="color:#94a3b8;font-size:13px">No pupils in this class.</p>';
+  document.getElementById('start-reissue').checked = false;
+  document.getElementById('edit-modal').style.display = 'none';
+  document.getElementById('start-modal').style.display = 'flex';
+  updateStartPreview();
+}
+function closeStartModal() { document.getElementById('start-modal').style.display = 'none'; }
+function startSelect(mode) {
+  document.querySelectorAll('.start-cb').forEach(cb => {
+    cb.checked = mode === 'new' ? cb.dataset.new === '1' : false;
+  });
+}
+function updateStartPreview() {
+  const sel = document.getElementById('start-year');
+  document.getElementById('start-preview').textContent =
+    'Words will begin from the start of the ' + sel.options[sel.selectedIndex].text + '.';
+}
+async function saveStart() {
+  const ids = [...document.querySelectorAll('.start-cb:checked')].map(cb => cb.value);
+  if (!ids.length) { showStatus('Select at least one pupil.', 'error'); return; }
+  const sel = document.getElementById('start-year');
+  if (!confirm(`Start ${ids.length} pupil${ids.length > 1 ? 's' : ''} at the ${sel.options[sel.selectedIndex].text}?`)) return;
+  showSpin('start', true);
+  try {
+    const resp = await fetch('/api/class/spelling-start', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cls: CLS_ID, pupil_ids: ids, start_year: sel.value,
+                            reissue: document.getElementById('start-reissue').checked}),
+    });
+    const d = await resp.json();
+    if (d.ok) {
+      closeStartModal();
+      let msg = `Start point set for ${d.moved.length} pupil${d.moved.length > 1 ? 's' : ''}.`;
+      if (d.reissued && d.reissued.length) msg += ` ${d.reissued.length} had this week's words replaced.`;
+      if (d.skipped && d.skipped.length) msg += ` ${d.skipped.length} left as they were (${d.skipped[0].reason}).`;
+      showStatus(msg);
+      await load();
+    } else showStatus('Failed: ' + d.error, 'error');
+  } catch(e) { showStatus('Request failed: ' + e.message, 'error'); }
+  finally { showSpin('start', false); }
 }
 
 function closeEditModal() {

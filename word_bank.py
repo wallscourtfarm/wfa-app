@@ -244,6 +244,21 @@ def get_word(index):
         return WORD_BANK[index]
     return None
 
+START_YEARS = ['R', '1', '2', '3', '4', '5', '6']
+
+def year_start_index(year):
+    """Index in WORD_BANK of the first word of a year group's set
+    ('R', '1'..'6'), or None if the year isn't in the bank."""
+    for i, w in enumerate(WORD_BANK):
+        if w[1] == str(year):
+            return i
+    return None
+
+def year_at_index(index):
+    """Year group ('R', '1'..'6', 'Post') of the word at `index`."""
+    w = get_word(index)
+    return w[1] if w else ''
+
 def get_active_words(word_pos, mastered_set, count=5):
     """Return next `count` unmastered words starting from word_pos."""
     active = []

@@ -5,7 +5,8 @@ Data lives in wallscourtfarm/spelling-homelearning GitHub repo.
 import os, json, base64, re, requests, time
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from word_bank import WORD_BANK, get_active_words, mastery_stats, next_active_index
+from word_bank import (WORD_BANK, get_active_words, mastery_stats, next_active_index,
+                       year_start_index, START_YEARS)
 
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 DATA_REPO    = os.environ.get('DATA_REPO', 'wallscourtfarm/spelling-homelearning')
@@ -448,6 +449,70 @@ def record_issued_words(class_id, week_ref, key_words_map):
                                  f'Record issued words: {cid} {week_ref}'):
             wrote = True
     return wrote
+
+
+def set_spelling_start(class_id, pupil_ids, start_year, reissue_week=None):
+    """Move pupils' key spellings to the start of a year group's set.
+
+    Added 24.09.26 for pupils who join with no spelling history (new
+    starters) and were auto-started at Reception. Sets word_pos to the first
+    word of `start_year` ('R', '1'..'6'); nothing is marked as mastered, so
+    the earlier years stay honestly unmastered in the stats.
+
+    Words already pinned in issued_words[week] are what a child was actually
+    handed, so they are left alone by default. With `reissue_week`, a
+    pupil's pin for that week is recomputed from the new start point, but
+    only if that pupil has not been marked for the week yet (no
+    rule_confidence entry for it and none of the pinned words mastered).
+
+    Re-reads the class file fresh (bypassing the cache) right before every
+    write and retries on a failed write, because live teacher saves land in
+    the same file. Returns {'ok', 'moved': [...], 'reissued': [...],
+    'skipped': [{'id','reason'}]}.
+    """
+    start_year = str(start_year)
+    idx = year_start_index(start_year) if start_year in START_YEARS else None
+    if idx is None:
+        return {'ok': False, 'error': f'Unknown start year: {start_year}'}
+    wanted = set(pupil_ids or [])
+    if not wanted:
+        return {'ok': False, 'error': 'No pupils selected'}
+    path = f'data/classes/{class_id}.json'
+    for _ in range(4):
+        _invalidate(path)
+        data, sha = _get_file(path)
+        if not data:
+            return {'ok': False, 'error': f'Could not load {path}'}
+        moved, reissued, skipped = [], [], []
+        known = set()
+        for p in data.get('pupils', []):
+            if p['id'] not in wanted:
+                continue
+            known.add(p['id'])
+            p['word_pos'] = idx
+            moved.append(p['id'])
+            if reissue_week:
+                issued = dict(p.get('issued_words') or {})
+                if reissue_week in issued:
+                    mastered = set(p.get('mastered', []))
+                    marked = any(e.get('week') == reissue_week
+                                 for entries in (p.get('rule_confidence') or {}).values()
+                                 for e in entries)
+                    if marked or any(w in mastered for w in issued[reissue_week]):
+                        skipped.append({'id': p['id'], 'reason': f'already marked for {reissue_week}'})
+                    else:
+                        issued[reissue_week] = get_active_words(idx, mastered, 5)
+                        p['issued_words'] = issued
+                        reissued.append(p['id'])
+        for pid in wanted - known:
+            skipped.append({'id': pid, 'reason': 'not found in class'})
+        if not moved:
+            return {'ok': False, 'error': 'None of the selected pupils were found', 'skipped': skipped}
+        label = 'Y' + start_year if start_year != 'R' else 'Reception'
+        if _put_file(path, data, sha, f'Set spelling start to {label}: {class_id} ({len(moved)} pupils)'):
+            return {'ok': True, 'moved': moved, 'reissued': reissued, 'skipped': skipped}
+        time.sleep(0.5)
+    return {'ok': False, 'error': 'GitHub write failed after retries (someone else may be saving) — try again'}
 
 
 def week_needing_marking(class_id, current_week_ref):
