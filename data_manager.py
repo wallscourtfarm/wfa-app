@@ -732,8 +732,7 @@ def update_pupil_rule_confidence_from_bee(assessments, week_ref=None):
                     status = 'partial'
                 else:
                     status = 'none'
-                history = list(rc.get(lesson_id, []))
-                history.append({
+                new_entry = {
                     'week':    info['week_ref'],
                     'date':    today,
                     'correct': correct,
@@ -742,7 +741,28 @@ def update_pupil_rule_confidence_from_bee(assessments, week_ref=None):
                     'status':  status,
                     'rule':    cfg['title'],
                     'source':  'bee',
-                })
+                }
+                # One entry per (week, source), updated in place rather than
+                # appended. This used to append unconditionally on every
+                # save, for every pupil and rule on the page — so re-marking
+                # one child stacked another copy of everyone else's unchanged
+                # result. 5IM ended up with 3,299 entries holding 207 distinct
+                # results (93% duplication) and its class file crossed
+                # GitHub's 1 MB read limit, which is what broke Bee saving on
+                # 24.09.26. Nothing ever read the duplicates: every consumer
+                # goes through latest_rule_confidence_entry(), which only
+                # looks at the most recent entry (and lets a 'reassessment'
+                # outrank a 'bee' tick). Marking a later week still appends,
+                # so week-by-week history is kept — one result per week.
+                history = list(rc.get(lesson_id, []))
+                for idx in range(len(history) - 1, -1, -1):
+                    prev = history[idx]
+                    if (prev.get('week') == new_entry['week']
+                            and prev.get('source', 'bee') == 'bee'):
+                        history[idx] = new_entry
+                        break
+                else:
+                    history.append(new_entry)
                 rc[lesson_id] = history
                 row_changed = True
             if row_changed:
