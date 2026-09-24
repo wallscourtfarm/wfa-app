@@ -125,7 +125,8 @@
       </div>
       <div class="bee-words">
         {% for w in p.words %}
-        <button type="button" class="word-pill" data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
+        <button type="button" class="word-pill{% if w in p.marked_key %} word-pill--on{% endif %}"
+                data-word="{{ w }}" onclick="toggleWord(this)">{{ w }}</button>
         {% endfor %}
         {% if p.is_phonics %}
           {% for w in p.phonics_words %}
@@ -150,8 +151,8 @@
         <span class="bee-rule-title">{{ group.title or rules_info.main }}</span>
         <div class="bee-rule-words">
           {% for w in group.words %}
-          <button type="button" class="word-pill" data-word="{{ w }}"
-                  onclick="toggleRuleWord(this)">{{ w }}</button>
+          <button type="button" class="word-pill{% if w in p.marked_rule %} word-pill--on{% endif %}"
+                  data-word="{{ w }}" onclick="toggleRuleWord(this)">{{ w }}</button>
           {% endfor %}
         </div>
         <span class="rule-status-badge rule-status--none">—</span>
@@ -316,6 +317,12 @@ function updateRuleStatusBadge(ruleRow) {
   badge.textContent = `${label} (${correct}/${words.length})`;
   badge.className = `rule-status-badge rule-status--${status}`;
 }
+
+// Bring the Full/Partial/Not-yet badges in line with the words restored as
+// already-correct on load, so the badge never contradicts the pills under it.
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.bee-rule-row').forEach(updateRuleStatusBadge);
+});
 
 function scheduleAutoSave() {
   setHint('⏳ Unsaved changes…');
