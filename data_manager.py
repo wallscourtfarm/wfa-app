@@ -515,6 +515,19 @@ def load_bee_pupils(class_id='4CK', week_ref=None):
         # weeks printed before that existed, which is what it always did.
         issued     = (p.get('issued_words') or {}).get(week_ref or '')
         key_words  = list(issued) if issued else get_active_words(p.get('word_pos',0), mastered, 5)
+        # Which of this week's words are already marked correct, so the page
+        # can show them still ticked. Added 24.09.26: once words are pinned
+        # per week they stop changing after a save, so without this the page
+        # looked identical before and after marking — the only hint anything
+        # had happened was a timestamp that disagreed with what was on screen.
+        # A key spelling counts as correct exactly when it is in `mastered`,
+        # which is what marking it does.
+        marked_key = [w for w in key_words if w in mastered]
+        marked_rule = []
+        for entries in (p.get('rule_confidence') or {}).values():
+            for e in entries:
+                if e.get('week') == (week_ref or '') and e.get('correct_words'):
+                    marked_rule.extend(e['correct_words'])
         group      = p.get('group','main')
         is_phonics = group in ('phonics', 'revision')
         gpcs       = p.get('phonics_gpcs', [])
@@ -530,6 +543,8 @@ def load_bee_pupils(class_id='4CK', week_ref=None):
                        'phonics_words': phonics_words,
                        'rule_label': wc.get('year_group','') + ' ' + week_label,
                        'words': key_words,
+                       'marked_key': marked_key,
+                       'marked_rule': marked_rule,
                        'words_updated_at': p.get('words_updated_at','')})
     # Build rules_info for template display
     focuses_str = ' · '.join(week_focuses[:2]) if week_focuses else '—'
@@ -811,6 +826,7 @@ def update_pupil_rule_confidence_from_bee(assessments, week_ref=None):
                 else:
                     status = 'none'
                 new_entry = {
+                    'correct_words': list(r.get('correct_words', [])),
                     'week':    info['week_ref'],
                     'date':    today,
                     'correct': correct,
