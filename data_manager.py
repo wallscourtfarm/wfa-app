@@ -411,6 +411,80 @@ def get_bee_weeks(year_group):
     return out, current
 
 
+def record_issued_words(class_id, week_ref, key_words_map):
+    """Pin the five key spellings each pupil was actually given for a week.
+
+    Added 24.09.26 after a real incident: the words on a printed sheet and
+    the words in the Spelling Bee were both computed live by
+    get_active_words(word_pos, mastered, 5), with nothing recording what a
+    child was actually handed. Marking a child advances their mastery, so
+    the moment anyone saved, everyone else's sheet and the marking screen
+    could disagree — and there was no warning when they had. A whole Y5
+    marking session was blocked by exactly this.
+
+    Stored per pupil as issued_words[week_ref]; load_bee_pupils prefers it
+    over the live calculation, so a sheet stays markable however much
+    marking happens in between.
+    """
+    if not week_ref or not key_words_map:
+        return False
+    wrote = False
+    for cid in _resolve_classes(class_id):
+        data, sha = _get_file(f'data/classes/{cid}.json')
+        if not data:
+            continue
+        changed = False
+        for p in data.get('pupils', []):
+            words = key_words_map.get(p['id'])
+            if not words:
+                continue
+            issued = dict(p.get('issued_words') or {})
+            if issued.get(week_ref) == list(words):
+                continue
+            issued[week_ref] = list(words)
+            p['issued_words'] = issued
+            changed = True
+        if changed and _put_file(f'data/classes/{cid}.json', data, sha,
+                                 f'Record issued words: {cid} {week_ref}'):
+            wrote = True
+    return wrote
+
+
+def week_needing_marking(class_id, current_week_ref):
+    """Which week the Bee should open on.
+
+    It used to open on today's calendar week, which is wrong most of the
+    time: marking happens on words handed out earlier, so the page showed a
+    week whose words nobody had been taught yet. On 24.09.26 that put Y5's
+    whole marking session on T1W3 while every sheet in the room said T1W2,
+    and two pupils were marked 0/5 against words they had never seen.
+
+    Prefers the most recent week this class has actually been issued words
+    for and not yet finished marking; falls back to the current week when
+    there is nothing outstanding (or no issued-word history yet).
+    """
+    issued_weeks = set()
+    marked = {}
+    for cid in _resolve_classes(class_id):
+        data = load_class(cid)
+        if not data:
+            continue
+        for p in data.get('pupils', []):
+            for wk in (p.get('issued_words') or {}):
+                issued_weeks.add(wk)
+                marked.setdefault(wk, [0, 0])
+                marked[wk][1] += 1
+                if any(e.get('week') == wk
+                       for entries in (p.get('rule_confidence') or {}).values()
+                       for e in entries):
+                    marked[wk][0] += 1
+    outstanding = [wk for wk in issued_weeks
+                   if marked.get(wk, [0, 0])[0] < marked.get(wk, [0, 0])[1]]
+    if not outstanding:
+        return current_week_ref
+    return sorted(outstanding, key=_week_sort_key)[-1]
+
+
 def load_bee_pupils(class_id='4CK', week_ref=None):
     data    = load_class(class_id)
     wc_full = load_weekly_config(get_year_group(class_id) or '4')
@@ -436,7 +510,11 @@ def load_bee_pupils(class_id='4CK', week_ref=None):
     pupils = []
     for p in data.get('pupils',[]):
         mastered   = set(p.get('mastered',[]))
-        key_words  = get_active_words(p.get('word_pos',0), mastered, 5)
+        # Prefer the words this pupil was actually issued for this week
+        # (see record_issued_words). Falls back to the live calculation for
+        # weeks printed before that existed, which is what it always did.
+        issued     = (p.get('issued_words') or {}).get(week_ref or '')
+        key_words  = list(issued) if issued else get_active_words(p.get('word_pos',0), mastered, 5)
         group      = p.get('group','main')
         is_phonics = group in ('phonics', 'revision')
         gpcs       = p.get('phonics_gpcs', [])

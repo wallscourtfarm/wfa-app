@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import _week_snapshot, load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
+from data_manager import _week_snapshot, load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes, record_issued_words
 from word_bank import get_active_words
 
 print_bp = Blueprint('print_tools', __name__)
@@ -129,6 +129,14 @@ def api_paired_lists():
         main_words    = list(main_rule[3]) if main_rule else []
         rev_words     = list(rev_rule[3])  if rev_rule  else []
         key_words_map = _build_key_words_map(pupils)
+        # Pin what each pupil is actually being given, so the Spelling Bee
+        # marks against these exact words later however much marking has
+        # happened in between (see data_manager.record_issued_words).
+        try:
+            record_issued_words(cls, week_ref, key_words_map)
+        except Exception:
+            # Never let the pinning stop a teacher getting their printout.
+            pass
         if print_order == 'double_sided':
             from pdf_builder import build_double_sided_bee_pdf
             data = build_double_sided_bee_pdf(pupils, main_words, rev_words, key_words_map, week_ref)
