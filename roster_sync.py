@@ -43,7 +43,8 @@ BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
 # across all 383 pupils and 14 classes before switching). Fixed URLs, not
 # environment overrides, so a stale Render setting can't quietly point it back
 # at Google.
-_HUB_TOKEN = '050d7ae1a6b52eafa7d19b80c844dea8d20d1f678274fe05'
+# The token comes from the HUB_TOKEN setting on the server, never from the code.
+_HUB_TOKEN = os.environ.get('HUB_TOKEN', '')
 ROSTER_URL  = 'https://api.wallscourt-farm-academy.co.uk/planning/pupilroster-db/pupils?token=' + _HUB_TOKEN
 CLASSES_URL = 'https://api.wallscourt-farm-academy.co.uk/planning/pupilroster-db/classes?token=' + _HUB_TOKEN
 

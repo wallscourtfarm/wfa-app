@@ -82,7 +82,7 @@ def api_sync_term_dates():
     try:
         r = requests.get(
             'https://api.wallscourt-farm-academy.co.uk/planning/tab',
-            params={'tab': 'TermDates', 'token': '050d7ae1a6b52eafa7d19b80c844dea8d20d1f678274fe05'},
+            params={'tab': 'TermDates', 'token': os.environ.get('HUB_TOKEN', '')},
             timeout=30)
         r.raise_for_status()
         payload = r.json()
