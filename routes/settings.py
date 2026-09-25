@@ -70,34 +70,27 @@ def api_rule_confidence_archive_reset():
 
 @settings_bp.route('/api/settings/sync-term-dates', methods=['POST'])
 def api_sync_term_dates():
-    """Pull term dates from the school planning Google Sheet and save to term_dates.json."""
+    """Pull term dates from the school calendar (WFA database) and save to term_dates.json."""
     if not session.get('authenticated'):
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
 
-    PLANNING_SHEET_ID = '1XsP5yEGnf8sJyXk8iEXqHEtw-NtCsMUFZLaHW4TWNhw'
-    SCOPES = [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive',
-    ]
-
-    raw_creds = os.environ.get('GOOGLE_CREDENTIALS_JSON', '')
-    if not raw_creds:
-        return jsonify({'ok': False, 'error': 'GOOGLE_CREDENTIALS_JSON not set on server'})
-
+    # 25.09.26: reads the school calendar from the WFA database (the same TermDates
+    # that the School Info Editor edits). This used to read a Google Sheet that
+    # nothing updates any more, using a Google service-account key on this server.
+    import requests
+    from datetime import datetime, timedelta
     try:
-        import json as _json
-        import gspread
-        from google.oauth2.service_account import Credentials
-        from datetime import datetime, timedelta
-
-        info   = _json.loads(raw_creds)
-        creds  = Credentials.from_service_account_info(info, scopes=SCOPES)
-        client = gspread.authorize(creds)
-        sh     = client.open_by_key(PLANNING_SHEET_ID)
-        ws     = sh.worksheet('TermDates')
-        rows   = ws.get_all_records(default_blank='')
+        r = requests.get(
+            'https://api.wallscourt-farm-academy.co.uk/planning/tab',
+            params={'tab': 'TermDates', 'token': '050d7ae1a6b52eafa7d19b80c844dea8d20d1f678274fe05'},
+            timeout=30)
+        r.raise_for_status()
+        payload = r.json()
+        if payload.get('error'):
+            raise ValueError(payload['error'])
+        rows = payload.get('rows') or []
     except Exception as e:
-        return jsonify({'ok': False, 'error': f'Sheet read failed: {e}'})
+        return jsonify({'ok': False, 'error': f'Could not read the school calendar: {e}'})
 
     # Expected columns: Term, Week, StartDate (dd/mm/yy)
     # Build term_dates list: [{label, iso, display, term, week}]
@@ -127,7 +120,7 @@ def api_sync_term_dates():
             continue
 
     if not term_dates:
-        return jsonify({'ok': False, 'error': 'No valid rows found in TermDates sheet'})
+        return jsonify({'ok': False, 'error': 'No valid rows found in the school calendar'})
 
     term_dates.sort(key=lambda w: w['iso'])
 
@@ -135,9 +128,9 @@ def api_sync_term_dates():
     path = 'data/term_dates.json'
     _, sha = _get_file(path)
     if sha is None:
-        ok = _put_file_create(path, term_dates, 'Sync term dates from planning sheet')
+        ok = _put_file_create(path, term_dates, 'Sync term dates from the school calendar')
     else:
-        ok = _put_file(path, term_dates, sha, 'Sync term dates from planning sheet')
+        ok = _put_file(path, term_dates, sha, 'Sync term dates from the school calendar')
 
     if ok:
         return jsonify({'ok': True, 'count': len(term_dates),
