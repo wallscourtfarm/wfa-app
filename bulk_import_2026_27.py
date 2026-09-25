@@ -90,7 +90,7 @@ def new_pupil(pid, first, last, cls_id, yr):
         "tt_mode":          "x",
         "table":            "",
         "maths_level":      "standard",
-        "reading_level":    "standard",
+        "reading_level":    str(int(yr)),
         "language":         "",
         "pair_id":          "",
         "pair_colour":      "",
