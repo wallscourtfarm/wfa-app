@@ -1,8 +1,8 @@
 """
 roster_sync.py — single-source-of-truth roster sync for wfa-app.
 
-Pulls the UPN-keyed pupil roster from the shared-sync Apps Script bus
-(fed by the Pupil Tracker's Bromcom import) and merges it into the
+Pulls the UPN-keyed pupil roster from the WFA API's Postgres roster
+(fed by Roster Import's Bromcom upload) and merges it into the
 spelling-homelearning class files:
 
   1. UPN match   — pupil.upn present and on roster → refresh name/cls
@@ -37,16 +37,15 @@ BRANCH       = 'main'
 HEADERS      = {'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
 BASE_URL     = f'https://api.github.com/repos/{DATA_REPO}/contents'
 
-ROSTER_URL = os.environ.get(
-    'ROSTER_SYNC_URL',
-    'https://script.google.com/macros/s/AKfycbxHg89VK1uqbWAJcqruqJFjEaavdWN74eB1KS-U_cMr75oVsBVZSi2X38l018oOYW7-4w/exec?action=getPupils&token=2013')
-
-# Same hub, classes endpoint — teacher_name/class_display come from here now
-# (Roster Import is the only place that data is ever edited), replacing the
-# old per-class manual "Class settings" editor.
-CLASSES_URL = os.environ.get(
-    'ROSTER_SYNC_CLASSES_URL',
-    'https://script.google.com/macros/s/AKfycbxHg89VK1uqbWAJcqruqJFjEaavdWN74eB1KS-U_cMr75oVsBVZSi2X38l018oOYW7-4w/exec?action=getClasses&token=2013')
+# Postgres roster on the WFA API since 25.09.26 (fed by Roster Import's Bromcom
+# upload) — this used to read the shared-sync Google Apps Script, whose copy is
+# no longer written by anything. Same pupil/class shape (compared field by field
+# across all 383 pupils and 14 classes before switching). Fixed URLs, not
+# environment overrides, so a stale Render setting can't quietly point it back
+# at Google.
+_HUB_TOKEN = '050d7ae1a6b52eafa7d19b80c844dea8d20d1f678274fe05'
+ROSTER_URL  = 'https://api.wallscourt-farm-academy.co.uk/planning/pupilroster-db/pupils?token=' + _HUB_TOKEN
+CLASSES_URL = 'https://api.wallscourt-farm-academy.co.uk/planning/pupilroster-db/classes?token=' + _HUB_TOKEN
 
 ARCHIVE_PATH = 'data/archived/roster_leavers.json'
 META_PATH    = 'data/roster_meta.json'
@@ -82,7 +81,7 @@ def _now():
 # ── Roster fetch ──────────────────────────────────────────────────────────────
 
 def fetch_roster():
-    """Fetch the active pupil roster from the shared-sync bus."""
+    """Fetch the active pupil roster from the WFA API."""
     r = requests.get(ROSTER_URL, timeout=30)
     r.raise_for_status()
     data = r.json()
@@ -414,7 +413,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
         'last_sync': summary['when'],
         'ok': summary['ok'],
         'roster_count': summary['roster_count'],
-        'source': 'bromcom via shared-sync',
+        'source': 'bromcom via pupil roster database',
         'added': len(summary['added']),
         'removed': len(summary['removed']),
         'renamed': len(summary['renamed']),
