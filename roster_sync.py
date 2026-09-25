@@ -336,7 +336,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
             'tt_mode': 'x',
             'table': '',
             'maths_level': 'standard',
-            'reading_level': 'standard',
+            'reading_level': re.match(r'\d+', cid).group(0) if re.match(r'\d+', cid) else '5',
             'language': '',
             'pair_id': '',
             'pair_colour': '',
