@@ -23,12 +23,22 @@ evidence_bp = Blueprint('evidence', __name__)
 # this default is only a starting point, not meant to be the long-term value.
 EVIDENCE_TOKEN = os.environ.get('EVIDENCE_TOKEN', 'wfa-app-evidence-16092026')
 
+
+def _evidence_token_ok(token):
+    """Accept the hub token (HUB_TOKEN setting) or the dedicated evidence token."""
+    import hmac
+    token = token or ''
+    for good in (os.environ.get('HUB_TOKEN') or '', EVIDENCE_TOKEN or ''):
+        if good and hmac.compare_digest(token.encode(), good.encode()):
+            return True
+    return False
+
 _SUPPORTED_YEARS = {'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'}  # word bank has no real Reception content
 
 
 @evidence_bp.route('/api/evidence/spelling/<year_group>')
 def spelling_evidence(year_group):
-    if request.args.get('token') != EVIDENCE_TOKEN:
+    if not _evidence_token_ok(request.args.get('token')):
         return jsonify({'error': 'unauthorised'}), 401
     if year_group not in _SUPPORTED_YEARS:
         return jsonify({'spelling': {}})
