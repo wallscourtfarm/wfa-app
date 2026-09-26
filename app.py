@@ -13,10 +13,17 @@ app = Flask(__name__)
 
 @app.errorhandler(Exception)
 def handle_any_exception(e):
-    import traceback
     from flask import jsonify
-    return jsonify({'ok': False, 'error': str(e), 'trace': traceback.format_exc()[-800:]}), 500
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    # Log the details on the server; never send exception text or a traceback to the
+    # browser (it can reveal file paths, tokens and internals). Changed 26.09.26.
+    app.logger.exception('Unhandled error')
+    return jsonify({'ok': False,
+                    'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'}), 500
+
+app.secret_key = os.environ.get('SECRET_KEY') or _secrets.token_hex(32)
 
 from routes.auth          import auth_bp
 from routes.dashboard     import dash_bp
