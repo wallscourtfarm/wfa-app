@@ -67,10 +67,39 @@ sauce", or "Creamy pesto penne pasta" — use the PDF's actual wording.
 Convert all dates to YYYY-MM-DD. If the PDF shows "13/04/26" assume 2026."""
 
 
+ACCESS_TEAM = os.environ.get("CF_ACCESS_TEAM", "square-snowflake-8bcb")
+# Audience tag of the Cloudflare Access application that covers /menu (an identifier, not a secret)
+ACCESS_AUD = os.environ.get(
+    "CF_ACCESS_AUD",
+    "f97d5389df08ef410bcbbc04a3602b69b7135108a4efb0150d4ae4b00b78931a")
+_jwks = None
+
+
+def _cf_access_email():
+    """Email of the signed-in Cloudflare Access user, or None. Verifies the
+    Cf-Access-Jwt-Assertion signature, issuer, audience and expiry, so a request
+    that reaches the server directly (bypassing Cloudflare) cannot fake it."""
+    global _jwks
+    token = request.headers.get("Cf-Access-Jwt-Assertion", "")
+    if not token:
+        return None
+    try:
+        import jwt
+        issuer = f"https://{ACCESS_TEAM}.cloudflareaccess.com"
+        if _jwks is None:
+            _jwks = jwt.PyJWKClient(issuer + "/cdn-cgi/access/certs")
+        key = _jwks.get_signing_key_from_jwt(token).key
+        claims = jwt.decode(token, key, algorithms=["RS256"],
+                            audience=ACCESS_AUD, issuer=issuer)
+        return claims.get("email")
+    except Exception:
+        return None
+
+
 def require_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("authenticated"):
+        if not _cf_access_email() and not session.get("authenticated"):
             return redirect(url_for("auth.login"))
         return f(*args, **kwargs)
     return decorated
