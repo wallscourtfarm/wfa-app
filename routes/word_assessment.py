@@ -17,10 +17,6 @@ _HDR      = {'Authorization': f'token {PAT}', 'Accept': 'application/vnd.github.
 ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 
 
-def _auth():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-
 def _err(e):
     return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
 
@@ -92,8 +88,6 @@ def _vision_prompt(word_list_text, mark_format='circle'):
 
 @wa_bp.route('/word-assessment')
 def word_assessment():
-    r = _auth()
-    if r: return r
     yr  = session.get('year_group', '4')
     cls = request.args.get('cls', f'Y{yr}_all')
     if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
@@ -109,8 +103,6 @@ def word_assessment():
 
 @wa_bp.route('/api/word-assessment/generate', methods=['POST'])
 def api_wa_generate():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body     = request.get_json(force=True)
         cls      = body.get('cls', DEFAULT_CLASS)
@@ -159,8 +151,6 @@ def api_wa_generate():
 
 @wa_bp.route('/api/word-assessment/import-upload', methods=['POST'])
 def api_wa_import_upload():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body    = request.get_json(force=True)
         pdf_b64 = body.get('pdf', '')
@@ -320,8 +310,6 @@ def api_wa_import_stream(job_id):
 
 @wa_bp.route('/api/word-assessment/confirm', methods=['POST'])
 def api_wa_confirm():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body    = request.get_json(force=True)
         cls     = body.get('cls', DEFAULT_CLASS)

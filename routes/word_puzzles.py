@@ -9,15 +9,6 @@ YEAR_GROUPS = ["Y1", "Y2", "Y3", "Y4", "Y5", "Y6"]
 DIFFICULTIES = ["Easy", "Medium", "Hard"]
 
 
-def require_auth(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("authenticated"):
-            return redirect(url_for("auth.login"))
-        return f(*args, **kwargs)
-    return decorated
-
 
 def _api_key():
     return os.environ.get("ANTHROPIC_API_KEY", "")
@@ -31,7 +22,6 @@ def _send_pdf(pdf_bytes: bytes, filename: str):
 
 
 @wp_bp.route("/puzzles")
-@require_auth
 def puzzles_home():
     return render_template("word_puzzles.html",
                            year_groups=YEAR_GROUPS,
@@ -41,7 +31,6 @@ def puzzles_home():
 # ── Word Search ───────────────────────────────────────────────────────────────
 
 @wp_bp.route("/puzzles/word-search", methods=["POST"])
-@require_auth
 def word_search():
     from wordpuzzles.puzzles.word_search import generate_word_search
     from wordpuzzles.pdf_output.word_search_pdf import render_word_search_pdf
@@ -75,7 +64,6 @@ def word_search():
 # ── Nine Letters ──────────────────────────────────────────────────────────────
 
 @wp_bp.route("/puzzles/nine-letters", methods=["POST"])
-@require_auth
 def nine_letters():
     from wordpuzzles.puzzles.nine_letters import generate_nine_letters
     from wordpuzzles.pdf_output.nine_letters_pdf import render_nine_letters_pdf
@@ -96,7 +84,6 @@ def nine_letters():
 # ── Word Ladder ───────────────────────────────────────────────────────────────
 
 @wp_bp.route("/puzzles/word-ladder", methods=["POST"])
-@require_auth
 def word_ladder():
     from wordpuzzles.puzzles.word_ladder import generate_word_ladder
     from wordpuzzles.pdf_output.word_ladder_pdf import render_word_ladder_pdf
@@ -118,7 +105,6 @@ def word_ladder():
 # ── Word Scramble ─────────────────────────────────────────────────────────────
 
 @wp_bp.route("/puzzles/word-scramble", methods=["POST"])
-@require_auth
 def word_scramble():
     from wordpuzzles.puzzles.word_scramble import generate_word_scramble
     from wordpuzzles.pdf_output.word_scramble_pdf import render_word_scramble_pdf
@@ -151,7 +137,6 @@ def word_scramble():
 # ── Cloze Passage ─────────────────────────────────────────────────────────────
 
 @wp_bp.route("/puzzles/cloze", methods=["POST"])
-@require_auth
 def cloze_passage():
     from wordpuzzles.puzzles.cloze_passage import generate_cloze
     from wordpuzzles.pdf_output.cloze_passage_pdf import render_cloze_pdf

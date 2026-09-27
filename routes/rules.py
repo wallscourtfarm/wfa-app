@@ -7,10 +7,6 @@ rules_bp = Blueprint('rules', __name__)
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
-def _auth():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-
 
 def _build_uls_tree(year_group, confidence):
     """Return nested structure: {term: {week: [lesson_dicts]}} for a year group."""
@@ -31,8 +27,6 @@ def _build_uls_tree(year_group, confidence):
 
 @rules_bp.route('/rules')
 def rules():
-    r = _auth()
-    if r: return r
     yr_str = session.get('year_group', '4')
     year_group = f'Y{yr_str}' if not yr_str.startswith('Y') else yr_str
     confidence = load_rule_confidence()
@@ -47,8 +41,6 @@ def rules():
 
 @rules_bp.route('/rules/overview')
 def rules_overview():
-    r = _auth()
-    if r: return r
     year_group = request.args.get('year', 'Y3')
     if not year_group.startswith('Y'):
         year_group = f'Y{year_group}'
@@ -64,8 +56,6 @@ def rules_overview():
 
 @rules_bp.route('/api/rules/confidence', methods=['POST'])
 def api_confidence():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False}), 401
     body = request.get_json(force=True)
     lesson_id = body.get('lesson_id', '') or body.get('rule_id', '')
     level     = int(body.get('level', 0))
@@ -79,8 +69,6 @@ def api_confidence():
 
 @rules_bp.route('/api/rules/lesson')
 def api_lesson():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False}), 401
     lid = request.args.get('id', '')
     l = get_lesson(lid)
     if not l:

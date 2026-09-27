@@ -132,8 +132,6 @@ def _spelling_spread(pupils):
 
 @insights_bp.route('/insights')
 def insights():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
     yr  = session.get('year_group', '4')
     cls = request.args.get('cls', f'Y{yr}_all')
     if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
@@ -160,8 +158,6 @@ import requests as _requests
 @insights_bp.route('/api/insights/actions', methods=['POST'])
 def api_insights_actions():
     from flask import request, jsonify
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
 
     cls = request.get_json(force=True).get('cls', 'all')
     pupils = _load_pupils(cls)
@@ -254,8 +250,6 @@ from datetime import date as _date
 @insights_bp.route('/api/insights/actions-pdf', methods=['POST'])
 def api_insights_actions_pdf():
     from flask import request, send_file
-    if not session.get('authenticated'):
-        return {'error': 'Not authenticated'}, 401
 
     body     = request.get_json(force=True)
     actions  = body.get('actions', [])
