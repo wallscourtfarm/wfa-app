@@ -31,10 +31,6 @@ CLASS_OPTIONS = get_class_options()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _auth():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-
 def _err(e):
     import traceback
     return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
@@ -125,8 +121,6 @@ def bee_sessions():
 
 @live_bp.route('/api/live/bee/create', methods=['POST'])
 def api_bee_create():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body     = request.get_json(force=True)
         cls      = body.get('cls', 'all')
@@ -189,8 +183,6 @@ def api_bee_create():
 @live_bp.route('/api/live/bee/cards-pdf/<session_id>')
 def api_bee_cards_pdf(session_id):
     """Generate 6-up QR card PDF for a bee session."""
-    r = _auth()
-    if r: return r
     try:
         sess = _load_session(session_id)
         if not sess:
@@ -452,8 +444,6 @@ def api_live_submit():
 @live_bp.route('/api/live/bee/process', methods=['POST'])
 def api_bee_process():
     """Process spelling bee results → update mastered/word_pos per pupil."""
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body       = request.get_json(force=True)
         session_id = body.get('session_id', '')
@@ -648,8 +638,6 @@ def _build_assess_qr_pdf(session_id, url, week_ref, assessment_type, n_pupils, n
 
 @live_bp.route('/api/live/assess/create', methods=['POST'])
 def api_assess_create():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body         = request.get_json(force=True)
         session_type = body.get('type', 'word')   # word | rule | homophone
@@ -751,8 +739,6 @@ def api_assess_create():
 
 @live_bp.route('/api/live/assess/qr/<session_id>')
 def api_assess_qr(session_id):
-    r = _auth()
-    if r: return r
     try:
         sess = _load_session(session_id)
         if not sess:
@@ -794,8 +780,6 @@ def assess_pupil(session_id):
 
 @live_bp.route('/api/live/assess/process', methods=['POST'])
 def api_assess_process():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body       = request.get_json(force=True)
         session_id = body.get('session_id', '')
@@ -954,15 +938,11 @@ def api_assess_process():
 
 @live_bp.route('/sessions')
 def session_management():
-    r = _auth()
-    if r: return r
     return render_template('live_sessions.html')
 
 
 @live_bp.route('/api/sessions/list')
 def api_sessions_list():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         # Load all session files
         sess_r = _req.get(
@@ -1023,8 +1003,6 @@ def api_sessions_list():
 
 @live_bp.route('/api/sessions/archive', methods=['POST'])
 def api_sessions_archive():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body       = request.get_json(force=True)
         session_id = body.get('session_id', '')

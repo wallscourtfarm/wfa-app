@@ -99,8 +99,8 @@ def _cf_access_email():
 def require_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not _cf_access_email() and not session.get("authenticated"):
-            return redirect(url_for("auth.login"))
+        if not _cf_access_email():
+            return 'Access verification failed - reload the page.', 403
         return f(*args, **kwargs)
     return decorated
 

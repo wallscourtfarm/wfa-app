@@ -11,23 +11,13 @@ FONT_MAP = {
 }
 
 
-def require_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("authenticated"):
-            return redirect(url_for("auth.login"))
-        return f(*args, **kwargs)
-    return decorated
-
 
 @hw_bp.route("/handwriting")
-@require_auth
 def handwriting_home():
     return render_template("handwriting.html")
 
 
 @hw_bp.route("/handwriting/generate", methods=["POST"])
-@require_auth
 def handwriting_generate():
     import handwriting_sheet as hs
 

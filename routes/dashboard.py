@@ -8,8 +8,6 @@ CLASS_OPTIONS = get_class_options()
 
 @dash_bp.route('/dashboard')
 def dashboard():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
     yr  = session.get('year_group', '4')
     cls = request.args.get('cls', f'Y{yr}_all')
     yr  = session.get('year_group', '4')

@@ -33,8 +33,6 @@ def _snapshot_current_uls_week(wc):
 
 @settings_bp.route('/api/debug/learners')
 def api_debug_learners():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False}), 401
     from data_manager import load_learners
     pupils = load_learners('Y4_all')
     sample = [{'id': p.get('id'), 'first': p.get('first'),
@@ -46,8 +44,6 @@ def api_debug_learners():
 @settings_bp.route('/api/settings/rule-confidence-summary')
 def api_rule_confidence_summary():
     """Dry-run counts for the rule confidence archive/reset tool."""
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     from data_manager import get_rule_confidence_summary
     try:
         return jsonify({'ok': True, 'summary': get_rule_confidence_summary()})
@@ -59,8 +55,6 @@ def api_rule_confidence_summary():
 def api_rule_confidence_archive_reset():
     """Archive every pupil's rule_confidence, then clear it. Does not touch
     mastered/word_pos (CEW/Key Spelling lists)."""
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     from data_manager import archive_and_reset_rule_confidence
     try:
         return jsonify(archive_and_reset_rule_confidence())
@@ -71,8 +65,6 @@ def api_rule_confidence_archive_reset():
 @settings_bp.route('/api/settings/sync-term-dates', methods=['POST'])
 def api_sync_term_dates():
     """Pull term dates from the school calendar (WFA database) and save to term_dates.json."""
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
 
     # 25.09.26: reads the school calendar from the WFA database (the same TermDates
     # that the School Info Editor edits). This used to read a Google Sheet that
@@ -140,8 +132,6 @@ def api_sync_term_dates():
 
 @settings_bp.route('/api/settings/uls-weeks')
 def api_uls_weeks():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False}), 401
     year_group = request.args.get('year', 'Y4')
     from data_manager import list_uls_weeks
     from uls_lessons import get_week_lessons, TERM_LABELS
@@ -164,8 +154,6 @@ def api_uls_weeks():
 
 @settings_bp.route('/api/settings/uls-lesson')
 def api_uls_lesson():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False}), 401
     lid = request.args.get('id', '')
     from uls_lessons import get_lesson
     l = get_lesson(lid)
@@ -176,8 +164,6 @@ def api_uls_lesson():
 
 @settings_bp.route('/settings')
 def settings():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
     import json
     from data_manager import YEAR_GROUP_CLASSES, get_class_options_for_year
     from phonics_bank import phonics_sets_for_ui
@@ -200,8 +186,6 @@ def settings():
 
 @settings_bp.route('/api/settings/save', methods=['POST'])
 def api_settings_save():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     body = request.get_json(force=True)
 
     yr = session.get('year_group', '4')

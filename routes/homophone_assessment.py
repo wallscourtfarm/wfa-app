@@ -24,10 +24,6 @@ PARTIAL    = 0.60
 STAGE_YEARS = {2: 'approx. Y2', 3: 'approx. Y3', 4: 'approx. Y4', 5: 'approx. Y5'}
 
 
-def _auth():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-
 def _err(e):
     return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
 
@@ -154,8 +150,6 @@ def _stage_summary(homophone_mastered, sections):
 
 @ha_bp.route('/homophone-assessment')
 def homophone_assessment():
-    r = _auth()
-    if r: return r
     yr  = session.get('year_group', '4')
     cls = request.args.get('cls', f'Y{yr}_all')
     if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
@@ -180,8 +174,6 @@ def homophone_assessment():
 
 @ha_bp.route('/api/homophone-assessment/generate', methods=['POST'])
 def api_ha_generate():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body           = request.get_json(force=True)
         cls            = body.get('cls', DEFAULT_CLASS)
@@ -220,8 +212,6 @@ def api_ha_generate():
 
 @ha_bp.route('/api/homophone-assessment/import-upload', methods=['POST'])
 def api_ha_import_upload():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body    = request.get_json(force=True)
         pdf_b64 = body.get('pdf', '')
@@ -338,8 +328,6 @@ def api_ha_import_stream(job_id):
 
 @ha_bp.route('/api/homophone-assessment/confirm', methods=['POST'])
 def api_ha_confirm():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body          = request.get_json(force=True)
         cls           = body.get('cls', DEFAULT_CLASS)

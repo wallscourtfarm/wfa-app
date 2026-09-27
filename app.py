@@ -1,4 +1,5 @@
 import os
+import secrets as _secrets
 from flask import Flask
 
 
@@ -25,7 +26,6 @@ def handle_any_exception(e):
 
 app.secret_key = os.environ.get('SECRET_KEY') or _secrets.token_hex(32)
 
-from routes.auth          import auth_bp
 from routes.dashboard     import dash_bp
 from routes.tt            import tt_bp
 from routes.bee           import bee_bp
@@ -46,7 +46,7 @@ from routes.word_puzzles import wp_bp
 from routes.claude_proxy import proxy_bp
 from routes.evidence import evidence_bp
 
-for bp in [auth_bp, dash_bp, tt_bp, bee_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, menu_bp, hw_bp, wp_bp, proxy_bp, evidence_bp]:
+for bp in [dash_bp, tt_bp, bee_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, menu_bp, hw_bp, wp_bp, proxy_bp, evidence_bp]:
     app.register_blueprint(bp)
 
 # ── Year group session context ─────────────────────────────────────────────────
@@ -54,9 +54,7 @@ from flask import session, request as _req, redirect as _redirect
 from data_manager import YEAR_GROUP_CLASSES as _YGC
 
 
-# ── Public landing page ────────────────────────────────────────────────────────
-from flask import session as _session, redirect as _redir, url_for as _url_for
-from flask import render_template as _render
+from flask import redirect as _redir, url_for as _url_for
 
 @app.route('/ping')
 def ping():
@@ -66,9 +64,7 @@ def ping():
 
 @app.route('/')
 def index():
-    if _session.get('authenticated'):
-        return _redir(_url_for('dash.dashboard'))
-    return _render('landing.html')
+    return _redir(_url_for('dash.dashboard'))
 
 @app.route('/set-year/<yr>')
 def set_year(yr):

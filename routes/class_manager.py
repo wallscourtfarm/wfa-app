@@ -47,10 +47,6 @@ PAIR_COLOURS = [
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _auth():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-
 def _err(e):
     return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
 
@@ -128,8 +124,6 @@ def reading_ladder_for_year(year_group):
 
 @cm_bp.route('/class-manager')
 def class_manager():
-    r = _auth()
-    if r: return r
     yr    = session.get('year_group', '4')
     opts  = get_class_options_for_year(yr, include_all=False)
     valid = [c[0] for c in opts]
@@ -147,8 +141,6 @@ def class_manager():
 
 @cm_bp.route('/api/class/list')
 def api_class_list():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     yr  = session.get('year_group', '4')
     cls = request.args.get('cls', YEAR_GROUP_CLASSES.get(yr, ['4CC'])[0])
     try:
@@ -207,8 +199,6 @@ def api_class_list():
 
 @cm_bp.route('/api/class/pupil/update', methods=['POST'])
 def api_pupil_update():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body      = request.get_json(force=True)
         cls       = body.get('cls', '4CC')
@@ -260,8 +250,6 @@ def api_pupil_update():
 @cm_bp.route('/api/class/spelling-start', methods=['POST'])
 def api_spelling_start():
     """Move one or more pupils to the start of a year group's key-spelling set."""
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body  = request.get_json(force=True)
         cls   = body.get('cls', '')
@@ -282,8 +270,6 @@ def api_spelling_start():
 
 @cm_bp.route('/api/class/pair', methods=['POST'])
 def api_pair():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body         = request.get_json(force=True)
         pupil_a_id   = body.get('pupil_a', '')
@@ -333,8 +319,6 @@ def api_pair():
 
 @cm_bp.route('/api/class/unpair', methods=['POST'])
 def api_unpair():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body     = request.get_json(force=True)
         pupil_id = body.get('pupil_id', '')
@@ -369,8 +353,6 @@ def api_unpair():
 
 @cm_bp.route('/api/class/unpair_all', methods=['POST'])
 def api_unpair_all():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body   = request.get_json(force=True)
         cls_id = body.get('cls_id', '')
@@ -415,8 +397,6 @@ def _colour_cycle(existing_pupils):
 
 @cm_bp.route('/api/class/pair_bulk', methods=['POST'])
 def api_pair_bulk():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body        = request.get_json(force=True)
         cls_id      = body.get('cls_id', '')
@@ -501,8 +481,6 @@ def api_pair_bulk():
 
 @cm_bp.route('/api/class/autopair', methods=['POST'])
 def api_autopair():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body   = request.get_json(force=True)
         cls_id = body.get('cls_id', '')
@@ -561,8 +539,6 @@ def api_word_pos_backfill():
     of the whole CEW/Key Spelling list, using their real mastered words —
     correcting anyone left at their old year-zone floor by the pre-fix
     add/rollover/import logic (see class_manager.py commit history)."""
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     apply_changes = request.args.get('apply') == '1'
     try:
         changes = []
@@ -600,8 +576,6 @@ def api_roster_sync():
     """Pull the UPN-keyed roster from the shared-sync bus and merge it into
     every class file: refreshes names/classes, attaches UPNs to any
     not-yet-UPN'd pupils, adds new arrivals and removes (archiving) leavers."""
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         from roster_sync import sync_roster
         result = sync_roster(apply=True)
@@ -613,8 +587,6 @@ def api_roster_sync():
 @cm_bp.route('/api/class/roster-status')
 def api_roster_status():
     """Last roster-sync metadata from data/roster_meta.json for the status chip."""
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         r2 = _req.get(f'https://api.github.com/repos/{DATA_REPO}/contents/data/roster_meta.json',
                       headers=_HDR, timeout=10)
@@ -631,8 +603,6 @@ def api_roster_status():
 
 @cm_bp.route('/api/class/import-mastery', methods=['POST'])
 def api_import_mastery():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         from data_manager import import_pupils_with_mastery
         body        = request.get_json(force=True)
@@ -650,8 +620,6 @@ def api_import_mastery():
 @cm_bp.route('/api/class/mastery-template')
 def api_mastery_template():
     """Download a CSV template for the mastery import."""
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     from flask import Response
     yr      = session.get('year_group', '4')
     classes = YEAR_GROUP_CLASSES.get(yr, [])
@@ -678,8 +646,6 @@ def api_import_unlocking_spelling_csv():
     is tab-separated) — delimiter is auto-detected.
     Returns a list of matched/unmatched results for review, then applies on confirm.
     """
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         import csv, io, unicodedata
 

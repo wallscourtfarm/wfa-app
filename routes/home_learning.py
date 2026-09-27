@@ -101,8 +101,6 @@ def home_learning():
 
 @hl_bp.route('/api/hl/ping')
 def api_hl_ping():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False}), 401
     errors = []
     for mod, obj in [('hl_generator', None), ('pdf_builder', None)]:
         try: __import__(mod)
@@ -117,8 +115,6 @@ def api_hl_ping():
 @hl_bp.route('/api/hl/status/<job_id>')
 def api_hl_status(job_id):
     """Poll job status — returns immediately."""
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     _prune_jobs()
     job = _job_read(job_id)
     if not job:
@@ -128,8 +124,6 @@ def api_hl_status(job_id):
 
 @hl_bp.route('/api/hl/generate', methods=['POST'])
 def api_hl_generate():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     body = request.get_json(force=True)
     if not body:
         return jsonify({'ok': False, 'error': 'Invalid or empty request body'})

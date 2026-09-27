@@ -9,10 +9,6 @@ CLASS_OPTIONS = get_class_options()
 DEFAULT_CLASS = 'all'
 
 
-def _auth():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
-
 
 def _load_pupils(cls):
     pupils = []
@@ -63,8 +59,6 @@ def _err(e):
 
 @print_bp.route('/print')
 def print_page():
-    r = _auth()
-    if r: return r
     yr  = session.get('year_group', '4')
     cls = request.args.get('cls', f'Y{yr}_all')
     if cls not in [c[0] for c in get_class_options_for_year(session.get('year_group','4'))]:
@@ -87,8 +81,6 @@ def print_page():
 
 @print_bp.route('/api/print/handwriting', methods=['POST'])
 def api_handwriting():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body = request.get_json(force=True)
         cls  = body.get('cls', DEFAULT_CLASS)
@@ -116,8 +108,6 @@ def api_handwriting():
 
 @print_bp.route('/api/print/paired-lists', methods=['POST'])
 def api_paired_lists():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body  = request.get_json(force=True)
         cls   = body.get('cls', DEFAULT_CLASS)
@@ -157,8 +147,6 @@ def api_paired_lists():
 
 @print_bp.route('/api/print/recording-sheet', methods=['POST'])
 def api_recording_sheet():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         body = request.get_json(force=True)
         cls = body.get('cls', DEFAULT_CLASS)
@@ -182,8 +170,6 @@ def api_recording_sheet():
 
 @print_bp.route('/api/print/tt-check', methods=['POST'])
 def api_tt_check():
-    r = _auth()
-    if r: return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     try:
         cls = request.get_json(force=True).get('cls', DEFAULT_CLASS)
         pupils = _load_pupils(cls)

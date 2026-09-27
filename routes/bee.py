@@ -5,8 +5,6 @@ bee_bp = Blueprint('bee', __name__)
 
 @bee_bp.route('/spelling-bee')
 def spelling_bee():
-    if not session.get('authenticated'):
-        return redirect(url_for('auth.login'))
     yr           = session.get('year_group', '4')
     yr_classes   = YEAR_GROUP_CLASSES.get(yr, [])
     valid        = [f'Y{yr}_all'] + yr_classes
@@ -44,8 +42,6 @@ def spelling_bee():
 
 @bee_bp.route('/api/bee/save', methods=['POST'])
 def api_bee_save():
-    if not session.get('authenticated'):
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
     body        = request.get_json(force=True)
     assessments = body.get('assessments', [])
     week_ref    = body.get('week_ref', '')
