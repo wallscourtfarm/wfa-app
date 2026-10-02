@@ -322,7 +322,9 @@ def load_tt_pupils(class_id='4CK'):
     pupils = []
     for cid in _resolve_classes(class_id):
         data = load_class(cid)
-        if data: pupils.extend(data.get('pupils',[]))
+        if data:
+            label = cid.lstrip('0123456789')
+            pupils.extend({**p, '_cls': label} for p in data.get('pupils',[]))
     if not pupils: return []
     result = []
     for p in pupils:
@@ -330,7 +332,7 @@ def load_tt_pupils(class_id='4CK'):
         name = p.get('first','?')
         if p.get('last'): name = f"{name} {p['last']}"
         result.append({'id':p['id'],'name':name,'first':p.get('first',''),
-                       'tt_set':ts,'tt_mode':tm,'label':tt_label(ts,tm)})
+                       'tt_set':ts,'tt_mode':tm,'label':tt_label(ts,tm),'cls':p['_cls']})
     def key(p):
         try: idx = TT_ORDER.index(str(p['tt_set']))
         except ValueError: idx=99
