@@ -319,10 +319,13 @@ def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
 # ── TT Check ─────────────────────────────────────────────────────────────────
 
 def load_tt_pupils(class_id='4CK'):
-    data = load_class(class_id)
-    if not data: return []
+    pupils = []
+    for cid in _resolve_classes(class_id):
+        data = load_class(cid)
+        if data: pupils.extend(data.get('pupils',[]))
+    if not pupils: return []
     result = []
-    for p in data.get('pupils',[]):
+    for p in pupils:
         ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
         name = p.get('first','?')
         if p.get('last'): name = f"{name} {p['last']}"

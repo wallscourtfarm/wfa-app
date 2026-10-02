@@ -3,8 +3,13 @@
 
 {% block content %}
 <div class="page-header">
-  <h2>Times Table Check — Y4 Maple</h2>
+  <h2>Times Table Check — {{ cls_label }}</h2>
   <div class="header-actions">
+    <select id="cls-select" class="btn btn-ghost" onchange="location.href='/tt?cls='+this.value" aria-label="Class">
+      {% for val, label in class_options %}
+      <option value="{{ val }}" {% if val == cls %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
     <button id="btn-advance" class="btn btn-primary" disabled>
       Advance selected (<span id="advance-count">0</span>)
     </button>
