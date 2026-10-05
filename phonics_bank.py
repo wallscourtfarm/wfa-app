@@ -350,23 +350,26 @@ def get_phonics_set(set_id):
 
 # Phase groups the Settings page picks by teaching week (from the ULS lesson
 # plans) instead of by Set. Class Manager keeps using the Sets above.
-_WEEK_PHASES = ('Phase 5a', 'Phase 5b', 'Phase 5c')
+_WEEK_PHASES = ('Phase 5a', 'Phase 5b', 'Phase 5c')   # Set groups replaced by weeks
+_UI_PHASE_ORDER = ['Phase 2', 'Phase 3', 'Phase 4', 'Phase 5a', 'Phase 5a Mastery',
+                   'Phase 5a Year 2', 'Y1 NC', 'Phase 5b', 'Phase 5b Mastery',
+                   'Phase 5c', 'Phase 5c Mastery']
 
 
 def phonics_sets_for_ui():
     """Settings-page Phase groups with each option's word preview precomputed,
     for embedding in templates (avoids re-deriving the word list in JS).
-    Phase 5a/5b/5c list one option per teaching week; other phases list Sets."""
+    Phase 5 (standard, Mastery and Year 2 spelling) lists one option per
+    teaching week; other phases list Sets."""
     groups = []
     for group in PHONICS_SETS:
         if group['phase'] in _WEEK_PHASES:
             continue
         groups.append({'phase': group['phase'],
                        'sets': [get_phonics_set(s['id']) for s in group['sets']]})
-    for phase in _WEEK_PHASES:
-        weeks = [_week_as_set(w) for w in PHONICS_WEEKS if w['phase'] == phase]
-        if weeks:
-            groups.append({'phase': phase, 'sets': weeks})
-    order = ['Phase 2', 'Phase 3', 'Phase 4', 'Phase 5a', 'Y1 NC', 'Phase 5b', 'Phase 5c']
+    for phase in dict.fromkeys(w['phase'] for w in PHONICS_WEEKS):
+        groups.append({'phase': phase,
+                       'sets': [_week_as_set(w) for w in PHONICS_WEEKS if w['phase'] == phase]})
+    order = _UI_PHASE_ORDER
     groups.sort(key=lambda g: order.index(g['phase']) if g['phase'] in order else len(order))
     return groups
