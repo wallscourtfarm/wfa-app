@@ -209,7 +209,13 @@ def api_settings_save():
         if pset:
             wc['programme']       = 'phonics'
             wc['phonics_set_id']  = set_id
-            wc['selected_words']  = pset['words']
+            words = pset['words']
+            if pset.get('pool'):
+                # Phase 5 weeks: the teacher picks up to 5 from the whole week.
+                pool   = set(pset['pool'])
+                picked = [w for w in body.get('selected_words', []) if w in pool][:5]
+                words  = picked or words
+            wc['selected_words']  = words
             wc['rule_title']      = f"{pset['phase']}, {pset['label']} ({pset['gpcs_label']})"
             # Clear stale Unlocking Spelling fields so their fallbacks can't
             # leak a previous week's lesson title/words into a phonics week.
