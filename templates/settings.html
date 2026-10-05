@@ -46,7 +46,7 @@
        style="{% if not (active_year == '1' or programme == 'phonics') %}display:none{% endif %}">
     <h3 class="settings-heading">Phonics — Weekly Setup (Unlocking Letters &amp; Sounds)</h3>
     <p style="font-size:13px;color:#64748b;margin:0 0 12px">
-      Pick this week's teaching Set — the same Phase/Set order used in Class Manager for phonics-group pupils.
+      Pick this week's teaching Set (Phases 2–4) or teaching week (Phase 5, from the ULS lesson plans).
       Generates this week's 5 words for Home Learning and printed materials.
     </p>
     <div class="settings-row">
@@ -54,8 +54,17 @@
       <select id="phonics_phase" class="hl-input" style="max-width:220px" onchange="populatePhonicsSets()"></select>
     </div>
     <div class="settings-row">
-      <label class="settings-label">Set</label>
+      <label class="settings-label">Set / week</label>
       <select id="phonics_set" class="hl-input" style="max-width:420px" onchange="applyPhonicsSet()"></select>
+    </div>
+    <div id="phonics_week_row" class="settings-row" style="display:none;align-items:flex-start">
+      <label class="settings-label">This week's lessons</label>
+      <div style="flex:1">
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 8px">
+          Every word from the week's 5 lessons. Click words to choose up to 5 for Home Learning.
+        </p>
+        <div id="phonics_week_lessons" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
     </div>
   </div>
   {% endif %}
@@ -205,6 +214,7 @@ const savedHLLessonId = {{ wc.get('hl_lesson_id', '') | tojson }};
 // Phonics state
 const PHONICS_SETS = {{ phonics_sets_json | safe }};
 const savedPhonicsSetId = {{ wc.get('phonics_set_id', '') | tojson }};
+const savedPhonicsWords = {{ (wc.get('selected_words', []) if wc.get('phonics_set_id') else []) | tojson }};
 let currentProgramme = {{ programme | tojson }};
 
 function onProgrammeChange() {
@@ -222,7 +232,7 @@ function onProgrammeChange() {
 // stale word list in the shared preview.
 function settleWordsPreview() {
   if (currentProgramme === 'phonics') {
-    applyPhonicsSet();
+    applyPhonicsSet(true);
     return;
   }
   const mode = document.querySelector('input[name="hl_mode"]:checked')?.value;
@@ -252,12 +262,74 @@ function populatePhonicsSets() {
   applyPhonicsSet();
 }
 
-function applyPhonicsSet() {
+function applyPhonicsSet(isRestore) {
   const phase = document.getElementById('phonics_phase').value;
   const setId = document.getElementById('phonics_set').value;
   const group = PHONICS_SETS.find(g => g.phase === phase);
   const set   = group ? group.sets.find(s => s.id === setId) : null;
-  selectedWords = set ? [...set.words] : [];
+  if (set && set.pool && isRestore === true && setId === savedPhonicsSetId) {
+    // Keep the saved picks for this week, dropping anything not in it.
+    const pool = new Set(set.pool);
+    selectedWords = savedPhonicsWords.filter(w => pool.has(w)).slice(0, 5);
+    if (!selectedWords.length) selectedWords = [...set.words];
+  } else {
+    selectedWords = set ? [...set.words] : [];
+  }
+  renderPhonicsWeek(set);
+  showSelectedWords();
+}
+
+// Phase 5 weeks: one row per lesson with clickable word chips.
+function renderPhonicsWeek(set) {
+  const row  = document.getElementById('phonics_week_row');
+  const list = document.getElementById('phonics_week_lessons');
+  if (!row) return;
+  if (!set || !set.lessons) { row.style.display = 'none'; list.innerHTML = ''; return; }
+  list.innerHTML = '';
+  const chip = w => {
+    const active = selectedWords.includes(w);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = w;
+    b.style.cssText = `padding:2px 9px;border-radius:14px;border:1px solid;cursor:pointer;font-size:12px;
+      background:${active ? '#1798d3' : '#fff'};color:${active ? '#fff' : '#1e293b'};
+      border-color:${active ? '#1798d3' : '#cbd5e1'}`;
+    b.onclick = () => togglePhonicsWord(w, set);
+    return b;
+  };
+  set.lessons.forEach(l => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px';
+    const head = document.createElement('div');
+    head.style.cssText = 'font-size:13px;color:#334155;margin-bottom:6px';
+    head.innerHTML = `<strong>Lesson ${l.lesson}</strong> &middot; ${l.focus}`;
+    div.appendChild(head);
+    [['Spelling', l.spelling], ['Reading', l.reading], ['Revisit', l.revisit], ['Tricky words', l.tricky]]
+      .forEach(([name, words]) => {
+        if (!words.length) return;
+        const line = document.createElement('div');
+        line.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:3px';
+        const lab = document.createElement('span');
+        lab.textContent = name;
+        lab.style.cssText = 'font-size:11px;color:#64748b;width:78px';
+        line.appendChild(lab);
+        words.forEach(w => line.appendChild(chip(w)));
+        div.appendChild(line);
+      });
+    list.appendChild(div);
+  });
+  row.style.display = '';
+}
+
+function togglePhonicsWord(word, set) {
+  const idx = selectedWords.indexOf(word);
+  if (idx >= 0) {
+    selectedWords.splice(idx, 1);
+  } else {
+    if (selectedWords.length >= 5) { showStatus('Maximum 5 words', 'error'); return; }
+    selectedWords.push(word);
+  }
+  renderPhonicsWeek(set);
   showSelectedWords();
 }
 

@@ -3,6 +3,8 @@
 # Each GPC key maps to 5 practice words using only graphemes taught at or before that point.
 # Phase 2 words use single-letter graphemes freely (no Phase 3+ digraphs/vowel pairs).
 
+from phonics_weeks import PHONICS_WEEKS
+
 PHONICS_BANK = {
     # ── Phase 2 ────────────────────────────────────────────────────────────────
     # Single-letter graphemes only; common CVC words that feature the target letter.
@@ -295,9 +297,39 @@ def get_phonics_words(gpcs, bank=None, count=5):
     return result
 
 
+def _week_default_words(week, count=5):
+    """One spelling word from each lesson in turn, so the default five cover
+    the whole week rather than just Monday's GPC."""
+    pools = [l['spelling'] for l in week['lessons'] if l['spelling']]
+    result, i = [], 0
+    while len(result) < count and any(i < len(p) for p in pools):
+        for pool in pools:
+            if i < len(pool) and pool[i] not in result:
+                result.append(pool[i])
+                if len(result) == count:
+                    break
+        i += 1
+    return result
+
+
+def _week_as_set(week):
+    return {
+        'id':         week['id'],
+        'phase':      week['phase'],
+        'label':      week['label'],
+        'gpcs':       [],
+        'gpcs_label': week['gpcs_label'],
+        'words':      _week_default_words(week),
+        'lessons':    week['lessons'],
+        'pool':       week['spelling'] + week['reading'] + week['revisit'] + week['tricky'],
+    }
+
+
 def get_phonics_set(set_id):
-    """Look up a teaching Set by id across all Phase groups in PHONICS_SETS.
-    Returns {'id','phase','label','gpcs','gpcs_label','words'} or None."""
+    """Look up a teaching Set by id across all Phase groups in PHONICS_SETS,
+    or a Phase 5 teaching week by id in PHONICS_WEEKS.
+    Returns {'id','phase','label','gpcs','gpcs_label','words'} or None; weeks
+    also carry 'lessons' and 'pool' (every word in the week)."""
     for group in PHONICS_SETS:
         for s in group['sets']:
             if s['id'] == set_id:
@@ -310,13 +342,31 @@ def get_phonics_set(set_id):
                     'gpcs_label': gpcs_label,
                     'words':      get_phonics_words(s['gpcs']),
                 }
+    for week in PHONICS_WEEKS:
+        if week['id'] == set_id:
+            return _week_as_set(week)
     return None
 
 
+# Phase groups the Settings page picks by teaching week (from the ULS lesson
+# plans) instead of by Set. Class Manager keeps using the Sets above.
+_WEEK_PHASES = ('Phase 5a', 'Phase 5b', 'Phase 5c')
+
+
 def phonics_sets_for_ui():
-    """PHONICS_SETS with each Set's word preview precomputed, for embedding
-    in templates (avoids re-deriving the interleaved word list in JS)."""
-    return [
-        {'phase': group['phase'], 'sets': [get_phonics_set(s['id']) for s in group['sets']]}
-        for group in PHONICS_SETS
-    ]
+    """Settings-page Phase groups with each option's word preview precomputed,
+    for embedding in templates (avoids re-deriving the word list in JS).
+    Phase 5a/5b/5c list one option per teaching week; other phases list Sets."""
+    groups = []
+    for group in PHONICS_SETS:
+        if group['phase'] in _WEEK_PHASES:
+            continue
+        groups.append({'phase': group['phase'],
+                       'sets': [get_phonics_set(s['id']) for s in group['sets']]})
+    for phase in _WEEK_PHASES:
+        weeks = [_week_as_set(w) for w in PHONICS_WEEKS if w['phase'] == phase]
+        if weeks:
+            groups.append({'phase': phase, 'sets': weeks})
+    order = ['Phase 2', 'Phase 3', 'Phase 4', 'Phase 5a', 'Y1 NC', 'Phase 5b', 'Phase 5c']
+    groups.sort(key=lambda g: order.index(g['phase']) if g['phase'] in order else len(order))
+    return groups
