@@ -1,10 +1,12 @@
-"""Build phonics_weeks.py from the ULS Phase 5 lesson-plan PDFs.
+"""Build phonics_weeks.py from the ULS Phase 5 lesson-plan PDFs (standard,
+Mastery and Year 2 spelling plans).
 
 The PDFs are licensed ULS material, so they stay out of this repo. Extract
 them first with `pdftotext -layout` (one file per PDF, each page headed
 "##### <name>.pdf / page N"), then run:
 
-    python scripts/build_phonics_weeks.py <dir with 5a.txt 5b.txt 5C.txt>
+    python scripts/build_phonics_weeks.py <dir with 5a.txt 5b.txt 5C.txt
+                                           "5a M.txt" "5b M.txt" "5c M.txt" "5a spelling.txt">
 
 Each PDF page is one teaching week: Lessons as columns, and Revisit /
 Teach / Practise rows. Words are assigned to a lesson by their horizontal
@@ -14,18 +16,31 @@ import os
 import re
 import sys
 
-TRACKS = [('5a', 'Phase 5a'), ('5b', 'Phase 5b'), ('5C', 'Phase 5c')]
+# (file stem, id prefix, phase name)
+TRACKS = [('5a', 'p5a', 'Phase 5a'), ('5b', 'p5b', 'Phase 5b'), ('5C', 'p5c', 'Phase 5c'),
+          ('5a M', 'p5am', 'Phase 5a Mastery'), ('5b M', 'p5bm', 'Phase 5b Mastery'),
+          ('5c M', 'p5cm', 'Phase 5c Mastery'), ('5a spelling', 'p5ay2', 'Phase 5a Year 2')]
 
 MARKERS = {
-    'revisit': re.compile(r'^Revisit blending to read$'),
+    'revisit': re.compile(r'^(Revisit blending to read|Fluent word reading)$'),
     'recall':  re.compile(r'^(Grapheme recall|Teach days of the week)$'),
-    'focus':   re.compile(r'^(Focus GPCs|Focus pronunciations|Focus alternatives)$'),
+    'focus':   re.compile(r'^(Focus GPCs|Focus pronunciations|Focus alternatives|Revise using graphemes?)$'),
     'cew':     re.compile(r'^(Teach new CEW \(read\)|Teach and read CEW|Teach new CEW|'
-                          r'Revisit and read|Revisit and spell( CEW)?)$'),
-    'gpc':     re.compile(r'^(Teach new GPC|Teach new pronunciation|Teach alternative spelling)$'),
+                          r'Revisit and read|Revisit and spell( CEW)?|Revisit & read|'
+                          r'(Read|Spell) CEWs?)$'),
+    'gpc':     re.compile(r'^(Teach new GPC|Teach new pronunciation|Teach alternative spelling|'
+                          r'Teach spelling|Using graphemes?|Rule for spelling)$'),
     'read':    re.compile(r'^Blending for reading$'),
     'spell':   re.compile(r'^(Segment and write for|spelling:?)$'),
 }
+
+# "Teach correct use of nk" and "Spell CEW Monday" carry their content on the
+# marker line itself: split them into (marker, remainder).
+INLINE = [('gpc', re.compile(r'^Teach correct use of (.+)$')),
+          ('cew', re.compile(r'^(?:Read|Spell) CEWs? (.+)$'))]
+
+SKIP = re.compile(r'^(Recap |Unlocking Letters|far, |slides|clicking |so far|Practise common|'
+                  r'misconceptions|the phase)')
 
 # Word runs too wide for their column, which pdftotext prints as one
 # run spanning two lessons. Each maps to the split shown in the PDF.
@@ -35,6 +50,10 @@ OVERRIDES = {
     ('5C', 1, 'revisit'): {3: ['catch', 'fetch', 'kitchen'], 4: ['fudge', 'hedge', 'badger']},
     ('5C', 2, 'read'):    {6: ['gnash', 'design', 'resign'], 7: ['knight', 'knew', 'knead']},
     ('5C', 4, 'revisit'): {18: ['here', 'severe', 'sphere'], 19: ['steer', 'sheer', 'cheering']},
+    ('5a M', 1, 'spell'): {1: ['spray', 'Sunday', 'sway'], 2: ['mouth', 'found', 'sprout']},
+    ('5b M', 2, 'revisit'): {7: ['robot', "won't", 'going'], 8: ['music', 'stupid', 'human'],
+                             9: ['bush', 'awful', 'playful']},
+    ('5c M', 1, 'spell'): {3: ['thumb', 'comb', 'climb'], 4: ['knight', 'resign', 'knife']},
     ('5C', 5, 'read'):    {21: ['calm', 'qualm', 'almond'], 22: ['nowhere', 'tear', 'swear']},
 }
 
@@ -60,14 +79,27 @@ def _parse_page(lines):
             line = ' ' * len(section) + line[len(section):]
         if section not in ('Revisit', 'Teach', 'Practise'):
             continue
-        for run in re.finditer(r'\S+(?: \S+)*', line):
+        runs = [r for r in re.finditer(r'\S+(?: \S+)*', line) if not SKIP.match(r.group())]
+        # Marker labels on one line are always one per column, in order. A wide
+        # label can sit nearer its neighbour's heading, so keep them increasing.
+        label_col, prev = {}, -1
+        for r in runs:
+            if any(rx.match(r.group()) for rx in MARKERS.values()):
+                c = nearest((r.start() + r.end()) / 2)
+                if c <= prev < len(cents) - 1:
+                    c = prev + 1
+                label_col[r.start()] = prev = c
+        for run in runs:
             text = run.group()
-            if text.startswith(('Recap the', 'Unlocking Letters')):
-                continue
-            i = nearest((run.start() + run.end()) / 2)
+            i = label_col.get(run.start(), nearest((run.start() + run.end()) / 2))
             marker = next((k for k, rx in MARKERS.items() if rx.match(text)), None)
             if marker:
                 state[i] = marker
+                continue
+            inline = next(((k, m) for k, rx in INLINE if (m := rx.match(text))), None)
+            if inline:
+                state[i] = inline[0]
+                cols[i][inline[0]].append(inline[1].group(1))
                 continue
             if state[i] in ('revisit', 'read', 'spell'):
                 # Word lists: place each word under its own column.
@@ -97,7 +129,7 @@ def _dedupe(words, exclude=()):
 
 def build(src):
     weeks = []
-    for fname, phase in TRACKS:
+    for fname, prefix, phase in TRACKS:
         text = open(os.path.join(src, fname + '.txt'), encoding='utf-8').read()
         pages = re.split(r'^##### .*$', text, flags=re.M)[1:]
         for wk, page in enumerate(pages, 1):
@@ -109,6 +141,8 @@ def build(src):
                             c[field] = list(split[c['lesson']])
             lessons = []
             for c in cols:
+                if not (c['spell'] or c['read'] or c['revisit'] or c['cew']):
+                    continue    # e.g. a final lesson that only practises misconceptions
                 gpc = _short_gpc(' '.join(c['gpc']))
                 tricky = _dedupe(w for t in c['cew'] for w in t.split())
                 lessons.append({
@@ -125,7 +159,7 @@ def build(src):
             gpcs = [l['focus'] for l in lessons if not l['focus'].startswith('Review')]
             first, last = cols[0]['lesson'], cols[-1]['lesson']
             weeks.append({
-                'id':         f"p{fname.lower()}_w{wk}",
+                'id':         f"{prefix}_w{wk}",
                 'phase':      phase,
                 'week':       wk,
                 'label':      f"Week {wk} (Lessons {first}–{last})",
