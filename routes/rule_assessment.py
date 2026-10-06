@@ -20,7 +20,9 @@ WORDS_PER_LESSON = 2   # always test first 2 words from each lesson's cloze bank
 
 
 def _err(e):
-    return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+    from flask import current_app
+    current_app.logger.exception('Request failed')
+    return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
 def _norm_name(s):
     """Normalise a name for fuzzy matching: lowercase, strip hyphens/punctuation, collapse spaces."""

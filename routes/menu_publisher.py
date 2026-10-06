@@ -8,6 +8,7 @@ from datetime import date, datetime
 from functools import wraps
 from flask import (Blueprint, render_template, request,
                    session, redirect, url_for, jsonify)
+from flask import current_app
 
 menu_bp = Blueprint("menu", __name__)
 
@@ -207,8 +208,9 @@ def menu_extract():
         return jsonify({"ok": True, "menu": menu})
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Claude returned invalid JSON: {e}"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Menu request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500
 
 
 @menu_bp.route("/menu/publish", methods=["POST"])
@@ -220,5 +222,6 @@ def menu_publish():
     try:
         commit_url = _publish_to_github(data["menu"], data.get("message", "Update menu (via WFA app)"))
         return jsonify({"ok": True, "commit_url": commit_url})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Menu request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500

@@ -48,7 +48,9 @@ PAIR_COLOURS = [
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _err(e):
-    return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+    from flask import current_app
+    current_app.logger.exception('Request failed')
+    return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
 def _load_class_file(cls_id):
     """Returns (class_obj, sha) direct from GitHub."""

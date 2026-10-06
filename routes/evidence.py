@@ -17,11 +17,9 @@ from data_manager import _resolve_classes, load_class, latest_rule_confidence_en
 
 evidence_bp = Blueprint('evidence', __name__)
 
-# Distinct from APP_PASSWORD (human login) — a dedicated machine token for
-# server-to-server calls, same convention as every Apps Script tool's
-# SHARED_TOKEN. Set EVIDENCE_TOKEN as a real Render env var when convenient;
-# this default is only a starting point, not meant to be the long-term value.
-EVIDENCE_TOKEN = os.environ.get('EVIDENCE_TOKEN', 'wfa-app-evidence-16092026')
+# Optional extra machine token, from the environment only (no default in code).
+# The Tracker calls this route with the hub token.
+EVIDENCE_TOKEN = os.environ.get('EVIDENCE_TOKEN', '')
 
 
 def _evidence_token_ok(token):

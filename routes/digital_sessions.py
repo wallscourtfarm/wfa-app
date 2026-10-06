@@ -3,6 +3,7 @@ from datetime import datetime, date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, send_file, make_response)
+from flask import current_app
 from data_manager import _week_snapshot, load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
@@ -32,8 +33,9 @@ CLASS_OPTIONS = get_class_options()
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _err(e):
-    import traceback
-    return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+    from flask import current_app
+    current_app.logger.exception('Request failed')
+    return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
 def _load_pupils(cls):
     if cls == 'all':
@@ -194,8 +196,9 @@ def api_bee_cards_pdf(session_id):
         response.headers['Content-Type']        = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename=SpellingBee_{session_id}.pdf'
         return response
-    except Exception as e:
-        return str(e), 500
+    except Exception:
+        current_app.logger.exception('PDF build failed')
+        return 'Something went wrong on the server.', 500
 
 
 def _build_bee_cards(sess, base_url):
@@ -756,8 +759,9 @@ def api_assess_qr(session_id):
         resp.headers['Content-Type']        = 'application/pdf'
         resp.headers['Content-Disposition'] = f'attachment; filename=Assess_{session_id}.pdf'
         return resp
-    except Exception as e:
-        return str(e), 500
+    except Exception:
+        current_app.logger.exception('PDF build failed')
+        return 'Something went wrong on the server.', 500
 
 
 # ── Pupil: Shared assess page ─────────────────────────────────────────────────

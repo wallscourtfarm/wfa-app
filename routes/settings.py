@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import current_app
 from data_manager import load_weekly_config, save_weekly_config, ALL_CLASSES, get_class_options, load_term_dates, term_dates_by_term, current_week_ref
 
 settings_bp = Blueprint('settings', __name__)
@@ -47,8 +48,9 @@ def api_rule_confidence_summary():
     from data_manager import get_rule_confidence_summary
     try:
         return jsonify({'ok': True, 'summary': get_rule_confidence_summary()})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
+    except Exception:
+        current_app.logger.exception('Settings request failed')
+        return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
 
 @settings_bp.route('/api/settings/rule-confidence-archive-reset', methods=['POST'])
@@ -58,8 +60,9 @@ def api_rule_confidence_archive_reset():
     from data_manager import archive_and_reset_rule_confidence
     try:
         return jsonify(archive_and_reset_rule_confidence())
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)})
+    except Exception:
+        current_app.logger.exception('Settings request failed')
+        return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
 
 @settings_bp.route('/api/settings/sync-term-dates', methods=['POST'])

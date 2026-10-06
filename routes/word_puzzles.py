@@ -2,6 +2,7 @@ import os, io, tempfile
 from functools import wraps
 from flask import (Blueprint, render_template, request, session,
                    redirect, url_for, send_file, jsonify)
+from flask import current_app
 
 wp_bp = Blueprint("wordpuzzles", __name__)
 
@@ -57,8 +58,9 @@ def word_search():
         grid, placed, failed, positions = generate_word_search(words, size=size, difficulty=difficulty)
         pdf    = render_word_search_pdf(grid, placed, positions, display_title, year_group)
         return _send_pdf(pdf, f"word_search_{display_title.lower().replace(' ','_')}.pdf")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Word puzzle request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500
 
 
 # ── Nine Letters ──────────────────────────────────────────────────────────────
@@ -77,8 +79,9 @@ def nine_letters():
         puzzle = generate_nine_letters(topic, year_group, _api_key())
         pdf    = render_nine_letters_pdf(puzzle, year_group)
         return _send_pdf(pdf, f"nine_letters_{topic.lower().replace(' ','_')}.pdf")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Word puzzle request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500
 
 
 # ── Word Ladder ───────────────────────────────────────────────────────────────
@@ -98,8 +101,9 @@ def word_ladder():
         puzzle = generate_word_ladder(topic, year_group, difficulty, _api_key())
         pdf    = render_word_ladder_pdf(puzzle, year_group)
         return _send_pdf(pdf, f"word_ladder_{topic.lower().replace(' ','_')}.pdf")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Word puzzle request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500
 
 
 # ── Word Scramble ─────────────────────────────────────────────────────────────
@@ -130,8 +134,9 @@ def word_scramble():
         puzzle = generate_word_scramble(words, difficulty=difficulty)
         pdf    = render_word_scramble_pdf(puzzle, display_title, year_group)
         return _send_pdf(pdf, f"word_scramble_{display_title.lower().replace(' ','_')}.pdf")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Word puzzle request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500
 
 
 # ── Cloze Passage ─────────────────────────────────────────────────────────────
@@ -151,5 +156,6 @@ def cloze_passage():
         puzzle = generate_cloze(topic, year_group, difficulty, _api_key())
         pdf    = render_cloze_pdf(puzzle, year_group)
         return _send_pdf(pdf, f"cloze_{topic.lower().replace(' ','_')}.pdf")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        current_app.logger.exception("Word puzzle request failed")
+        return jsonify({"error": "Something went wrong on the server."}), 500

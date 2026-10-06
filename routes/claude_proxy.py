@@ -7,6 +7,7 @@ server-side API key so the key never appears in browser source.
 
 import os
 from flask import Blueprint, request, jsonify
+from flask import current_app
 from claude_api import create_message, MODEL_FALLBACKS
 import anthropic
 
@@ -53,5 +54,6 @@ def claude_proxy():
         return _cors(jsonify({"ok": True, "text": text, "model": msg.model}), origin)
     except anthropic.AuthenticationError:
         return _cors(jsonify({"ok": False, "error": "Invalid API key on server"}), origin), 500
-    except Exception as exc:
-        return _cors(jsonify({"ok": False, "error": str(exc)}), origin), 500
+    except Exception:
+        current_app.logger.exception('Claude proxy failed')
+        return _cors(jsonify({"ok": False, "error": "Something went wrong on the server."}), origin), 500

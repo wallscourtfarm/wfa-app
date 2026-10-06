@@ -25,7 +25,9 @@ STAGE_YEARS = {2: 'approx. Y2', 3: 'approx. Y3', 4: 'approx. Y4', 5: 'approx. Y5
 
 
 def _err(e):
-    return jsonify({'ok': False, 'error': str(e), 'detail': traceback.format_exc()})
+    from flask import current_app
+    current_app.logger.exception('Request failed')
+    return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
 def _load_pupils(cls):
     pupils = []
