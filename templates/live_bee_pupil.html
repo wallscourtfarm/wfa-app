@@ -126,7 +126,7 @@ const items    = {{ items | tojson }};
 const total    = items.length;
 const SID      = {{ session_id|tojson }};
 const PID      = {{ pupil.id|tojson }};
-const PNAME    = {{ (pupil.first + ' ' + (pupil.last or ''))|tojson }};
+const PNAME    = {{ pupil.first|tojson }};
 const WEEK_REF = {{ week_ref|tojson }};
 let q = 0, typed = '', answers = [], shifted = false;
 

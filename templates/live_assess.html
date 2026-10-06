@@ -178,7 +178,7 @@ let q = 0, typed = '', answers = [], shifted = false;
   pupils.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = `${p.first} ${p.last || ''}`.trim();
+    opt.textContent = p.short;
     sel.appendChild(opt);
   });
   sel.addEventListener('change', () => {
@@ -193,8 +193,8 @@ function startAssess() {
   if (!currentPupil) return;
 
   q = 0; typed = ''; answers = [];
-  document.getElementById('hdr-name').textContent = currentPupil.first;
-  document.getElementById('done-hdr-name').textContent = `Well done, ${currentPupil.first}!`;
+  document.getElementById('hdr-name').textContent = currentPupil.short.split(' ')[0];
+  document.getElementById('done-hdr-name').textContent = `Well done, ${currentPupil.short.split(' ')[0]}!`;
 
   showScreen('screen-type');
   loadWord();
@@ -284,7 +284,7 @@ function submitWord() {
 function finishAssess() {
   const nCorrect = answers.filter(a => a.correct).length;
   document.getElementById('done-title').textContent =
-    `${currentPupil.first} — finished!`;
+    `${currentPupil.short.split(' ')[0]} — finished!`;
   document.getElementById('done-score').textContent =
     `${nCorrect} out of ${total} correct`;
   showScreen('screen-done');
@@ -299,7 +299,7 @@ async function saveResult(correct) {
       body: JSON.stringify({
         session_id:   SID,
         pupil_id:     currentPupil.id,
-        name:         `${currentPupil.first} ${currentPupil.last || ''}`.trim(),
+        name:         currentPupil.short,
         week_ref:     WEEK_REF,
         session_type: SESS_TYPE,
         answers,

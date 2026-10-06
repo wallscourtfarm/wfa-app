@@ -358,6 +358,32 @@ def _build_bee_cards(sess, base_url):
     return buf.read()
 
 
+# ── Pupil-facing name privacy helpers ─────────────────────────────────────────
+
+def _short_names(pupils):
+    """Map pupil id -> 'First L' (two surname letters if two pupils would collide)."""
+    def mk(p, n):
+        first = (p.get('first') or '').strip()
+        last  = (p.get('last') or '').strip()
+        return f'{first} {last[:n]}'.strip() if last else first
+    out = {p['id']: mk(p, 1) for p in pupils}
+    counts = {}
+    for v in out.values():
+        counts[v.lower()] = counts.get(v.lower(), 0) + 1
+    for p in pupils:
+        if counts[out[p['id']].lower()] > 1:
+            out[p['id']] = mk(p, 2)
+    return out
+
+
+def _full_name_from_session(sess, pupil_id):
+    """Full 'First Last' for a pupil id from the session list, or '' if not found."""
+    p = next((x for x in (sess or {}).get('pupils', []) if x.get('id') == pupil_id), None)
+    if not p:
+        return ''
+    return f"{p.get('first', '')} {p.get('last', '') or ''}".strip()
+
+
 # ── Pupil: Spelling Bee page ──────────────────────────────────────────────────
 
 @live_bp.route('/live/bee/<session_id>/<pupil_id>')
@@ -425,7 +451,9 @@ def api_live_submit():
         result = {
             'session_id':    session_id,
             'pupil_id':      pupil_id,
-            'name':          body.get('name', ''),
+            # Derive the stored name server-side from the session's pupil list
+            # (pupil pages only know first name / short name); client name is a fallback.
+            'name':          _full_name_from_session(sess, pupil_id) or body.get('name', ''),
             'week_ref':      body.get('week_ref', ''),
             'session_type':  sess_type,
             'submitted':     datetime.now().isoformat(),
@@ -772,11 +800,14 @@ def assess_pupil(session_id):
     sess = _load_session(session_id)
     if not sess:
         return render_template('live_error.html', msg='Session not found. Ask your teacher.')
+    pupils = sess.get('pupils', [])
+    short  = _short_names(pupils)
+    pupils_public = [{'id': p['id'], 'short': short[p['id']]} for p in pupils]
     return render_template('live_assess.html',
         session_id=session_id,
         session_type=sess.get('type', 'word'),
         items=sess.get('items', []),
-        pupils_json=json.dumps(sess.get('pupils', [])),
+        pupils_json=json.dumps(pupils_public),
         week_ref=sess.get('week_ref', ''))
 
 
