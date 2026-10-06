@@ -178,7 +178,7 @@ let q = 0, typed = '', answers = [], shifted = false;
   pupils.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.name;
+    opt.textContent = p.short;
     sel.appendChild(opt);
   });
   sel.addEventListener('change', () => {

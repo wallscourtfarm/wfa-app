@@ -843,10 +843,7 @@ def assess_pupil(session_id):
         return render_template('live_error.html', msg='Session not found. Ask your teacher.')
     pupils = sess.get('pupils', [])
     short  = _short_names(pupils)
-    # 'name' is only for the pick-your-name list: a child has to find themselves among
-    # their classmates' names. Everything after that uses the initials label.
-    pupils_public = [{'id': p['id'], 'short': short[p['id']],
-                      'name': f"{p.get('first', '')} {p.get('last', '') or ''}".strip()} for p in pupils]
+    pupils_public = [{'id': p['id'], 'short': short[p['id']]} for p in pupils]
     return render_template('live_assess.html',
         session_id=session_id,
         session_type=sess.get('type', 'word'),
