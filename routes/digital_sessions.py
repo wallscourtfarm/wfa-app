@@ -1,4 +1,4 @@
-import os, json, base64, uuid
+import re, os, json, base64, uuid
 from datetime import datetime, date
 import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
@@ -360,20 +360,60 @@ def _build_bee_cards(sess, base_url):
 
 # ── Pupil-facing name privacy helpers ─────────────────────────────────────────
 
-def _short_names(pupils):
-    """Map pupil id -> 'First L' (two surname letters if two pupils would collide)."""
-    def mk(p, n):
-        first = (p.get('first') or '').strip()
-        last  = (p.get('last') or '').strip()
-        return f'{first} {last[:n]}'.strip() if last else first
-    out = {p['id']: mk(p, 1) for p in pupils}
-    counts = {}
-    for v in out.values():
-        counts[v.lower()] = counts.get(v.lower(), 0) + 1
-    for p in pupils:
-        if counts[out[p['id']].lower()] > 1:
-            out[p['id']] = mk(p, 2)
+def _initials_labels(people):
+    """people: list of (first, last) -> list of labels (same order).
+    Default 'IM' (first letter of first name + first letter of surname, upper
+    case; letters only, last word of the surname). Pupils whose label clashes
+    within the list get 2, then 3... letters of each part ('InMc', 'InnMcL');
+    truly identical names get ' 2', ' 3' in list order. Single-word names unchanged."""
+    parts = []
+    for first, last in people:
+        f = re.sub(r'[^A-Za-z]', '', (first or '').strip().split(' ')[0] if (first or '').strip() else '')
+        lw = (last or '').split()
+        l = re.sub(r'[^A-Za-z]', '', lw[-1]) if lw else ''
+        parts.append((f, l))
+
+    def lab(i, n):
+        f, l = parts[i]
+        if not l:
+            return (first_raw(i))
+        if n == 1:
+            return (f[:1] + l[:1]).upper()
+        return (f[:n][:1].upper() + f[:n][1:]) + (l[:n][:1].upper() + l[:n][1:])
+
+    def first_raw(i):
+        return (people[i][0] or '').strip()
+
+    lv = [1] * len(parts)
+    while True:
+        labels = [lab(i, lv[i]) for i in range(len(parts))]
+        groups = {}
+        for i, t in enumerate(labels):
+            groups.setdefault(t.lower(), []).append(i)
+        changed = False
+        for idxs in groups.values():
+            if len(idxs) < 2 or len({(parts[i][0].lower(), parts[i][1].lower()) for i in idxs}) < 2:
+                continue
+            for i in idxs:
+                f, l = parts[i]
+                if l and lv[i] < max(len(f), len(l)):
+                    lv[i] += 1
+                    changed = True
+        if not changed:
+            break
+    seen = {}
+    out = []
+    for i, t in enumerate(labels):
+        k = t.lower()
+        seen[k] = seen.get(k, 0) + 1
+        out.append(t if seen[k] == 1 else f'{t} {seen[k]}')
     return out
+
+
+def _short_names(pupils):
+    """Map pupil id -> initials label (see _initials_labels)."""
+    labels = _initials_labels([(p.get('first') or '', p.get('last') or '') for p in pupils])
+    return {p['id']: labels[i] for i, p in enumerate(pupils)}
 
 
 def _full_name_from_session(sess, pupil_id):
@@ -398,6 +438,7 @@ def bee_pupil(session_id, pupil_id):
     return render_template('live_bee_pupil.html',
         session_id=session_id,
         pupil=pupil,
+        pupil_label=_short_names(sess.get('pupils', [])).get(pupil_id, ''),
         items=pupil.get('items', []),
         week_ref=sess.get('week_ref', ''))
 
