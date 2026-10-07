@@ -519,7 +519,7 @@ async function syncRoster(btn) {
         + `Renamed: ${d.renamed.length} · Attention: ${d.unmatched.length}`, 'ok');
       if (c.length) setTimeout(() => alert('Changes:\n' + c.join('\n')), 100);
     }
-    loadPupils();
+    load();
     loadRosterStatus();
   } catch (e) {
     showStatus('Request failed: ' + e.message, 'error');
