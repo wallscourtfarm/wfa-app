@@ -4,6 +4,7 @@ from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from print_names import parse_names, display_pupils, PrintNamesError
+import scan_identity
 
 wa_bp = Blueprint('word_assessment', __name__)
 
@@ -23,13 +24,17 @@ def _err(e):
     current_app.logger.exception('Request failed')
     return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
-def _load_pupils(cls):
-    pupils = []
+def _load_entries(cls):
+    """[(class_id, pupil_dict)] for the class selection, in print order."""
+    out = []
     for cid in _resolve_classes(cls):
         d = load_class(cid)
         if d:
-            pupils.extend(d.get('pupils', []))
-    return pupils
+            out.extend((cid, p) for p in d.get('pupils', []))
+    return out
+
+def _load_pupils(cls):
+    return [p for _, p in _load_entries(cls)]
 
 def _load_cloze_bank():
     r = _req.get(
@@ -75,13 +80,13 @@ def _vision_prompt(word_list_text, mark_format='circle'):
         )
     return (
         "This is a scanned page from a Year 3/4 spelling assessment completed by a primary school pupil.\n\n"
-        "The child's name is pre-printed at the top of the page — read it exactly as printed.\n\n"
+        f"{scan_identity.CODE_PROMPT}\n\n"
         f"The assessment tests these words in order:\n{word_list_text}\n\n"
         "Each numbered row has a small marking symbol in the FAR RIGHT column of the page. "
         "Next to it (to its left) is a small rule reference code like '2-31' or '4-1'.\n\n"
         f"{marking}\n\n"
         "Work through the rows in order, matching each word in the list above to its numbered row on the page.\n\n"
-        "Return ONLY valid JSON: {\"name\": \"Full Name\", \"results\": {\"word1\": true, \"word2\": false}}\n"
+        "Return ONLY valid JSON: {\"code\": \"p_xxxxxxxxxx\", \"results\": {\"word1\": true, \"word2\": false}}\n"
         "true = correct mark present. false = empty, scribbled out, or uncertain. "
         "Omit words not on this page. No preamble, no markdown fences."
     )
@@ -130,10 +135,12 @@ def api_wa_generate():
                 cloze.update(generate_missing_cloze(missing, api_key))
 
         from assessment_builder import build_word_assessment_pdf, build_word_assessment_excel, build_word_assessment_teacher_pdf
-        pupils        = display_pupils(pupils, names)   # copies; stored objects untouched
+        # The scan sheet carries initials + code only: it is built from the STORED pupils, never
+        # from the names-file overlay. The names file is used only for the Excel marking sheet.
         pdf_bytes     = build_word_assessment_pdf(pupils, sections, cloze, week_ref)
         teacher_bytes = build_word_assessment_teacher_pdf([], sections, cloze, week_ref)
-        xl_bytes      = build_word_assessment_excel(pupils, sections)
+        xl_pupils     = display_pupils(pupils, names)   # copies; stored objects untouched
+        xl_bytes      = build_word_assessment_excel(xl_pupils, sections)
 
         flagged = [w for w in missing if w.lower() not in cloze]
         return jsonify({
@@ -145,6 +152,7 @@ def api_wa_generate():
             'teacher_pdf_name':  f'Word_Assessment_{week_ref}_{cls}_Teacher.pdf',
             'excel_name':        f'Word_Assessment_{week_ref}_{cls}_Marking.xlsx',
             'n_pupils':  len(pupils),
+            'n_no_code': sum(1 for p in pupils if not scan_identity.pupil_code(p)),
             'n_words':   len(all_words),
             'flagged':   flagged,
         })
@@ -186,8 +194,10 @@ def api_wa_import_upload():
         cloze_tmp    = _load_cloze_bank()
         secs_tmp     = _sections_from_keys(body.get('sections', SECTION_KEYS))
         total_words  = sum(len(ws) for _, ws in secs_tmp)
+        # Labels only (initials), never names: feeds the manual-assign dropdown.
+        roster = scan_identity.roster(_load_entries(body.get('cls', DEFAULT_CLASS)))
         return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
-                        'total_words': total_words})
+                        'total_words': total_words, 'roster': roster})
     except Exception as e:
         return _err(e)
 
@@ -216,6 +226,11 @@ def api_wa_import_stream(job_id):
     mark_format     = meta.get('mark_format', 'circle')
     mark_convention = meta.get('mark_convention', 'correct')
     prompt          = _vision_prompt(wl_text, mark_format)
+    entries         = _load_entries(meta.get('cls', DEFAULT_CLASS))
+    exp_ids         = scan_identity.expected_ids(entries)
+    key_by_id       = {scan_identity.pupil_code(p): scan_identity.pupil_key(cid, p)
+                       for cid, p in entries if scan_identity.pupil_code(p)}
+    label_by_key    = {r['key']: r['label'] for r in scan_identity.roster(entries)}
     api_key         = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data):
@@ -268,11 +283,16 @@ def api_wa_import_stream(job_id):
                         results = parsed.get('results', {})
                         if mark_convention == 'mistake':
                             results = {k: not v for k, v in results.items()}
+                        pid, status = scan_identity.match_code(parsed.get('code', ''), exp_ids)
+                        key = key_by_id.get(pid, '') if pid else ''
+                        # Browser gets initials label + status only. Never a name, never the raw reply.
                         yield sse({
                             'type':     'page',
                             'page_num': page_num + 1,
                             'total':    n_pages,
-                            'name':     parsed.get('name', ''),
+                            'key':      key,
+                            'label':    label_by_key.get(key, ''),
+                            'status':   status if key else 'unmatched',
                             'results':  results,
                         })
                     else:
@@ -288,7 +308,7 @@ def api_wa_import_stream(job_id):
                         'type':     'error',
                         'page_num': page_num + 1,
                         'total':    n_pages,
-                        'message':  str(e),
+                        'message':  'Could not read this page.',
                     })
 
             doc.close()
@@ -320,14 +340,19 @@ def api_wa_confirm():
     try:
         body    = request.get_json(force=True)
         cls     = body.get('cls', DEFAULT_CLASS)
-        # results: {name_lower: {name, results: {word: bool}}}
+        # results: {pupil key: {results: {word: bool}}}. The key is the pupil_id, or
+        # "<class_id>|<id>" for pupils without one. Identity is never a name.
         results = body.get('results', {})
+        if not isinstance(results, dict):
+            return jsonify({'ok': False, 'error': 'Results were not in the expected format.'}), 400
+        sections = _sections_from_keys(body.get('sections', SECTION_KEYS))
 
         from word_bank import WORD_BANK
         class_ids = _resolve_classes(cls)
-        saved = 0
-        unmatched = []
 
+        # Load every class first so initials labels are clash-aware across the whole selection
+        # (the same list the sheets were printed from).
+        loaded = []
         for cid in class_ids:
             r2 = _req.get(
                 f'https://api.github.com/repos/{DATA_REPO}/contents/data/classes/{cid}.json',
@@ -335,23 +360,31 @@ def api_wa_confirm():
             if r2.status_code != 200:
                 continue
             file_data = r2.json()
-            sha       = file_data['sha']
             class_obj = json.loads(base64.b64decode(file_data['content']).decode())
-            pupils    = class_obj.get('pupils', [])
-            changed   = False
+            loaded.append((cid, file_data['sha'], class_obj))
+        entries = [(cid, p) for cid, _, o in loaded for p in o.get('pupils', [])]
+        label_by_key = {r['key']: r['label'] for r in scan_identity.roster(entries)}
+
+        saved = 0
+        unmatched = []      # initials labels of pupils with no result (labels only)
+
+        for cid, sha, class_obj in loaded:
+            pupils  = class_obj.get('pupils', [])
+            changed = False
 
             for p in pupils:
-                name_key = (p.get('first','') + ' ' + (p.get('last') or '')).strip().lower()
-                if name_key not in results:
-                    unmatched.append((p.get('first','') + ' ' + (p.get('last') or '')).strip())
+                key = scan_identity.pupil_key(cid, p)
+                entry = results.get(key)
+                if not isinstance(entry, dict) or not isinstance(entry.get('results'), dict):
+                    unmatched.append(label_by_key.get(key, ''))
                     continue
 
                 # Initialise all assessment words as False, overlay Vision results
                 all_words = {word.lower(): False
                              for _, words in sections for word in words}
-                for k, v in results[name_key]['results'].items():
+                for k, v in entry['results'].items():
                     if k.lower() in all_words:
-                        all_words[k.lower()] = v
+                        all_words[k.lower()] = bool(v)
 
                 mastered = set(p.get('mastered', []))
                 for word, correct in all_words.items():

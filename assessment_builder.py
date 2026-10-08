@@ -67,7 +67,9 @@ def _draw_page_header(c, W, H, pupil_name, week_ref, page_label, assessment_type
 
 def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
     """
-    Returns PDF bytes. One or more pages per pupil (name on every page).
+    Returns PDF bytes. One or more pages per pupil. The header carries the pupil's INITIALS label
+    and their pupil_id CODE on every page, never a name (see scan_identity). Pass the STORED pupils
+    (not a names-file overlay): labels are computed over this list, clash-aware.
     sections: list of (label, [words])
     cloze_lookup: {word_lower: sentence_with_blanks}
     """
@@ -93,9 +95,12 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
     for label, words in sections:
         all_words_flat.extend(words)
 
-    for pupil in pupils:
-        name = pupil.get("first", "") + " " + (pupil.get("last") or "")
-        name = name.strip()
+    import scan_identity
+    pupils = list(pupils)
+    labels = scan_identity.labels_for(pupils)
+
+    for pupil, id_label in zip(pupils, labels):
+        id_code = scan_identity.pupil_code(pupil)
 
         # Build flat list of items: ("section", label) or ("word", n, word, sentence)
         items = []
@@ -134,7 +139,7 @@ def build_word_assessment_pdf(pupils, sections, cloze_lookup, week_ref=""):
 
         for pg_idx, page_items in enumerate(pages):
             pg_label = f"Page {pg_idx + 1} of {n_pages}"
-            top_y = _draw_page_header(c, W, H, name, week_ref, pg_label)
+            top_y = scan_identity.draw_scan_header(c, W, H, id_label, id_code, week_ref, pg_label)
             cy = top_y - 5 * mm
 
             for item in page_items:

@@ -206,8 +206,16 @@ rds._load_session = lambda sid: SESSION
 print('bee cards: old sessions without pupil_id fall back safely')
 
 # Assessment generate routes
-check('word-assessment/generate', lambda names: b64pdf(
-    post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], **({'names': names} if names else {})}).get_json(), 'pdf'))
+# The word-assessment PUPIL SHEET is name-free (initials + pupil_id code; see tests/test_word_scan.py),
+# so names supplied or stored must never appear on it. Only the Excel marking sheet uses the names file.
+for _names in (None, FILE_NAMES):
+    for _env in (None, '1'):
+        os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+        if _env: os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = _env
+        _t = pdf_text(b64pdf(post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], **({'names': _names} if _names else {})}).get_json(), 'pdf'))
+        assert has_none(_t, STORED_BITS + FILE_BITS), 'word-assessment sheet carries a name'
+os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+print('word-assessment/generate: pupil sheet has no names')
 # the marking spreadsheet is also built from the displayed names
 import openpyxl
 d = post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], 'names': FILE_NAMES}).get_json()

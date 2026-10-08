@@ -104,7 +104,7 @@
     <h4 class="wa-results-title">Results — review before saving</h4>
     <table class="wa-results-table">
       <thead>
-        <tr><th>Name</th><th>Total words</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
+        <tr><th>Pupil</th><th>Total words</th><th>Correct</th><th>Incorrect</th><th>%</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
@@ -146,7 +146,7 @@ function blob64(b64, mime) {
 async function generate() {
   const sections = selectedSections();
   if (!sections.length) { showStatus('Select at least one word set.', 'error'); return; }
-  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
+  // Pupil sheets carry initials + code only. The names file is used ONLY for the Excel marking sheet.
   const ask = await WFAPrint.askNames(null);
   if (ask.cancelled) return;
   const namesPart = ask.names ? { names: ask.names } : {};
@@ -186,7 +186,9 @@ async function generate() {
 }
 
 // ── Import: streaming ─────────────────────────────────────────────
-let _importResults = {};   // name_lower -> {name, results: {word: bool}}
+let _importResults = {};   // pupil key -> {label, status, results: {word: bool}}
+let _pagesPending  = {};   // page_num -> {results}  (code not recognised: teacher assigns by hand)
+let _roster        = [];   // [{key, label, has_code}]  initials labels only
 let _errorPages    = [];
 let _activeSource  = null;
 
@@ -196,6 +198,8 @@ async function startImport() {
 
   const sections = selectedSections();
   _importResults = {};
+  _pagesPending  = {};
+  _roster        = [];
   _errorPages    = [];
   _totalWords    = 0;
 
@@ -229,6 +233,7 @@ async function startImport() {
     jobId       = d.job_id;
     nPages      = d.n_pages;
     _totalWords = d.total_words || 0;
+    _roster     = d.roster || [];
     setProgress(0, nPages, `Processing page 1 of ${nPages}…`);
   } catch(e) {
     showStatus('Upload failed: ' + e.message, 'error');
@@ -247,14 +252,14 @@ async function startImport() {
     const ev = JSON.parse(e.data);
 
     if (ev.type === 'page') {
-      const nameKey = ev.name.trim().toLowerCase();
-      if (nameKey) {
-        if (!_importResults[nameKey]) {
-          _importResults[nameKey] = { name: ev.name, results: {} };
-        }
-        Object.assign(_importResults[nameKey].results, ev.results);
-        renderRow(ev.name, _importResults[nameKey].results);
+      if (ev.key) {
+        const cur = _importResults[ev.key] || (_importResults[ev.key] = { label: ev.label, status: ev.status, results: {} });
+        if (ev.status === 'fuzzy') cur.status = 'fuzzy';
+        Object.assign(cur.results, ev.results);
+      } else {
+        _pagesPending[ev.page_num] = { results: ev.results };
       }
+      renderRows();
       setProgress(ev.page_num, ev.total,
         ev.page_num < ev.total ? `Processing page ${ev.page_num + 1} of ${ev.total}…` : 'Finishing…');
     }
@@ -273,8 +278,10 @@ async function startImport() {
         showStatus('Processing failed: ' + ev.message, 'error');
       } else {
         const n = Object.keys(_importResults).length;
-        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n !== 1 ? 's' : ''} found. Review and save below.`);
-        document.getElementById('confirm-btn').disabled = false;
+        const u = Object.keys(_pagesPending).length;
+        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n !== 1 ? 's' : ''} found.` +
+          (u ? ` ${u} page${u !== 1 ? 's' : ''} need a pupil choosing below.` : '') + ' Review and save below.');
+        document.getElementById('confirm-btn').disabled = !n;
       }
 
       if (_errorPages.length) {
@@ -302,26 +309,66 @@ function setProgress(done, total, label) {
   document.getElementById('progress-label').textContent = label;
 }
 
-function renderRow(name, results) {
-  const correct   = Object.values(results).filter(Boolean).length;
+function _stats(results) {
   const total     = Object.values(results).length;
-  const incorrect = total - correct;
-  const pct       = total ? Math.round(correct / total * 100) : '—';
-  const nameKey   = name.trim().toLowerCase();
-  const rowId     = 'row-' + nameKey.replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const correct   = Object.values(results).filter(Boolean).length;
+  return { total, correct, incorrect: total - correct,
+           pct: total ? Math.round(correct / total * 100) + '%' : '—' };
+}
 
-  let row = document.getElementById(rowId);
-  if (!row) {
-    row = document.createElement('tr');
-    row.id = rowId;
-    document.getElementById('results-body').appendChild(row);
-  }
-  row.innerHTML = `
-    <td>${name}</td>
-    <td>${total}</td>
-    <td>${correct}</td>
-    <td>${incorrect}</td>
-    <td>${pct}${typeof pct === 'number' ? '%' : ''}</td>`;
+function _cell(tr, text) {
+  const td = document.createElement('td');
+  td.textContent = text;
+  tr.appendChild(td);
+  return td;
+}
+
+// Rows show only the initials label and a match status. Never a name.
+function renderRows() {
+  const body = document.getElementById('results-body');
+  body.innerHTML = '';
+  const taken = new Set(Object.keys(_importResults));
+
+  Object.entries(_importResults).forEach(([key, r]) => {
+    const st = _stats(r.results);
+    const tr = document.createElement('tr');
+    _cell(tr, r.label + (r.status === 'fuzzy' ? '  ⚠ check code' : ''));
+    _cell(tr, st.total); _cell(tr, st.correct); _cell(tr, st.incorrect); _cell(tr, st.pct);
+    body.appendChild(tr);
+  });
+
+  Object.entries(_pagesPending).forEach(([pageNum, pg]) => {
+    const st = _stats(pg.results);
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    const sel = document.createElement('select');
+    const o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = `Page ${pageNum}: who is this?`;
+    sel.appendChild(o0);
+    _roster.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.key;
+      o.textContent = r.label + (taken.has(r.key) ? ' (already has results)' : '');
+      sel.appendChild(o);
+    });
+    sel.onchange = () => assignPage(pageNum, sel.value);
+    td.appendChild(sel);
+    tr.appendChild(td);
+    _cell(tr, st.total); _cell(tr, st.correct); _cell(tr, st.incorrect); _cell(tr, st.pct);
+    body.appendChild(tr);
+  });
+}
+
+function assignPage(pageNum, key) {
+  if (!key) return;
+  const pg = _pagesPending[pageNum];
+  if (!pg) return;
+  const r = _roster.find(x => x.key === key);
+  const cur = _importResults[key] || (_importResults[key] = { label: r ? r.label : '', status: 'manual', results: {} });
+  Object.assign(cur.results, pg.results);
+  delete _pagesPending[pageNum];
+  document.getElementById('confirm-btn').disabled = false;
+  renderRows();
 }
 
 async function confirmImport() {
@@ -331,17 +378,18 @@ async function confirmImport() {
     const resp = await fetch('/api/word-assessment/confirm', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS, results: _importResults }),
+      body: JSON.stringify({ cls: CLS, sections: selectedSections(), results: _importResults }),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
 
     let msg = `✅ Saved results for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
-    if (d.unmatched?.length) msg += ` No match: ${d.unmatched.join(', ')}.`;
+    if (d.unmatched?.length) msg += ` No result for: ${d.unmatched.join(', ')}.`;
     showStatus(msg);
     document.getElementById('import-results').classList.add('hidden');
     document.getElementById('pdf-upload').value = '';
     _importResults = {};
+    _pagesPending  = {};
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
     document.getElementById('confirm-btn').disabled = false;
@@ -360,6 +408,7 @@ function resetImport() {
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('pdf-upload').value = '';
   _importResults = {};
+  _pagesPending  = {};
   _errorPages    = [];
   _totalWords    = 0;
 }
