@@ -26,7 +26,7 @@
   <nav class="topnav">
     <a href="{{ url_for('dash.dashboard') }}" class="nav-brand">
       <img src="{{ url_for('static', filename='wfa_logo.webp') }}" alt="Wallscourt Farm Academy" class="nav-logo">
-      <span class="nav-version">08.10.26b</span>
+      <span class="nav-version">08.10.26c</span>
     </a>
     <div class="year-switcher">
       {% for yr in all_year_groups %}
@@ -114,5 +114,13 @@
   </main>
 
   {% block scripts %}{% endblock %}
+
+  <!-- 'Show names': teachers load a names file in their own browser; names never reach this server. -->
+  <script src="https://cdn.jsdelivr.net/gh/wallscourtfarm/wfa-shared@main/web/names-file.js?v=2"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.WFANames && WFANames.screen) WFANames.screen.init();
+    });
+  </script>
 </body>
 </html>

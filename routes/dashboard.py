@@ -31,7 +31,9 @@ def dashboard():
         r = {k: v for k, v in r.items() if k not in ('first', 'last', 'name', 'upn')}
         r['label'] = labels.get(r.get('id', ''), '')
         rows.append(r)
-    learner_pupils = [{k: v for k, v in lp.items() if k not in ('first', 'last', 'name', 'upn')}
+    learner_pupils = [{**{k: v for k, v in lp.items()
+                          if k not in ('first', 'last', 'name', 'upn', 'pupil_id')},
+                       'pid': lp.get('pupil_id', '')}
                       for lp in learner_pupils]
     return render_template('dashboard.html',
         rows=rows, stats=data['stats'],

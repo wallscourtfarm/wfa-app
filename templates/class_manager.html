@@ -11,6 +11,7 @@
       {% endfor %}
     </select>
     <button class="btn btn-secondary" onclick="syncRoster(this)" title="Pull the Bromcom roster (Pupil Tracker import): refresh names, add arrivals, remove leavers">⇄ Sync from Bromcom</button>
+<button class="btn btn-secondary" onclick="addPupilCodes(this)" title="Add each pupil's code from the roster (needed for 'Show names'). Checks first, then asks before saving. Changes nothing else.">🆔 Add pupil codes</button>
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
     <button class="btn btn-secondary" onclick="openStartModal()" title="Choose which year group's spelling set pupils start from — e.g. a new starter joining in Y6 from the start of Y4">🐝 Spelling start point</button>
@@ -431,6 +432,15 @@ function showStatus(msg, type='ok') {
   bar.textContent = msg; bar.className = `status-bar status-${type}`;
   setTimeout(() => bar.className = 'status-bar hidden', 4000);
 }
+// Initials label wrapped for the 'Show names' helper. The element holds ONLY the
+// label text; data-pupil-id carries the pupil code (empty until codes are attached).
+function esc(v) {
+  return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function lbl(text, pid) {
+  return `<span data-pupil-id="${esc(pid)}">${esc(text)}</span>`;
+}
 function showSpin(id, show) { document.getElementById('spin-'+id)?.classList.toggle('hidden',!show); }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
@@ -486,6 +496,44 @@ async function loadRosterStatus() {
     txt.textContent = bits.join(' · ');
     chip.style.display = 'flex';
   } catch (e) { /* chip stays hidden */ }
+}
+
+// ── Add pupil codes (dry run first, then confirm) ───────────────────────────
+// Counts only: no names or initials are shown here.
+async function addPupilCodes(btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Checking…';
+  const call = async dry => {
+    const r = await fetch('/api/class/attach-pupil-ids', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dry_run: dry}),
+    });
+    return r.json();
+  };
+  try {
+    const d = await call(true);
+    if (!d.ok) { showStatus('Could not check: ' + (d.error || 'unknown error'), 'error'); return; }
+    if (!d.to_add) {
+      showStatus(`Nothing to add — ${d.already_set} pupil codes already in place`
+        + (d.skipped_count ? `, ${d.skipped_count} pupils skipped (no match).` : '.'), 'ok');
+      return;
+    }
+    if (!confirm(`Add pupil codes?\n\n• ${d.to_add} pupils will get a code\n`
+      + `• ${d.already_set} already have one\n• ${d.skipped_count} can't be matched and will be left alone\n\n`
+      + 'Nothing else is changed. Proceed?')) return;
+    btn.textContent = '⏳ Saving…';
+    const w = await call(false);
+    if (!w.ok) {
+      showStatus('Some codes could not be saved: ' + (w.error || 'unknown error'), 'error');
+    } else {
+      showStatus(`Pupil codes added: ${w.added} pupils in ${w.files_changed} classes. Skipped: ${w.skipped_count}.`, 'ok');
+    }
+    load();
+  } catch (e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
 }
 
 async function syncRoster(btn) {
@@ -603,7 +651,7 @@ function render() {
     const pairNum = pairKey && window._pairNums[pairKey]
       ? `<span class="pair-num">P${window._pairNums[pairKey]}</span>` : '';
     const pairLabel = p.partner_label
-      ? `${pairDot}${pairNum} ${p.partner_label}${p.partner_cls !== CLS_ID && p.partner_cls
+      ? `${pairDot}${pairNum} ${lbl(p.partner_label, p.partner_pid)}${p.partner_cls !== CLS_ID && p.partner_cls
           ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}`
       : `<span class="no-pair">Unpaired</span>`;
 
@@ -612,7 +660,7 @@ function render() {
       : `<span class="group-badge group-${p.group === 'main' ? 'main' : 'phonics'}">${p.group === 'main' ? 'Main' : 'Phonics'}</span>`;
 
     tr.innerHTML = `
-      <td><strong>${p.label}</strong></td>
+      <td><strong>${lbl(p.label, p.pid)}</strong></td>
       <td>${groupBadge}</td>
       <td>${p.tt_set}${p.tt_mode === 'xd' ? '×÷' : '×'}</td>
       <td>
@@ -636,7 +684,7 @@ function render() {
             // Their partner isn't a row in this table, so they can't be
             // grouped by number here — leave them out of the bulk payload
             // entirely and only offer the existing Unpair action.
-            return `${pairDot}<span class="pair-name" style="font-size:12px">${p.partner_label}
+            return `${pairDot}<span class="pair-name" style="font-size:12px">${lbl(p.partner_label, p.partner_pid)}
                 <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span></span>
               <button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
                 style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">Unpair</button>`;
@@ -650,7 +698,7 @@ function render() {
                     onclick="event.stopPropagation()"
                     style="width:56px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:center">`;
         })() : `${pairDot}${p.partner_label
-          ? `<span class="pair-name">${p.partner_label}${p.partner_cls !== CLS_ID && p.partner_cls
+          ? `<span class="pair-name">${lbl(p.partner_label, p.partner_pid)}${p.partner_cls !== CLS_ID && p.partner_cls
               ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}</span>`
           : `<span class="no-pair">${_pairMode ? 'Unpaired' : 'Click to pair'}</span>`}
         ${p.partner_label && !_pairMode
@@ -838,8 +886,8 @@ function openPairModal(pid, e) {
   if (e) e.stopPropagation();
   _pairTarget = pid;
   const pupil = _pupils.find(p => p.id === pid);
-  document.getElementById('pair-modal-title').textContent =
-    `Pair ${pupil ? pupil.label : pid} with…`;
+  document.getElementById('pair-modal-title').innerHTML =
+    pupil ? `Pair ${lbl(pupil.label, pupil.pid)} with…` : 'Pair with…';
   document.getElementById('pair-search').value = '';
   populatePairList('');
   // Auto-suggest first colour not already used by another pair
@@ -871,7 +919,7 @@ function populatePairList(filter) {
     item.className = 'pair-list-item';
     const cls_label = p.cls_id !== CLS_ID
       ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.cls_id)})</span>` : '';
-    item.innerHTML = `<span>${label}${cls_label}</span>`;
+    item.innerHTML = `${lbl(label, p.pid)}${cls_label}`;
     item.onclick = () => {
       const colour = document.getElementById('pair-modal-colour').value;
       const target = _pairTarget;   // closePairModal() clears _pairTarget
@@ -930,7 +978,7 @@ function openEditModal(pid, e) {
   const p = _pupils.find(x => x.id === pid);
   if (!p) return;
   document.getElementById('edit-pupil-id').value    = pid;
-  document.getElementById('edit-title').textContent = `Edit — ${p.label}`;
+  document.getElementById('edit-title').innerHTML = `Edit — ${lbl(p.label, p.pid)}`;
   document.getElementById('edit-group').value       = p.group || 'main';
   const editGpcs = p.phonics_gpcs || [];
   const editMatched = selectPhonicsSetFromGpcs('edit', editGpcs);
@@ -957,7 +1005,7 @@ function openStartModal(pid) {
     const isNew = !p.mastered_count;
     return `<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13.5px">
       <input type="checkbox" class="start-cb" value="${p.id}" data-new="${isNew ? 1 : 0}" ${p.id === pid ? 'checked' : ''}>
-      <span style="flex:1">${p.label}</span>
+      <span style="flex:1">${lbl(p.label, p.pid)}</span>
       <span style="font-size:12px;color:#94a3b8">${isNew ? 'no history · ' : ''}now at ${yr || '?'}</span></label>`;
   }).join('') || '<p style="color:#94a3b8;font-size:13px">No pupils in this class.</p>';
   document.getElementById('start-reissue').checked = false;

@@ -82,6 +82,7 @@ def _all_pupils_map():
         if obj:
             for p in obj.get('pupils', []):
                 result[p['id']] = {
+                    'pupil_id': p.get('pupil_id', ''),
                     'first': p.get('first', ''),
                     'last':  p.get('last', ''),
                     'cls_id': cid,
@@ -167,6 +168,7 @@ def api_class_list():
             partner = id_map.get(pid, {})
             pupils.append({
                 'id':           p['id'],
+                'pid':          p.get('pupil_id', ''),
                 'label':        labels.get(p['id']) or label_list([(p.get('first', ''), p.get('last', ''))])[0],
                 'group':        p.get('group', 'main'),
                 'tt_set':       str(p.get('tt_set', '2')),
@@ -175,6 +177,7 @@ def api_class_list():
                 'pair_colour':       p.get('pair_colour', ''),
                 'pair_colour_name':  p.get('pair_colour_name', ''),
                 'partner_label': labels.get(pid, '') if partner else '',
+                'partner_pid':  partner.get('pupil_id', '') if partner else '',
                 'partner_cls':  partner.get('cls_id', '') if partner else '',
                 'table':        str(p.get('table', '')),
                 'maths_level':   p.get('maths_level', 'standard'),
@@ -192,7 +195,7 @@ def api_class_list():
 
         # Cross-class pupils for pairing selector
         all_for_pairing = [
-            {'id': pid, 'label': labels.get(pid, ''), 'cls_id': v['cls_id']}
+            {'id': pid, 'pid': v.get('pupil_id', ''), 'label': labels.get(pid, ''), 'cls_id': v['cls_id']}
             for pid, v in id_map.items()
         ]
         all_for_pairing.sort(key=lambda p: p['label'].lower())
@@ -617,6 +620,24 @@ def api_roster_sync():
         from roster_sync import sync_roster
         result = sync_roster(apply=True)
         return jsonify(_roster_summary_for_browser(result))
+    except Exception as e:
+        return _err(e)
+
+
+@cm_bp.route('/api/class/attach-pupil-ids', methods=['POST'])
+def api_attach_pupil_ids():
+    """Add each pupil's roster pupil code (`pupil_id`) to the class files.
+    Dry run unless the body says {"dry_run": false}. Only that one field is
+    ever written; the report has counts and initials labels, never names."""
+    try:
+        from roster_sync import attach_pupil_ids
+        body = request.get_json(silent=True) or {}
+        dry = body.get('dry_run', True)
+        if isinstance(dry, str):
+            dry = dry.strip().lower() != 'false'
+        else:
+            dry = dry is not False
+        return jsonify(attach_pupil_ids(dry_run=dry))
     except Exception as e:
         return _err(e)
 

@@ -167,6 +167,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
             'last':  (r.get('last') or '').strip(),
             'class': (r.get('class') or '').strip(),
             'yearGroup': (r.get('yearGroup') or '').strip(),
+            'pupil_id': (r.get('pupilId') or '').strip(),
         }
         by_upn[upn] = rec
         by_name.setdefault(_norm(f"{rec['first']} {rec['last']}"), rec)
@@ -234,6 +235,9 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
                     p['upn'] = r['upn']
                     summary['upn_attached'].append({'cls': cid, 'name': name,
                                                     'upn': r['upn']})
+                    touched = True
+                if r['pupil_id'] and r['pupil_id'] != p.get('pupil_id'):
+                    p['pupil_id'] = r['pupil_id']
                     touched = True
                 if r['first'] and r['first'] != p.get('first'):
                     summary['renamed'].append({'cls': cid, 'id': p['id'],
@@ -350,6 +354,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
             'homophone_mastered': [],
             'homophone_history': {},
             'upn': r['upn'],
+            'pupil_id': r['pupil_id'],
         }
         files[cid]['obj'].setdefault('pupils', []).append(new_pupil)
         files[cid]['changed'] = True
@@ -428,6 +433,150 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
             meta['write_failed'] = True
     summary['meta'] = meta
     return summary
+
+
+# ── Pupil codes (pupil_id) ────────────────────────────────────────────────────
+
+ATTACH_MESSAGE = 'Add pupil codes (no other change)'
+_ATTACH_RETRIES = 3
+
+
+def _plan_pupil_ids(pupils, by_upn):
+    """Work out the pupil_id changes for one class file's pupils.
+    Match is by UPN, exact, never by name. Returns (changes, skipped) where
+    changes is {pupil index: new pupil_id} and skipped is a list of
+    (pupil index, reason). Pure: does not modify `pupils`."""
+    changes, skipped, unchanged = {}, [], 0
+    for i, p in enumerate(pupils):
+        upn = (p.get('upn') or '').strip()
+        if not upn:
+            skipped.append((i, 'no UPN'))
+            continue
+        rec = by_upn.get(upn)
+        if rec is None:
+            skipped.append((i, 'not on roster'))
+            continue
+        if not rec['pupil_id']:
+            skipped.append((i, 'roster has no pupil code'))
+            continue
+        if p.get('pupil_id') == rec['pupil_id']:
+            unchanged += 1
+        else:
+            changes[i] = rec['pupil_id']
+    return changes, skipped, unchanged
+
+
+def _apply_pupil_ids(obj, by_upn):
+    """Set pupil_id (and nothing else) on the pupils of `obj` that need it.
+    Returns the number of pupils changed. Re-matches by UPN every time, so it
+    is safe to run again on a freshly re-read copy."""
+    changes, _, _ = _plan_pupil_ids(obj.get('pupils', []), by_upn)
+    for i, pid in changes.items():
+        obj['pupils'][i]['pupil_id'] = pid
+    return len(changes)
+
+
+def attach_pupil_ids(dry_run=True, roster=None):
+    """Add/refresh `pupil_id` on every pupil in every class file, matching the
+    roster by UPN only. Touches no other field. Pupils with no UPN, no roster
+    match or no roster pupil code are left alone and reported by initials
+    label only (never names).
+
+    dry_run=True (default) reads and counts but writes nothing. A real run
+    writes one commit per changed class file; each write re-reads the file
+    and retries if GitHub reports a stale sha, so a concurrent edit is never
+    overwritten.
+    """
+    report = {'ok': True, 'dry_run': bool(dry_run), 'when': _now(),
+              'roster_count': 0, 'classes_checked': 0, 'pupils_checked': 0,
+              'to_add': 0, 'already_set': 0, 'added': 0,
+              'files_changed': 0, 'files_failed': [],
+              'skipped_count': 0, 'skipped': [], 'error': None}
+
+    try:
+        pupils_roster = roster if roster is not None else fetch_roster()
+    except Exception as e:
+        # Deliberately not str(e): request errors can contain the roster URL.
+        report['ok'] = False
+        report['error'] = f'Could not fetch roster ({type(e).__name__})'
+        return report
+
+    by_upn = {}
+    for r in pupils_roster:
+        upn = (r.get('upn') or r.get('id') or '').strip()
+        if upn:
+            by_upn[upn] = {'pupil_id': (r.get('pupilId') or '').strip()}
+    report['roster_count'] = len(by_upn)
+
+    # Read every class first (fresh) so labels are worked out school-wide,
+    # the same way Class Manager does it.
+    files = {}
+    for cid in ALL_CLASSES:
+        obj, sha = _gh_get(f'data/classes/{cid}.json')
+        if obj is None:
+            continue
+        files[cid] = (obj, sha)
+    report['classes_checked'] = len(files)
+
+    from names_display import label_list
+    flat = [(cid, i, p) for cid, (obj, _) in files.items()
+            for i, p in enumerate(obj.get('pupils', []))]
+    labels = label_list([(p.get('first', ''), p.get('last', '')) for _, _, p in flat])
+    label_of = {(cid, i): labels[n] for n, (cid, i, _) in enumerate(flat)}
+    report['pupils_checked'] = len(flat)
+
+    for cid, (obj, sha) in files.items():
+        changes, skipped, unchanged = _plan_pupil_ids(obj.get('pupils', []), by_upn)
+        report['already_set'] += unchanged
+        report['to_add'] += len(changes)
+        for i, reason in skipped:
+            report['skipped'].append({'cls': cid, 'label': label_of[(cid, i)],
+                                      'reason': reason})
+        if dry_run or not changes:
+            continue
+        if sha is None:
+            report['files_failed'].append(cid)
+            continue
+
+        path = f'data/classes/{cid}.json'
+        cur, cur_sha, written = obj, sha, 0
+        for attempt in range(_ATTACH_RETRIES):
+            n = _apply_pupil_ids(cur, by_upn)
+            if n == 0:
+                written = 0
+                ok = True
+                break
+            ok = _gh_put(path, cur, cur_sha, ATTACH_MESSAGE)
+            if ok:
+                written = n
+                break
+            # Stale sha (someone saved in between) or a failed write:
+            # re-read the latest copy and re-apply onto it.
+            fresh, fresh_sha = _gh_get(path)
+            if fresh is None or fresh_sha is None:
+                break
+            cur, cur_sha = fresh, fresh_sha
+        else:
+            ok = False
+        if ok:
+            if written:
+                report['added'] += written
+                report['files_changed'] += 1
+        else:
+            report['files_failed'].append(cid)
+
+    report['skipped_count'] = len(report['skipped'])
+    if report['files_failed']:
+        report['ok'] = False
+        report['error'] = 'Some class files could not be saved: ' + ', '.join(report['files_failed'])
+    if not dry_run:
+        try:
+            import data_manager
+            for cid in files:
+                data_manager._invalidate(f'data/classes/{cid}.json')
+        except Exception:
+            pass
+    return report
 
 
 if __name__ == '__main__':

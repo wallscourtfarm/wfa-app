@@ -226,6 +226,7 @@ def _pupil_row(p):
     ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
     return {
         'id':        p.get('id',''),
+        'pid':       p.get('pupil_id',''),
         'first':     p.get('first',''),
         'last':      p.get('last',''),
         'group':     p.get('group','main'),
@@ -331,7 +332,7 @@ def load_tt_pupils(class_id='4CK'):
         ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
         name = p.get('first','?')
         if p.get('last'): name = f"{name} {p['last']}"
-        result.append({'id':p['id'],'name':name,'first':p.get('first',''),'last':p.get('last',''),
+        result.append({'id':p['id'],'pid':p.get('pupil_id',''),'name':name,'first':p.get('first',''),'last':p.get('last',''),
                        'tt_set':ts,'tt_mode':tm,'label':tt_label(ts,tm),'cls':p['_cls']})
     def key(p):
         try: idx = TT_ORDER.index(str(p['tt_set']))
@@ -607,7 +608,7 @@ def load_bee_pupils(class_id='4CK', week_ref=None):
         else:
             phonics_words = []
             gpc_label = ''
-        pupils.append({'id':p['id'],'first':p.get('first',''),'last':p.get('last',''),'cls':p.get('cls',''),'file_cls':class_id,
+        pupils.append({'id':p['id'],'pid':p.get('pupil_id',''),'first':p.get('first',''),'last':p.get('last',''),'cls':p.get('cls',''),'file_cls':class_id,
                        'group': group, 'is_phonics': is_phonics,
                        'phonics_gpcs': gpcs, 'gpc_label': gpc_label,
                        'phonics_words': phonics_words,

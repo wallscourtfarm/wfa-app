@@ -15,7 +15,7 @@ def _default_cls():
 def _public_pupils(pupils):
     """Replace names with an initials label; the browser never gets names."""
     labels = labels_for_pupils(pupils)
-    return [{'id': p['id'], 'label': labels.get(p['id'], ''), 'tt_set': p['tt_set'],
+    return [{'id': p['id'], 'pid': p.get('pid', ''), 'label': labels.get(p['id'], ''), 'tt_set': p['tt_set'],
              'tt_mode': p['tt_mode'], 'tt_label': p['label'], 'cls': p['cls']}
             for p in pupils]
 

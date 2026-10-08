@@ -48,7 +48,7 @@
         {% for r in rows %}
         {% set lp = lp_map.get(r.get('id','')) %}
         <tr class="learner-row" onclick="toggleDetail('dash-{{ loop.index }}')">
-          <td class="pupil-name">{{ r.label }}</td>
+          <td class="pupil-name"><span data-pupil-id="{{ r.pid or '' }}">{{ r.label }}</span></td>
           {% if cls=='all' %}<td>{{ r.cls }}</td>{% endif %}
           <td><span class="group-pill group-{{ 'phonics' if r.group in ('phonics','revision') else r.group }}">{{ 'Phonics' if r.group in ('phonics','revision') else r.group|title }}</span></td>
           {% if active_year not in ("1", "2") %}<td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>{% endif %}

@@ -39,7 +39,7 @@
         <td class="col-check">
           <input type="checkbox" class="row-check" value="{{ p.id }}">
         </td>
-        <td class="pupil-name">{{ p.label }}</td>
+        <td class="pupil-name"><span data-pupil-id="{{ p.pid or '' }}">{{ p.label }}</span></td>
         <td>{{ p.cls }}</td>
         <td>
           <span class="tt-badge tt-set-{{ p.tt_set }}">
