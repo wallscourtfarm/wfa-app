@@ -73,13 +73,13 @@
   <table class="cm-table" id="pupil-table">
     <thead>
       <tr>
-        <th class="sortable" onclick="sortBy('name')">Name<span class="sort-arrow" data-col="name"></span></th>
+        <th class="sortable" onclick="sortBy('name')">Pupil<span class="sort-arrow" data-col="name"></span></th>
         <th class="sortable" onclick="sortBy('group')">Group<span class="sort-arrow" data-col="group"></span></th>
         <th class="sortable" onclick="sortBy('tt_set')">TT<span class="sort-arrow" data-col="tt_set"></span></th>
         <th class="sortable" onclick="sortBy('table')">Table<span class="sort-arrow" data-col="table"></span></th>
         <th class="sortable" onclick="sortBy('maths_level')">Maths<span class="sort-arrow" data-col="maths_level"></span></th>
         <th class="sortable" onclick="sortBy('reading_level')">Reading<span class="sort-arrow" data-col="reading_level"></span></th>
-        <th class="sortable" onclick="sortBy('partner_name')">Pair<span class="sort-arrow" data-col="partner_name"></span></th>
+        <th class="sortable" onclick="sortBy('partner_label')">Pair<span class="sort-arrow" data-col="partner_label"></span></th>
         <th class="sortable" onclick="sortBy('word_pos')">Word pos.<span class="sort-arrow" data-col="word_pos"></span></th>
         <th></th>
       </tr>
@@ -98,16 +98,6 @@
     </div>
     <div class="cm-modal-body">
       <input type="hidden" id="edit-pupil-id">
-      <div class="cm-field-row">
-        <div class="cm-field">
-          <label>First name</label>
-          <input id="edit-first" type="text" class="cm-input" disabled title="Set from Bromcom via Roster Import">
-        </div>
-        <div class="cm-field">
-          <label>Last name</label>
-          <input id="edit-last" type="text" class="cm-input" disabled title="Set from Bromcom via Roster Import">
-        </div>
-      </div>
       <p style="font-size:12px;color:#94a3b8;margin:-6px 0 8px">
         Name and class come from Bromcom — change them in <a href="https://staff.wallscourt-farm-academy.co.uk/roster-import/" target="_blank">Roster Import</a>.
       </p>
@@ -253,7 +243,7 @@
       <button onclick="closePairModal()" class="cm-close">&times;</button>
     </div>
     <div class="cm-modal-body">
-      <input type="text" id="pair-search" class="cm-input" placeholder="Search by name…"
+      <input type="text" id="pair-search" class="cm-input" placeholder="Search by initials…"
         oninput="filterPairList()" style="margin-bottom:12px">
       <div id="pair-list" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
     </div>
@@ -404,7 +394,7 @@
       <div class="cm-field">
         <label>Paste roster</label>
         <textarea id="us-csv" class="cm-input" rows="10"
-          placeholder="First Name	Last Name	Year	Code	PIN&#10;Amy	Example	Y5	AE12	1234"
+          placeholder="First Name	Last Name	Year	Code	PIN&#10;Alex	Example	Y5	AB12	0000"
           style="font-family:monospace;font-size:12px;resize:vertical"></textarea>
       </div>
       <div id="us-preview" style="font-size:13px;color:#1e40af;background:#eff6ff;
@@ -512,8 +502,8 @@ async function syncRoster(btn) {
       showStatus('Sync failed: ' + (d.aborted || d.error || 'unknown error'), 'error');
     } else {
       const c = []
-        .concat(d.added.map(p => `+ ${p.name} (${p.cls})`))
-        .concat(d.removed.map(p => `− ${p.name} (${p.cls})`));
+        .concat(d.added.map(p => `+ ${p.label} (${p.cls})`))
+        .concat(d.removed.map(p => `− ${p.label} (${p.cls})`));
       showStatus(`Roster synced — ${d.roster_count} pupils. `
         + `Added: ${d.added.length} · Removed: ${d.removed.length} · `
         + `Renamed: ${d.renamed.length} · Attention: ${d.unmatched.length}`, 'ok');
@@ -539,7 +529,7 @@ function sortBy(key) {
 
 function applySort() {
   const key = _sortKey, dir = _sortDir;
-  const nameOf = p => `${p.first} ${p.last}`.toLowerCase();
+  const nameOf = p => (p.label || '').toLowerCase();
   const valueOf = p => {
     switch (key) {
       case 'name':         return nameOf(p);
@@ -548,7 +538,7 @@ function applySort() {
       case 'table':        return p.table && !isNaN(parseInt(p.table, 10)) ? parseInt(p.table, 10) : Infinity;
       case 'maths_level':   return p.maths_level === 'adapted' ? 1 : 0;
       case 'reading_level': return p.reading_level === 'phonics' ? -1 : parseInt(p.reading_level, 10) || 0;
-      case 'partner_name': return p.partner_name ? p.partner_name.toLowerCase() : '￿';
+      case 'partner_label': return p.partner_label ? p.partner_label.toLowerCase() : '￿';
       case 'word_pos':     return p.word_pos;
       default:             return nameOf(p);
     }
@@ -612,8 +602,8 @@ function render() {
     }
     const pairNum = pairKey && window._pairNums[pairKey]
       ? `<span class="pair-num">P${window._pairNums[pairKey]}</span>` : '';
-    const pairLabel = p.partner_name
-      ? `${pairDot}${pairNum} ${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
+    const pairLabel = p.partner_label
+      ? `${pairDot}${pairNum} ${p.partner_label}${p.partner_cls !== CLS_ID && p.partner_cls
           ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}`
       : `<span class="no-pair">Unpaired</span>`;
 
@@ -622,7 +612,7 @@ function render() {
       : `<span class="group-badge group-${p.group === 'main' ? 'main' : 'phonics'}">${p.group === 'main' ? 'Main' : 'Phonics'}</span>`;
 
     tr.innerHTML = `
-      <td><strong>${p.first}</strong> ${p.last || ''}</td>
+      <td><strong>${p.label}</strong></td>
       <td>${groupBadge}</td>
       <td>${p.tt_set}${p.tt_mode === 'xd' ? '×÷' : '×'}</td>
       <td>
@@ -646,7 +636,7 @@ function render() {
             // Their partner isn't a row in this table, so they can't be
             // grouped by number here — leave them out of the bulk payload
             // entirely and only offer the existing Unpair action.
-            return `${pairDot}<span class="pair-name" style="font-size:12px">${p.partner_name}
+            return `${pairDot}<span class="pair-name" style="font-size:12px">${p.partner_label}
                 <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span></span>
               <button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
                 style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">Unpair</button>`;
@@ -659,11 +649,11 @@ function render() {
                     oninput="_bulkEdits['${p.id}']=this.value.trim()"
                     onclick="event.stopPropagation()"
                     style="width:56px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:center">`;
-        })() : `${pairDot}${p.partner_name
-          ? `<span class="pair-name">${p.partner_name}${p.partner_cls !== CLS_ID && p.partner_cls
+        })() : `${pairDot}${p.partner_label
+          ? `<span class="pair-name">${p.partner_label}${p.partner_cls !== CLS_ID && p.partner_cls
               ? ` <span style="font-size:11px;color:#94a3b8">(${clsShort(p.partner_cls)})</span>` : ''}</span>`
           : `<span class="no-pair">${_pairMode ? 'Unpaired' : 'Click to pair'}</span>`}
-        ${p.partner_name && !_pairMode
+        ${p.partner_label && !_pairMode
           ? `<button class="btn btn-ghost btn-sm" onclick="unpair('${p.id}',event)"
               style="margin-left:6px;font-size:11px;padding:2px 8px;color:#dc2626;border-color:#dc2626">
               Unpair</button>` : ''}`}
@@ -849,7 +839,7 @@ function openPairModal(pid, e) {
   _pairTarget = pid;
   const pupil = _pupils.find(p => p.id === pid);
   document.getElementById('pair-modal-title').textContent =
-    `Pair ${pupil ? pupil.first : pid} with…`;
+    `Pair ${pupil ? pupil.label : pid} with…`;
   document.getElementById('pair-search').value = '';
   populatePairList('');
   // Auto-suggest first colour not already used by another pair
@@ -875,7 +865,7 @@ function populatePairList(filter) {
   const clsShort = c => c.replace(/^Y\d+_/, '');
   _allPupils.forEach(p => {
     if (p.id === _pairTarget) return;
-    const label = `${p.first} ${p.last || ''}`.trim();
+    const label = p.label || '';
     if (q && !label.toLowerCase().includes(q)) return;
     const item = document.createElement('div');
     item.className = 'pair-list-item';
@@ -940,9 +930,7 @@ function openEditModal(pid, e) {
   const p = _pupils.find(x => x.id === pid);
   if (!p) return;
   document.getElementById('edit-pupil-id').value    = pid;
-  document.getElementById('edit-title').textContent = `Edit — ${p.first} ${p.last || ''}`;
-  document.getElementById('edit-first').value       = p.first;
-  document.getElementById('edit-last').value        = p.last || '';
+  document.getElementById('edit-title').textContent = `Edit — ${p.label}`;
   document.getElementById('edit-group').value       = p.group || 'main';
   const editGpcs = p.phonics_gpcs || [];
   const editMatched = selectPhonicsSetFromGpcs('edit', editGpcs);
@@ -969,7 +957,7 @@ function openStartModal(pid) {
     const isNew = !p.mastered_count;
     return `<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13.5px">
       <input type="checkbox" class="start-cb" value="${p.id}" data-new="${isNew ? 1 : 0}" ${p.id === pid ? 'checked' : ''}>
-      <span style="flex:1">${p.first} ${p.last || ''}</span>
+      <span style="flex:1">${p.label}</span>
       <span style="font-size:12px;color:#94a3b8">${isNew ? 'no history · ' : ''}now at ${yr || '?'}</span></label>`;
   }).join('') || '<p style="color:#94a3b8;font-size:13px">No pupils in this class.</p>';
   document.getElementById('start-reissue').checked = false;
@@ -1196,7 +1184,7 @@ async function previewUsImport() {
     const d = await resp.json();
     if (d.ok) {
       let msg = `${d.matched} pupil${d.matched !== 1 ? 's' : ''} matched, ${d.unmatched} unmatched.`;
-      if (d.unmatched_names?.length) msg += `\nUnmatched: ${d.unmatched_names.join(', ')}`;
+      if (d.unmatched_labels?.length) msg += `\nUnmatched: ${d.unmatched_labels.join(', ')}`;
       preview.textContent = msg;
       preview.style.display = 'block';
       applyBtn.disabled = d.matched === 0;
@@ -1231,7 +1219,7 @@ async function applyUsImport() {
     if (d.ok) {
       let msg = `Updated ${d.applied} pupil${d.applied !== 1 ? 's' : ''}.`;
       if (d.unmatched) msg += ` ${d.unmatched} not matched — see console.`;
-      if (d.unmatched_names?.length) console.warn('Unmatched:', d.unmatched_names);
+      if (d.unmatched_labels?.length) console.warn('Unmatched:', d.unmatched_labels);
       showStatus(msg);
       await load();
     } else {

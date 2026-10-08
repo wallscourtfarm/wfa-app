@@ -331,7 +331,7 @@ def load_tt_pupils(class_id='4CK'):
         ts, tm = p.get('tt_set','2'), p.get('tt_mode','x')
         name = p.get('first','?')
         if p.get('last'): name = f"{name} {p['last']}"
-        result.append({'id':p['id'],'name':name,'first':p.get('first',''),
+        result.append({'id':p['id'],'name':name,'first':p.get('first',''),'last':p.get('last',''),
                        'tt_set':ts,'tt_mode':tm,'label':tt_label(ts,tm),'cls':p['_cls']})
     def key(p):
         try: idx = TT_ORDER.index(str(p['tt_set']))
@@ -607,7 +607,7 @@ def load_bee_pupils(class_id='4CK', week_ref=None):
         else:
             phonics_words = []
             gpc_label = ''
-        pupils.append({'id':p['id'],'first':p.get('first',''),'cls':p.get('cls',''),'file_cls':class_id,
+        pupils.append({'id':p['id'],'first':p.get('first',''),'last':p.get('last',''),'cls':p.get('cls',''),'file_cls':class_id,
                        'group': group, 'is_phonics': is_phonics,
                        'phonics_gpcs': gpcs, 'gpc_label': gpc_label,
                        'phonics_words': phonics_words,
@@ -1250,7 +1250,8 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
 
         suffix_short = class_id.lstrip('0123456789')
 
-        for first, last, incoming in class_rows:
+        _row_labels = None
+        for _ri, (first, last, incoming) in enumerate(class_rows):
             incoming = incoming & bank_words  # ensure only valid words
             key = (first.lower(), last.lower())
 
@@ -1266,7 +1267,11 @@ def import_pupils_with_mastery(year_group, csv_text, on_conflict='merge'):
                 # Pupils only ever enter via Roster Import (Bromcom); a
                 # mastery row for someone not yet on roll is reported, not
                 # used to mint a new identity.
-                warnings.append(f'{first} {last} ({suffix_short}): no matching pupil on roll — skipped')
+                # Initials label only (this text goes to the browser, never names)
+                if _row_labels is None:
+                    from names_display import label_list as _label_list
+                    _row_labels = _label_list([(f, l) for f, l, _ in class_rows])
+                warnings.append(f'{_row_labels[_ri]} ({suffix_short}): no matching pupil on roll — skipped')
                 skipped += 1
 
         ok = _put_file(path, data, sha,

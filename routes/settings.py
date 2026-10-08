@@ -36,8 +36,11 @@ def _snapshot_current_uls_week(wc):
 def api_debug_learners():
     from data_manager import load_learners
     pupils = load_learners('Y4_all')
-    sample = [{'id': p.get('id'), 'first': p.get('first'),
-               'pair_id': p.get('pair_id'), 'partner_name': p.get('partner_name')}
+    from names_display import labels_for_pupils
+    labels = labels_for_pupils(pupils)
+    sample = [{'id': p.get('id'), 'label': labels.get(p.get('id'), ''),
+               'pair_id': p.get('pair_id'),
+               'partner_label': labels.get(p.get('pair_id'), '')}
               for p in pupils[:3]]
     return jsonify({'ok': True, 'sample': sample})
 

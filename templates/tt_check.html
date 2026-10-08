@@ -27,7 +27,7 @@
         <th class="col-check">
           <input type="checkbox" id="check-all" title="Select all">
         </th>
-        <th class="sortable" data-col="1">Name <span class="sort-arrow"></span></th>
+        <th class="sortable" data-col="1">Pupil <span class="sort-arrow"></span></th>
         <th class="sortable" data-col="2">Class <span class="sort-arrow"></span></th>
         <th class="sortable" data-col="3">Stage <span class="sort-arrow"></span></th>
         <th class="sortable" data-col="4">Next stage <span class="sort-arrow"></span></th>
@@ -35,15 +35,15 @@
     </thead>
     <tbody>
       {% for p in pupils %}
-      <tr data-id="{{ p.id }}" data-name="{{ p.name }}">
+      <tr data-id="{{ p.id }}">
         <td class="col-check">
-          <input type="checkbox" class="row-check" value="{{ p.id }}" data-name="{{ p.name }}">
+          <input type="checkbox" class="row-check" value="{{ p.id }}">
         </td>
-        <td class="pupil-name">{{ p.first }}</td>
+        <td class="pupil-name">{{ p.label }}</td>
         <td>{{ p.cls }}</td>
         <td>
           <span class="tt-badge tt-set-{{ p.tt_set }}">
-            {{ p.label }}
+            {{ p.tt_label }}
           </span>
         </td>
         <td class="next-stage" data-set="{{ p.tt_set }}" data-mode="{{ p.tt_mode }}">
@@ -201,7 +201,6 @@ function showStatus(msg, type = 'info') {
 advanceBtn.addEventListener('click', async () => {
   const checked = [...document.querySelectorAll('.row-check:checked')];
   const ids   = checked.map(cb => cb.value);
-  const names = checked.map(cb => cb.dataset.name).join(', ');
 
   advanceBtn.disabled = true;
   advanceBtn.textContent = 'Saving…';

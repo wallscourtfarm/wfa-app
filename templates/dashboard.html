@@ -34,11 +34,10 @@
     <table class="tt-table" id="masteryTable">
       <thead>
         <tr>
-          <th data-col="0">First</th>
-          <th data-col="1">Last</th>
-          {% if cls=='all' %}<th data-col="2">Class</th>{% endif %}
-          <th data-col="{{ 3 if cls=='all' else 2 }}">Group</th>
-          {% if active_year not in ("1", "2") %}<th data-col="{{ 4 if cls=='all' else 3 }}">TT</th>{% endif %}
+          <th data-col="0">Pupil</th>
+          {% if cls=='all' %}<th data-col="1">Class</th>{% endif %}
+          <th data-col="{{ 2 if cls=='all' else 1 }}">Group</th>
+          {% if active_year not in ("1", "2") %}<th data-col="{{ 3 if cls=='all' else 2 }}">TT</th>{% endif %}
           <th class="num-col">Y{{ active_year }} %</th>
           {% if active_year in ("3","4","5","6") %}<th class="num-col">{{ "LKS2" if active_year in ("3","4") else "UKS2" }} %</th>{% endif %}
           {% if active_year in ("1","2") %}<th class="num-col">KS1 %</th>{% else %}<th class="num-col">KS2 %</th>{% endif %}
@@ -49,8 +48,7 @@
         {% for r in rows %}
         {% set lp = lp_map.get(r.get('id','')) %}
         <tr class="learner-row" onclick="toggleDetail('dash-{{ loop.index }}')">
-          <td class="pupil-name">{{ r.first }}</td>
-          <td>{{ r.last }}</td>
+          <td class="pupil-name">{{ r.label }}</td>
           {% if cls=='all' %}<td>{{ r.cls }}</td>{% endif %}
           <td><span class="group-pill group-{{ 'phonics' if r.group in ('phonics','revision') else r.group }}">{{ 'Phonics' if r.group in ('phonics','revision') else r.group|title }}</span></td>
           {% if active_year not in ("1", "2") %}<td><span class="tt-badge tt-badge--{{ 'xd' if '÷' in r.tt else 'x' }}">{{ r.tt }}</span></td>{% endif %}

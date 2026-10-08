@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import week_needing_marking, load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee, update_pupil_rule_confidence_from_bee, get_bee_weeks, YEAR_GROUP_CLASSES, _resolve_classes, get_class_options_for_year
 
+from names_display import labels_for_pupils
+
 bee_bp = Blueprint('bee', __name__)
 
 @bee_bp.route('/spelling-bee')
@@ -29,10 +31,17 @@ def spelling_bee():
         if not rules_info: rules_info = ri
         if not week_ref:   week_ref   = wr
 
+    # Privacy: the browser only gets initials labels. Labels are worked out
+    # over the whole list (before the group filter) so they stay stable.
+    labels = labels_for_pupils(pupils)
+    for p in pupils:
+        p['label'] = labels.get(p['id'], '')
+
     if group_filter != 'all':
         pupils = [p for p in pupils if p['group'] == group_filter]
 
-    pupils.sort(key=lambda p: p['first'].lower())
+    pupils.sort(key=lambda p: p['label'].lower())
+    pupils = [{k: v for k, v in p.items() if k not in ('first', 'last', 'name', 'upn')} for p in pupils]
 
     class_options = get_class_options_for_year(yr)
     return render_template('bee.html', pupils=pupils, rules_info=rules_info,

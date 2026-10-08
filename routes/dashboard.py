@@ -2,6 +2,7 @@ import json
 from flask import Blueprint, render_template, session, redirect, url_for, request
 from data_manager import load_dashboard, lowest_confidence_key_spellings, load_learners, TT_ORDER, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class
 from routes.learners import _enrich, _homophone_words_by_stage
+from names_display import labels_for_pupils
 
 dash_bp = Blueprint('dash', __name__)
 CLASS_OPTIONS = get_class_options()
@@ -23,8 +24,17 @@ def dashboard():
     raw_pupils = load_learners(cls)
     hw_by_stage = _homophone_words_by_stage()
     learner_pupils = _enrich(raw_pupils, hw_by_stage)
+    # Privacy: the browser only ever gets initials labels, never names/UPNs.
+    labels = labels_for_pupils(data['rows'])
+    rows = []
+    for r in data['rows']:
+        r = {k: v for k, v in r.items() if k not in ('first', 'last', 'name', 'upn')}
+        r['label'] = labels.get(r.get('id', ''), '')
+        rows.append(r)
+    learner_pupils = [{k: v for k, v in lp.items() if k not in ('first', 'last', 'name', 'upn')}
+                      for lp in learner_pupils]
     return render_template('dashboard.html',
-        rows=data['rows'], stats=data['stats'],
+        rows=rows, stats=data['stats'],
         tt_labels=json.dumps(tt_labels), tt_values=json.dumps(tt_values),
         cls=cls, class_options=get_class_options_for_year(session.get("year_group","4")),
         lc_words=lc_words, active_year=yr,

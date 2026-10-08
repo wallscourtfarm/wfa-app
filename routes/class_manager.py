@@ -10,6 +10,7 @@ from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
                           _get_file, set_spelling_start, week_needing_marking, get_bee_weeks)
 from word_bank import next_active_index, year_at_index
 from phonics_bank import PHONICS_SETS
+from names_display import label_list, labels_for_pupils
 
 cm_bp = Blueprint('class_manager', __name__)
 
@@ -154,21 +155,26 @@ def api_class_list():
 
         own_year = get_year_group(cls) or yr
 
+        # Privacy: the browser only ever gets initials labels (never first/last
+        # names or UPNs). One school-wide label set keeps a pupil's label the
+        # same in the table, the Pair column and the pairing dropdown.
+        labels = labels_for_pupils(
+            [{'id': pid_, 'first': v['first'], 'last': v['last']} for pid_, v in id_map.items()])
+
         pupils = []
         for p in obj.get('pupils', []):
             pid     = p.get('pair_id', '')
             partner = id_map.get(pid, {})
             pupils.append({
                 'id':           p['id'],
-                'first':        p.get('first', ''),
-                'last':         p.get('last', ''),
+                'label':        labels.get(p['id']) or label_list([(p.get('first', ''), p.get('last', ''))])[0],
                 'group':        p.get('group', 'main'),
                 'tt_set':       str(p.get('tt_set', '2')),
                 'tt_mode':      p.get('tt_mode', 'x'),
                 'pair_id':           pid,
                 'pair_colour':       p.get('pair_colour', ''),
                 'pair_colour_name':  p.get('pair_colour_name', ''),
-                'partner_name': f"{partner.get('first','')} {partner.get('last','')}".strip() if partner else '',
+                'partner_label': labels.get(pid, '') if partner else '',
                 'partner_cls':  partner.get('cls_id', '') if partner else '',
                 'table':        str(p.get('table', '')),
                 'maths_level':   p.get('maths_level', 'standard'),
@@ -182,14 +188,14 @@ def api_class_list():
                 'mastered_count': len(p.get('mastered', [])),
             })
 
-        pupils.sort(key=lambda p: (p['first'].lower(), p['last'].lower()))
+        pupils.sort(key=lambda p: p['label'].lower())
 
         # Cross-class pupils for pairing selector
         all_for_pairing = [
-            {'id': pid, 'first': v['first'], 'last': v['last'], 'cls_id': v['cls_id']}
+            {'id': pid, 'label': labels.get(pid, ''), 'cls_id': v['cls_id']}
             for pid, v in id_map.items()
         ]
-        all_for_pairing.sort(key=lambda p: (p['first'].lower(), p['last'].lower()))
+        all_for_pairing.sort(key=lambda p: p['label'].lower())
 
         return jsonify({'ok': True, 'pupils': pupils,
                         'all_pupils': all_for_pairing, 'cls': cls})
@@ -427,9 +433,9 @@ def api_pair_bulk():
 
         bad = {num: ids for num, ids in groups.items() if len(ids) != 2}
         if bad:
+            _lbl = labels_for_pupils(pupils)
             def name(pid):
-                p = by_id[pid]
-                return f"{p.get('first','')} {p.get('last','')}".strip() or pid
+                return _lbl.get(pid) or pid
             detail = '; '.join(
                 f"#{num} has {len(ids)} pupil(s) ({', '.join(name(i) for i in ids)})"
                 for num, ids in bad.items())
@@ -557,7 +563,7 @@ def api_word_pos_backfill():
                 if new_pos != old_pos:
                     changes.append({
                         'cls': cls_id, 'id': p['id'],
-                        'name': f"{p.get('first','')} {p.get('last','')}".strip(),
+                        '_first': p.get('first', ''), '_last': p.get('last', ''),
                         'group': p.get('group', 'main'),
                         'mastered_count': len(mastered),
                         'old_pos': old_pos, 'new_pos': new_pos,
@@ -567,12 +573,40 @@ def api_word_pos_backfill():
                         touched = True
             if apply_changes and touched:
                 _save_class_file(cls_id, obj, sha, f'Backfill word_pos from mastered list ({cls_id})')
+        # Privacy: initials labels only, never names.
+        lbls = label_list([(c['_first'], c['_last']) for c in changes])
+        for c, lb in zip(changes, lbls):
+            c['label'] = lb
+            del c['_first'], c['_last']
         return jsonify({'ok': True, 'applied': apply_changes, 'count': len(changes), 'changes': changes})
     except Exception as e:
         return _err(e)
 
 
 # ── API: Roster sync (Bromcom roster via shared-sync bus) ─────────────────────
+
+def _roster_summary_for_browser(summary):
+    """roster_sync.sync_roster() returns full names and UPNs (it also runs from
+    the command line). The browser only ever gets initials labels: names and
+    UPNs are dropped from every list and replaced by `label`."""
+    out = dict(summary)
+
+    def relabel(rows, name_key='name', keep=('cls', 'id', 'class', 'note')):
+        rows = rows or []
+        labels = label_list([r.get(name_key, '') for r in rows])
+        return [{**{k: r[k] for k in keep if k in r}, 'label': lb}
+                for r, lb in zip(rows, labels)]
+
+    out['upn_attached'] = relabel(summary.get('upn_attached'))
+    out['added']        = relabel(summary.get('added'))
+    out['removed']      = relabel(summary.get('removed'))
+    out['unmatched']    = relabel(summary.get('unmatched'))
+    out['skipped_new']  = relabel(summary.get('skipped_new'))
+    out['renamed']      = relabel(summary.get('renamed'), name_key='now')
+    out['updated']      = [{k: r[k] for k in ('cls', 'id') if k in r}
+                           for r in summary.get('updated') or []]
+    return out
+
 
 @cm_bp.route('/api/class/roster-sync', methods=['POST'])
 def api_roster_sync():
@@ -582,7 +616,7 @@ def api_roster_sync():
     try:
         from roster_sync import sync_roster
         result = sync_roster(apply=True)
-        return jsonify(result)
+        return jsonify(_roster_summary_for_browser(result))
     except Exception as e:
         return _err(e)
 
@@ -731,25 +765,32 @@ def api_import_unlocking_spelling_csv():
                 matched.append({
                     'pupil_id': pupil['id'],
                     'cls':      cid,
-                    'name':     f"{pupil.get('first','')} {pupil.get('last','')}".strip(),
+                    '_first':   pupil.get('first', ''),
+                    '_last':    pupil.get('last', ''),
                     'us_code':  entry['us_code'],
                     'us_pin':  entry['us_pin'],
                 })
             else:
                 unmatched.append({
-                    'name': entry['full_name'],
+                    '_first': entry['first'], '_last': entry['last'],
                     'yr':   entry['yr'],
                     'us_code': entry['us_code'],
                     'us_pin': entry['us_pin'],
                 })
 
+        # Privacy: the browser gets initials labels only (never names).
+        unmatched_labels = label_list([(u['_first'], u['_last']) for u in unmatched])
+
         if mode == 'preview':
+            first5 = matched[:5]
+            first5_labels = label_list([(m['_first'], m['_last']) for m in first5])
             return jsonify({
                 'ok': True,
                 'matched':   len(matched),
                 'unmatched': len(unmatched),
-                'unmatched_names': [u['name'] for u in unmatched],
-                'preview':   matched[:5],
+                'unmatched_labels': unmatched_labels,
+                'preview':   [{'pupil_id': m['pupil_id'], 'cls': m['cls'], 'label': lb}
+                              for m, lb in zip(first5, first5_labels)],
             })
 
         # Apply mode — write credentials back to class files
@@ -772,7 +813,7 @@ def api_import_unlocking_spelling_csv():
             _save_class_file(cid, d, sha_c, f'Import Unlocking Spelling credentials ({len(updates)} pupils)')
 
         return jsonify({'ok': True, 'applied': applied, 'unmatched': len(unmatched),
-                        'unmatched_names': [u['name'] for u in unmatched]})
+                        'unmatched_labels': unmatched_labels})
 
     except Exception as e:
         return _err(e)

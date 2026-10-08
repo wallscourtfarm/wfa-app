@@ -362,52 +362,9 @@ def _build_bee_cards(sess, base_url):
 
 def _initials_labels(people):
     """people: list of (first, last) -> list of labels (same order).
-    Default 'IM' (first letter of first name + first letter of surname, upper
-    case; letters only, last word of the surname). Pupils whose label clashes
-    within the list get 2, then 3... letters of each part ('InMc', 'InnMcL');
-    truly identical names get ' 2', ' 3' in list order. Single-word names unchanged."""
-    parts = []
-    for first, last in people:
-        f = re.sub(r'[^A-Za-z]', '', (first or '').strip().split(' ')[0] if (first or '').strip() else '')
-        lw = (last or '').split()
-        l = re.sub(r'[^A-Za-z]', '', lw[-1]) if lw else ''
-        parts.append((f, l))
-
-    def lab(i, n):
-        f, l = parts[i]
-        if not l:
-            return (first_raw(i))
-        if n == 1:
-            return (f[:1] + l[:1]).upper()
-        return (f[:n][:1].upper() + f[:n][1:]) + (l[:n][:1].upper() + l[:n][1:])
-
-    def first_raw(i):
-        return (people[i][0] or '').strip()
-
-    lv = [1] * len(parts)
-    while True:
-        labels = [lab(i, lv[i]) for i in range(len(parts))]
-        groups = {}
-        for i, t in enumerate(labels):
-            groups.setdefault(t.lower(), []).append(i)
-        changed = False
-        for idxs in groups.values():
-            if len(idxs) < 2 or len({(parts[i][0].lower(), parts[i][1].lower()) for i in idxs}) < 2:
-                continue
-            for i in idxs:
-                f, l = parts[i]
-                if l and lv[i] < max(len(f), len(l)):
-                    lv[i] += 1
-                    changed = True
-        if not changed:
-            break
-    seen = {}
-    out = []
-    for i, t in enumerate(labels):
-        k = t.lower()
-        seen[k] = seen.get(k, 0) + 1
-        out.append(t if seen[k] == 1 else f'{t} {seen[k]}')
-    return out
+    Shared algorithm lives in names_display.py."""
+    from names_display import label_list
+    return label_list(people)
 
 
 def _short_names(pupils):
