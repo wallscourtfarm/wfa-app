@@ -228,11 +228,20 @@ print('word-assessment Excel: names from file')
 RULE_CLOZE = {'y5-t1-w1-l1': {'title': 'Rule one', 'sentences': [
     {'word': 'about', 'sentence': 'I know ____ it.'}, {'word': 'above', 'sentence': 'It is ____ me.'}]}}
 rra._load_rule_cloze = lambda: RULE_CLOZE
-check('rule-assessment/generate', lambda names: b64pdf(
-    post_json('/api/rule-assessment/generate', {'cls': '4IM', 'rules': ['y5-t1-w1-l1'], **({'names': names} if names else {})}).get_json(), 'pdf'))
+# Rule + homophone PUPIL SHEETS are name-free too (initials + pupil_id code; see tests/test_rule_scan.py and
+# tests/test_homophone_scan.py): names supplied or stored must never appear, and supplied names are ignored.
+def _no_names_sheet(label, path, body):
+    for _names in (None, FILE_NAMES):
+        for _env in (None, '1'):
+            os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+            if _env: os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = _env
+            _t = pdf_text(b64pdf(post_json(path, {**body, **({'names': _names} if _names else {})}).get_json(), 'pdf'))
+            assert has_none(_t, STORED_BITS + FILE_BITS), f'{label} sheet carries a name'
+    os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+    print(f'{label}/generate: pupil sheet has no names')
+_no_names_sheet('rule-assessment', '/api/rule-assessment/generate', {'cls': '4IM', 'rules': ['y5-t1-w1-l1']})
 rha._load_rule_cloze = lambda: {}
-check('homophone-assessment/generate', lambda names: b64pdf(
-    post_json('/api/homophone-assessment/generate', {'cls': '4IM', 'stages': [1, 2, 3], **({'names': names} if names else {})}).get_json(), 'pdf'))
+_no_names_sheet('homophone-assessment', '/api/homophone-assessment/generate', {'cls': '4IM', 'stages': [1, 2, 3]})
 r = post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], 'names': ['x']})
 assert r.status_code == 400 and r.get_json()['ok'] is False
 r = post_json('/api/print/paired-lists', {'cls': '4IM', 'names': 'oops'})

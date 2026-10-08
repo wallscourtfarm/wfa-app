@@ -160,10 +160,7 @@ function blob64(b64, mime) {
 async function generate() {
   const stages = selectedStages();
   if (!stages.length) { showStatus('Select at least one stage.','error'); return; }
-  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
-  const ask = await WFAPrint.askNames(null);
-  if (ask.cancelled) return;
-  const namesPart = ask.names ? { names: ask.names } : {};
+  // Pupil sheets carry initials + code only; no names file is needed or sent.
   showSpin('generate',true);
   document.getElementById('generate-btn').disabled = true;
   document.getElementById('dl-pdf').classList.add('hidden');
@@ -171,7 +168,7 @@ async function generate() {
   try {
     const resp = await fetch('/api/homophone-assessment/generate',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({cls:CLS, stages, ...namesPart}),
+      body: JSON.stringify({cls:CLS, stages}),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error,'error'); return; }
@@ -185,6 +182,9 @@ async function generate() {
 }
 
 let _importResults={}, _errorPages=[], _activeSource=null, _totalWords=0;
+// _importResults: pupil key -> {label, status, results:{word:bool}}   (initials labels only, never names)
+let _pagesPending={};   // page_num -> {results}  (code not recognised: teacher assigns by hand)
+let _roster=[];         // [{key,label,has_code}]
 
 async function startImport() {
   const stages = selectedStages();
@@ -192,7 +192,7 @@ async function startImport() {
   if (!file)   { showStatus('Choose a PDF file first.','error'); return; }
   if (!stages.length) { showStatus('Select the same stages used when generating.','error'); return; }
 
-  _importResults={}; _errorPages=[]; _totalWords=0;
+  _importResults={}; _pagesPending={}; _roster=[]; _errorPages=[]; _totalWords=0;
   document.getElementById('results-body').innerHTML='';
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('errors-note').classList.add('hidden');
@@ -214,7 +214,7 @@ async function startImport() {
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error,'error'); resetImport(); return; }
-    jobId=d.job_id; nPages=d.n_pages; _totalWords=d.total_words||0;
+    jobId=d.job_id; nPages=d.n_pages; _totalWords=d.total_words||0; _roster=d.roster||[];
     setProgress(0,nPages,`Processing page 1 of ${nPages}…`);
   } catch(e) { showStatus('Upload failed: '+e.message,'error'); resetImport(); return; }
 
@@ -226,12 +226,14 @@ async function startImport() {
   source.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     if (ev.type==='page') {
-      const key = ev.name.trim().toLowerCase();
-      if (key) {
-        if (!_importResults[key]) _importResults[key]={name:ev.name,results:{}};
-        Object.assign(_importResults[key].results, ev.results);
-        renderRow(ev.name, _importResults[key].results);
+      if (ev.key) {
+        const cur = _importResults[ev.key] || (_importResults[ev.key]={label:ev.label,status:ev.status,results:{}});
+        if (ev.status==='fuzzy') cur.status='fuzzy';
+        Object.assign(cur.results, ev.results);
+      } else {
+        _pagesPending[ev.page_num] = {results:ev.results};
       }
+      renderAll();
       setProgress(ev.page_num, ev.total,
         ev.page_num<ev.total?`Processing page ${ev.page_num+1} of ${ev.total}…`:'Finishing…');
     }
@@ -244,9 +246,10 @@ async function startImport() {
       document.getElementById('import-progress').classList.add('hidden');
       if (ev.type==='fatal') showStatus('Processing failed: '+ev.message,'error');
       else {
-        const n=Object.keys(_importResults).length;
-        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n!==1?'s':''} found.`);
-        document.getElementById('confirm-btn').disabled=false;
+        const n=Object.keys(_importResults).length, u=Object.keys(_pagesPending).length;
+        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n!==1?'s':''} found.` +
+          (u?` ${u} page${u!==1?'s':''} need a pupil choosing below.`:'') + ' Review and save below.');
+        document.getElementById('confirm-btn').disabled=!n;
       }
       if (_errorPages.length) {
         const note=document.getElementById('errors-note');
@@ -267,85 +270,132 @@ function setProgress(done,total,label) {
   document.getElementById('progress-bar').style.width = (total?Math.round(done/total*100):0)+'%';
   document.getElementById('progress-label').textContent = label;
 }
-function _rowKey(name) { return 'row-'+name.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); }
-
-function toggleWord(name, word) {
-  const key = Object.keys(_importResults).find(k => _importResults[k].name === name);
-  if (!key) return;
-  _importResults[key].results[word] = !_importResults[key].results[word];
-  renderRow(name, _importResults[key].results);
+// Cards show only the initials label and a match status. Never a name.
+// A card is addressed by ref: "k:<pupil key>" (matched/assigned) or "p:<page number>" (still to assign).
+function _resultsFor(ref) {
+  if (ref.startsWith('k:')) { const r=_importResults[ref.slice(2)]; return r && r.results; }
+  const pg=_pagesPending[ref.slice(2)]; return pg && pg.results;
 }
 
-function removePupil(name) {
-  const key = Object.keys(_importResults).find(k => _importResults[k].name === name);
+function toggleWord(ref, word) {
+  const res = _resultsFor(ref);
+  if (!res) return;
+  res[word] = !res[word];
+  renderAll();
+}
+
+function removeCard(ref) {
+  if (ref.startsWith('k:')) delete _importResults[ref.slice(2)];
+  else delete _pagesPending[ref.slice(2)];
+  renderAll();
+}
+
+function assignPage(pageNum, key) {
   if (!key) return;
-  delete _importResults[key];
-  const card = document.getElementById(_rowKey(name));
-  if (card) card.remove();
-  updateMergePanel();
+  const pg = _pagesPending[pageNum];
+  if (!pg) return;
+  const r = _roster.find(x => x.key === key);
+  const cur = _importResults[key] || (_importResults[key] = {label: r?r.label:'', status:'manual', results:{}});
+  Object.assign(cur.results, pg.results);
+  delete _pagesPending[pageNum];
+  document.getElementById('confirm-btn').disabled = false;
+  renderAll();
 }
 
 function updateMergePanel() {
-  const names = Object.values(_importResults).map(r => r.name);
+  const entries = Object.entries(_importResults);
   const panel = document.getElementById('merge-panel');
-  panel.style.display = names.length >= 2 ? 'block' : 'none';
+  panel.style.display = entries.length >= 2 ? 'block' : 'none';
   ['merge-from','merge-into'].forEach(id => {
     const sel = document.getElementById(id);
     const cur = sel.value;
-    sel.innerHTML = names.map(n => `<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('');
-    if (names.includes(cur)) sel.value = cur;
+    sel.innerHTML = '';
+    entries.forEach(([key, r]) => {
+      const o = document.createElement('option'); o.value = key; o.textContent = r.label; sel.appendChild(o);
+    });
+    if (_importResults[cur]) sel.value = cur;
   });
-  // Default merge-into to second name to reduce accidental same-to-same merge
-  if (names.length >= 2) document.getElementById('merge-into').value = names[1];
+  // Default merge-into to second entry to reduce accidental same-to-same merge
+  if (entries.length >= 2) document.getElementById('merge-into').value = entries[1][0];
 }
 
 function confirmMerge() {
-  const fromName = document.getElementById('merge-from').value;
-  const toName   = document.getElementById('merge-into').value;
-  if (fromName === toName) { alert('Please select two different pupils.'); return; }
-  if (!confirm(`Merge "${fromName}" into "${toName}"?\n\nThis will add ${fromName}'s words to ${toName}'s record and remove the ${fromName} row.`)) return;
-  const fromKey = Object.keys(_importResults).find(k => _importResults[k].name === fromName);
-  const toKey   = Object.keys(_importResults).find(k => _importResults[k].name === toName);
-  if (!fromKey || !toKey) return;
+  const fromKey = document.getElementById('merge-from').value;
+  const toKey   = document.getElementById('merge-into').value;
+  if (fromKey === toKey) { alert('Please select two different pupils.'); return; }
+  if (!_importResults[fromKey] || !_importResults[toKey]) return;
+  const fromLabel = _importResults[fromKey].label, toLabel = _importResults[toKey].label;
+  if (!confirm(`Merge "${fromLabel}" into "${toLabel}"?\n\nThis will add ${fromLabel}'s words to ${toLabel}'s record and remove the ${fromLabel} row.`)) return;
   Object.assign(_importResults[toKey].results, _importResults[fromKey].results);
   delete _importResults[fromKey];
-  const card = document.getElementById(_rowKey(fromName));
-  if (card) card.remove();
-  renderRow(toName, _importResults[toKey].results);
-  updateMergePanel();
+  renderAll();
 }
 
-function renderRow(name, results) {
+function _card(ref, headEl, results) {
   const words   = Object.keys(results);
   const correct = Object.values(results).filter(Boolean).length;
   const total   = _totalWords || words.length;
   const pct     = total ? Math.round(correct/total*100) : '—';
-  const rowId   = _rowKey(name);
 
-  let card = document.getElementById(rowId);
-  if (!card) {
-    card = document.createElement('div');
-    card.id = rowId;
-    card.style.cssText = 'border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:8px';
-    document.getElementById('results-body').appendChild(card);
-  }
+  const card = document.createElement('div');
+  card.style.cssText = 'border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:8px';
 
-  const safeName = name.replace(/'/g, "\\'");
-  const pills = words.map(w => {
+  const head = document.createElement('div');
+  head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
+  head.appendChild(headEl);
+  const right = document.createElement('span');
+  right.style.cssText = 'display:flex;align-items:center;gap:10px';
+  const score = document.createElement('span');
+  score.style.cssText = 'font-size:12px;color:#64748b';
+  score.textContent = `${correct}/${total}  ${pct}${typeof pct==='number'?'%':''}`;
+  const x = document.createElement('button');
+  x.textContent = '✕'; x.title = 'Remove this row';
+  x.style.cssText = 'background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:0';
+  x.onclick = () => removeCard(ref);
+  right.appendChild(score); right.appendChild(x);
+  head.appendChild(right);
+  card.appendChild(head);
+
+  const pills = document.createElement('div');
+  words.forEach(w => {
     const ok = results[w];
-    const safeW = w.replace(/'/g, "\\'");
-    return `<span onclick="toggleWord('${safeName}','${safeW}')" title="Click to toggle" style="display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;background:${ok?'#dcfce7':'#fee2e2'};color:${ok?'#166534':'#991b1b'}">${w}</span>`;
-  }).join('');
+    const sp = document.createElement('span');
+    sp.textContent = w; sp.title = 'Click to toggle';
+    sp.style.cssText = `display:inline-block;padding:2px 8px;margin:2px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;user-select:none;background:${ok?'#dcfce7':'#fee2e2'};color:${ok?'#166534':'#991b1b'}`;
+    sp.onclick = () => toggleWord(ref, w);
+    pills.appendChild(sp);
+  });
+  card.appendChild(pills);
+  return card;
+}
 
-  card.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <span style="font-weight:700;font-size:13px">${name}</span>
-      <span style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:12px;color:#64748b">${correct}/${total} &nbsp;<strong>${pct}${typeof pct==='number'?'%':''}</strong></span>
-        <button onclick="removePupil('${safeName}')" title="Remove this pupil" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;padding:0">✕</button>
-      </span>
-    </div>
-    <div>${pills}</div>`;
+function renderAll() {
+  const body = document.getElementById('results-body');
+  body.innerHTML = '';
+  const taken = new Set(Object.keys(_importResults));
+
+  Object.entries(_importResults).forEach(([key, r]) => {
+    const h = document.createElement('span');
+    h.style.cssText = 'font-weight:700;font-size:13px';
+    h.textContent = r.label + (r.status === 'fuzzy' ? '  ⚠ check code' : '');
+    body.appendChild(_card('k:'+key, h, r.results));
+  });
+
+  Object.entries(_pagesPending).forEach(([pageNum, pg]) => {
+    const sel = document.createElement('select');
+    sel.style.cssText = 'font-size:12px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px';
+    const o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = `Page ${pageNum}: who is this?`;
+    sel.appendChild(o0);
+    _roster.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.key;
+      o.textContent = r.label + (taken.has(r.key) ? ' (already has results)' : '');
+      sel.appendChild(o);
+    });
+    sel.onchange = () => assignPage(pageNum, sel.value);
+    body.appendChild(_card('p:'+pageNum, sel, pg.results));
+  });
   updateMergePanel();
 }
 
@@ -360,11 +410,11 @@ async function confirmImport() {
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error,'error'); return; }
     let msg=`✅ Saved homophone records for ${d.saved} pupil${d.saved!==1?'s':''}.`;
-    if (d.unmatched?.length) msg+=` No match: ${d.unmatched.join(', ')}.`;
+    if (d.unmatched?.length) msg+=` No result for: ${d.unmatched.join(', ')}.`;
     showStatus(msg);
     document.getElementById('import-results').classList.add('hidden');
     document.getElementById('pdf-upload').value='';
-    _importResults={};
+    _importResults={}; _pagesPending={};
   } catch(e) { showStatus('Request failed: '+e.message,'error'); document.getElementById('confirm-btn').disabled=false; }
   finally { showSpin('confirm',false); }
 }
@@ -377,7 +427,7 @@ function resetImport() {
   document.getElementById('import-progress').classList.add('hidden');
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('pdf-upload').value='';
-  _importResults={}; _errorPages=[]; _totalWords=0;
+  _importResults={}; _pagesPending={}; _errorPages=[]; _totalWords=0;
 }
 
 // ── Digital session ───────────────────────────────────────────────────────────

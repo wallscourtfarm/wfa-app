@@ -5,7 +5,7 @@ from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from uls_lessons import ULS_LESSONS
-from print_names import parse_names, display_pupils, PrintNamesError
+import scan_identity
 
 ra_bp = Blueprint('rule_assessment', __name__)
 
@@ -25,19 +25,17 @@ def _err(e):
     current_app.logger.exception('Request failed')
     return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
-def _norm_name(s):
-    """Normalise a name for fuzzy matching: lowercase, strip hyphens/punctuation, collapse spaces."""
-    s = unicodedata.normalize('NFC', s or '')
-    s = re.sub(r"[-–—_']", ' ', s)          # hyphens/dashes/apostrophes → space
-    s = re.sub(r'[^a-z0-9 ]', '', s.lower()) # strip anything else
-    return re.sub(r' +', ' ', s).strip()
-
-def _load_pupils(cls):
-    pupils = []
+def _load_entries(cls):
+    """[(class_id, pupil_dict)] for the class selection, in print order."""
+    out = []
     for cid in _resolve_classes(cls):
         d = load_class(cid)
-        if d: pupils.extend(d.get('pupils', []))
-    return pupils
+        if d:
+            out.extend((cid, p) for p in d.get('pupils', []))
+    return out
+
+def _load_pupils(cls):
+    return [p for _, p in _load_entries(cls)]
 
 def _load_rule_cloze():
     r = _req.get(
@@ -78,7 +76,7 @@ def _vision_prompt(sections):
 
     return (
         "This is a scanned page from a ULS spelling assessment.\n\n"
-        "The child's name is pre-printed at the top of the page — read it exactly as printed.\n\n"
+        f"{scan_identity.CODE_PROMPT}\n\n"
         "The assessment is grouped by spelling lesson. Each lesson has exactly 2 words tested. "
         "The lessons and their words on this page are:\n"
         f"{lesson_map}\n\n"
@@ -86,7 +84,7 @@ def _vision_prompt(sections):
         "by drawing a single diagonal line from one corner of the box to the opposite corner. "
         "An empty box or a box with only a small stray mark means incorrect.\n\n"
         "Return ONLY valid JSON:\n"
-        '{"name": "Full Name", "results": {"word1": true, "word2": false, ...}}\n'
+        '{"code": "p_xxxxxxxxxx", "results": {"word1": true, "word2": false, ...}}\n'
         "true = diagonal line present, false = empty or stray mark. "
         "Omit words not visible on this page. No preamble, no markdown fences."
     )
@@ -126,7 +124,6 @@ def api_ra_generate():
         body         = request.get_json(force=True)
         cls          = body.get('cls', DEFAULT_CLASS)
         selected_ids = body.get('rules', [])
-        names        = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
 
         if not selected_ids:
             return jsonify({'ok': False, 'error': 'Select at least one rule'})
@@ -144,7 +141,7 @@ def api_ra_generate():
             return jsonify({'ok': False, 'error': 'No cloze sentences found for selected rules'})
 
         from assessment_builder import build_rule_assessment_pdf, build_rule_assessment_teacher_pdf
-        pupils        = display_pupils(pupils, names)   # copies; stored objects untouched
+        # The scan sheet carries initials + code only, built from the STORED pupils. No names file is used.
         pdf_bytes     = build_rule_assessment_pdf(pupils, sections, week_ref)
         teacher_bytes = build_rule_assessment_teacher_pdf([], sections, week_ref)
 
@@ -155,11 +152,10 @@ def api_ra_generate():
             'pdf_name':         f'Rule_Assessment_{week_ref}_{cls}_Pupils.pdf',
             'teacher_pdf_name': f'Rule_Assessment_{week_ref}_{cls}_Teacher.pdf',
             'n_pupils':  len(pupils),
+            'n_no_code': sum(1 for p in pupils if not scan_identity.pupil_code(p)),
             'n_rules':   len(sections),
             'n_words':   len(sections) * WORDS_PER_LESSON,
         })
-    except PrintNamesError as e:
-        return jsonify({'ok': False, 'error': str(e)}), 400
     except Exception as e:
         return _err(e)
 
@@ -192,8 +188,10 @@ def api_ra_import_upload():
         cloze_tmp   = _load_rule_cloze()
         secs_tmp    = _rule_sections(body.get('rules', []), cloze_tmp)
         total_words = len(secs_tmp) * WORDS_PER_LESSON
+        # Labels only (initials), never names: feeds the manual-assign dropdown.
+        roster = scan_identity.roster(_load_entries(body.get('cls', DEFAULT_CLASS)))
         return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
-                        'total_words': total_words})
+                        'total_words': total_words, 'roster': roster})
     except Exception as e:
         return _err(e)
 
@@ -219,6 +217,11 @@ def api_ra_import_stream(job_id):
     cloze    = _load_rule_cloze()
     sections = _rule_sections(meta['rules'], cloze)
     prompt   = _vision_prompt(sections)
+    entries      = _load_entries(meta.get('cls', DEFAULT_CLASS))
+    exp_ids      = scan_identity.expected_ids(entries)
+    key_by_id    = {scan_identity.pupil_code(p): scan_identity.pupil_key(cid, p)
+                    for cid, p in entries if scan_identity.pupil_code(p)}
+    label_by_key = {r['key']: r['label'] for r in scan_identity.roster(entries)}
     api_key  = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data):
@@ -254,14 +257,19 @@ def api_ra_import_stream(job_id):
                 text   = re.sub(r'^```[a-z]*\n?', '', text)
                 text   = re.sub(r'\n?```$', '', text)
                 parsed = json.loads(text)
+                pid, status = scan_identity.match_code(parsed.get('code', ''), exp_ids)
+                key = key_by_id.get(pid, '') if pid else ''
+                # Browser gets initials label + status only. Never a name, never the raw reply.
                 return (page_num, {'type': 'page',
-                                   'name': parsed.get('name', ''),
+                                   'key': key,
+                                   'label': label_by_key.get(key, ''),
+                                   'status': status if key else 'unmatched',
                                    'results': parsed.get('results', {})})
             else:
                 return (page_num, {'type': 'error',
                                    'message': f'API {resp.status_code}'})
         except Exception as e:
-            return (page_num, {'type': 'error', 'message': str(e)})
+            return (page_num, {'type': 'error', 'message': 'Could not read this page.'})
 
     def generate():
         import fitz
@@ -313,10 +321,11 @@ def api_ra_confirm():
         cls          = body.get('cls', DEFAULT_CLASS)
         selected_ids = body.get('rules', [])
         week_ref     = body.get('week_ref', '')
-        # pupil_results: {name_lower: {name, results: {word: bool}}}
-        # Normalise keys so hyphens/punctuation variations still match
-        raw_results   = body.get('results', {})
-        pupil_results = {_norm_name(k): v for k, v in raw_results.items()}
+        # pupil_results: {pupil key: {results: {word: bool}}}. The key is the pupil_id, or
+        # "<class_id>|<id>" for pupils without one. Identity is never a name.
+        pupil_results = body.get('results', {})
+        if not isinstance(pupil_results, dict):
+            return jsonify({'ok': False, 'error': 'Results were not in the expected format.'}), 400
 
         cloze    = _load_rule_cloze()
         sections = _rule_sections(selected_ids, cloze)
@@ -330,8 +339,11 @@ def api_ra_confirm():
         today     = date.today().strftime('%Y-%m-%d')
         class_ids = _resolve_classes(cls)
         saved     = 0
-        unmatched = []
+        unmatched = []      # initials labels of pupils with no result (labels only)
 
+        # Load every class first so initials labels are clash-aware across the whole selection
+        # (the same list the sheets were printed from).
+        loaded = []
         for cid in class_ids:
             r2 = _req.get(
                 f'https://api.github.com/repos/{DATA_REPO}/contents/data/classes/{cid}.json',
@@ -339,18 +351,23 @@ def api_ra_confirm():
             if r2.status_code != 200:
                 continue
             file_data = r2.json()
-            sha       = file_data['sha']
             class_obj = json.loads(base64.b64decode(file_data['content']).decode())
+            loaded.append((cid, file_data['sha'], class_obj))
+        entries = [(cid, p) for cid, _, o in loaded for p in o.get('pupils', [])]
+        label_by_key = {r['key']: r['label'] for r in scan_identity.roster(entries)}
+
+        for cid, sha, class_obj in loaded:
             pupils    = class_obj.get('pupils', [])
             changed   = False
 
             for p in pupils:
-                name_key = _norm_name(p.get('first','') + ' ' + (p.get('last') or ''))
-                if name_key not in pupil_results:
-                    unmatched.append((p.get('first','') + ' ' + (p.get('last') or '')).strip())
+                key   = scan_identity.pupil_key(cid, p)
+                entry = pupil_results.get(key)
+                if not isinstance(entry, dict) or not isinstance(entry.get('results'), dict):
+                    unmatched.append(label_by_key.get(key, ''))
                     continue
 
-                word_results = pupil_results[name_key]['results']  # {word: bool}
+                word_results = entry['results']  # {word: bool}
                 rc = dict(p.get('rule_confidence', {}))
 
                 # Score each rule: tally the 2 tested words
@@ -359,7 +376,7 @@ def api_ra_confirm():
                     all_rule = {word.lower(): False for word, _ in pairs}
                     for k, v in word_results.items():
                         if k.lower() in all_rule:
-                            all_rule[k.lower()] = v
+                            all_rule[k.lower()] = bool(v)
                     tested  = list(all_rule.items())
                     correct = sum(1 for _, v in tested if v)
                     total   = len(tested)

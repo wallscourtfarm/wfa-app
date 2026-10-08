@@ -374,7 +374,8 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
     """
     sections: list of (rule_id, title, [(word, sentence), (word, sentence)])
     No divider rows — rule ID printed in dark grey between writing line and box.
-    Name pre-printed on every page. Returns PDF bytes.
+    Header carries the pupil's INITIALS label and pupil_id CODE on every page, never a name
+    (see scan_identity). Pass the STORED pupils (no names-file overlay). Returns PDF bytes.
     """
     buf = io.BytesIO()
     W, H = A4
@@ -390,8 +391,12 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
 
     c = canvas.Canvas(buf, pagesize=A4)
 
-    for pupil in pupils:
-        name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
+    import scan_identity
+    pupils = list(pupils)
+    id_labels = scan_identity.labels_for(pupils)
+
+    for pupil, id_label in zip(pupils, id_labels):
+        id_code = scan_identity.pupil_code(pupil)
 
         # Build flat item list — word items carry their rule_id, no section items
         items   = []
@@ -417,7 +422,8 @@ def build_rule_assessment_pdf(pupils, sections, week_ref=""):
 
         for pg_idx, page_items in enumerate(pages):
             pg_label = f'Page {pg_idx + 1} of {n_pages}'
-            top_y    = _draw_page_header(c, W, H, name, week_ref, pg_label)
+            top_y    = scan_identity.draw_scan_header(c, W, H, id_label, id_code, week_ref, pg_label,
+                                                      assessment_type="Rule Assessment")
             cy       = top_y - 5 * mm
 
             for item in page_items:
@@ -656,7 +662,7 @@ def build_homophone_assessment_pdf(pupils, sections, week_ref=""):
     """
     sections: [(stage, stage_label, [(rule_id, word, sentence), ...])]
     All words tested — rule ID shown beside marking box on each row.
-    Grey section headers per stage.
+    Grey section headers per stage. Header: initials label + pupil_id code, no name.
     """
     buf = io.BytesIO()
     W, H  = A4
@@ -672,8 +678,12 @@ def build_homophone_assessment_pdf(pupils, sections, week_ref=""):
 
     c = canvas.Canvas(buf, pagesize=A4)
 
-    for pupil in pupils:
-        name = (pupil.get('first', '') + ' ' + (pupil.get('last') or '')).strip()
+    import scan_identity
+    pupils = list(pupils)
+    id_labels = scan_identity.labels_for(pupils)
+
+    for pupil, id_label in zip(pupils, id_labels):
+        id_code = scan_identity.pupil_code(pupil)
 
         items = []
         counter = 1
@@ -697,9 +707,9 @@ def build_homophone_assessment_pdf(pupils, sections, week_ref=""):
         n_pages = len(pages)
 
         for pg_idx, page_items in enumerate(pages):
-            top_y = _draw_page_header(c, W, H, name, week_ref,
-                                      f'Page {pg_idx + 1} of {n_pages}',
-                                      assessment_type="Homophone Assessment")
+            top_y = scan_identity.draw_scan_header(c, W, H, id_label, id_code, week_ref,
+                                                   f'Page {pg_idx + 1} of {n_pages}',
+                                                   assessment_type="Homophone Assessment")
             cy = top_y - 5 * mm
 
             for item in page_items:

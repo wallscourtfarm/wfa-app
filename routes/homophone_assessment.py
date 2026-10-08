@@ -5,7 +5,7 @@ from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from spelling_rules import SPELLING_RULES
-from print_names import parse_names, display_pupils, PrintNamesError
+import scan_identity
 
 ha_bp = Blueprint('homophone_assessment', __name__)
 
@@ -30,12 +30,17 @@ def _err(e):
     current_app.logger.exception('Request failed')
     return jsonify({'ok': False, 'error': 'Something went wrong on the server. Please try again, and tell Innes if it keeps happening.'})
 
-def _load_pupils(cls):
-    pupils = []
+def _load_entries(cls):
+    """[(class_id, pupil_dict)] for the class selection, in print order."""
+    out = []
     for cid in _resolve_classes(cls):
         d = load_class(cid)
-        if d: pupils.extend(d.get('pupils', []))
-    return pupils
+        if d:
+            out.extend((cid, p) for p in d.get('pupils', []))
+    return out
+
+def _load_pupils(cls):
+    return [p for _, p in _load_entries(cls)]
 
 def _load_rule_cloze():
     r = _req.get(
@@ -122,12 +127,12 @@ def _vision_prompt(word_list_text, mark_format='circle'):
         )
     return (
         "This is a scanned page from a homophone assessment for Year 3/4 pupils.\n\n"
-        "The child's name is pre-printed at the top — read it exactly as printed.\n\n"
+        f"{scan_identity.CODE_PROMPT}\n\n"
         "The assessment tests homophones in context (cloze sentences). "
         "Each row has a small marking symbol in the FAR RIGHT column of the page.\n\n"
         f"{marking}\n\n"
         f"Words being tested on this page:\n{word_list_text}\n\n"
-        'Return ONLY valid JSON: {"name": "Full Name", "results": {"word1": true, "word2": false}}\n'
+        'Return ONLY valid JSON: {"code": "p_xxxxxxxxxx", "results": {"word1": true, "word2": false}}\n'
         "true = correct mark present. false = empty, scribbled out, or uncertain. "
         "Omit words not on this page. No preamble, no markdown fences."
     )
@@ -181,7 +186,6 @@ def api_ha_generate():
         body           = request.get_json(force=True)
         cls            = body.get('cls', DEFAULT_CLASS)
         selected       = [int(s) for s in body.get('stages', [])]
-        names          = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
         if not selected:
             return jsonify({'ok': False, 'error': 'Select at least one stage'})
 
@@ -196,7 +200,7 @@ def api_ha_generate():
 
         from assessment_builder import build_homophone_assessment_pdf, build_homophone_assessment_teacher_pdf
         ha_week_ref   = re.sub(r'W\d+', '', week_ref)  # T3W2 → T3
-        pupils        = display_pupils(pupils, names)   # copies; stored objects untouched
+        # The scan sheet carries initials + code only, built from the STORED pupils. No names file is used.
         pdf_bytes     = build_homophone_assessment_pdf(pupils, sections, ha_week_ref)
         teacher_bytes = build_homophone_assessment_teacher_pdf(sections, ha_week_ref)
 
@@ -208,9 +212,8 @@ def api_ha_generate():
             'pdf_name':         f'Homophone_Assessment_{week_ref}_{cls}_Pupils.pdf',
             'teacher_pdf_name': f'Homophone_Assessment_{week_ref}_Teacher.pdf',
             'n_pupils': len(pupils), 'n_words': n_words,
+            'n_no_code': sum(1 for p in pupils if not scan_identity.pupil_code(p)),
         })
-    except PrintNamesError as e:
-        return jsonify({'ok': False, 'error': str(e)}), 400
     except Exception as e:
         return _err(e)
 
@@ -244,8 +247,10 @@ def api_ha_import_upload():
         cloze    = _load_rule_cloze()
         sections = _build_sections(selected, cloze)
         total_words = sum(len(rows) for _, _, rows in sections)
+        # Labels only (initials), never names: feeds the manual-assign dropdown.
+        roster = scan_identity.roster(_load_entries(body.get('cls', DEFAULT_CLASS)))
         return jsonify({'ok': True, 'job_id': job_id, 'n_pages': n_pages,
-                        'total_words': total_words})
+                        'total_words': total_words, 'roster': roster})
     except Exception as e:
         return _err(e)
 
@@ -271,6 +276,11 @@ def api_ha_import_stream(job_id):
     mark_format     = meta.get('mark_format', 'circle')
     mark_convention = meta.get('mark_convention', 'correct')
     prompt          = _vision_prompt(wl_text, mark_format)
+    entries         = _load_entries(meta.get('cls', DEFAULT_CLASS))
+    exp_ids         = scan_identity.expected_ids(entries)
+    key_by_id       = {scan_identity.pupil_code(p): scan_identity.pupil_key(cid, p)
+                       for cid, p in entries if scan_identity.pupil_code(p)}
+    label_by_key    = {r['key']: r['label'] for r in scan_identity.roster(entries)}
     api_key         = os.environ.get('ANTHROPIC_API_KEY', '')
 
     def sse(data): return f"data: {json.dumps(data)}\n\n"
@@ -308,15 +318,20 @@ def api_ha_import_stream(job_id):
                         results = parsed.get('results', {})
                         if mark_convention == 'mistake':
                             results = {k: not v for k, v in results.items()}
+                        pid, status = scan_identity.match_code(parsed.get('code', ''), exp_ids)
+                        key = key_by_id.get(pid, '') if pid else ''
+                        # Browser gets initials label + status only. Never a name, never the raw reply.
                         yield sse({'type': 'page', 'page_num': page_num + 1,
-                                   'total': n_pages, 'name': parsed.get('name', ''),
+                                   'total': n_pages, 'key': key,
+                                   'label': label_by_key.get(key, ''),
+                                   'status': status if key else 'unmatched',
                                    'results': results})
                     else:
                         yield sse({'type': 'error', 'page_num': page_num + 1,
                                    'total': n_pages, 'message': f'API {resp.status_code}'})
                 except Exception as e:
                     yield sse({'type': 'error', 'page_num': page_num + 1,
-                               'total': n_pages, 'message': str(e)})
+                               'total': n_pages, 'message': 'Could not read this page.'})
 
             doc.close()
             yield sse({'type': 'done', 'total': n_pages})
@@ -340,29 +355,41 @@ def api_ha_confirm():
         cls           = body.get('cls', DEFAULT_CLASS)
         selected      = [int(s) for s in body.get('stages', [])]
         week_ref      = body.get('week_ref', '')
-        pupil_results = body.get('results', {})  # {name_lower: {name, results: {word: bool}}}
+        # {pupil key: {results: {word: bool}}}. The key is the pupil_id, or "<class_id>|<id>" for
+        # pupils without one. Identity is never a name.
+        pupil_results = body.get('results', {})
+        if not isinstance(pupil_results, dict):
+            return jsonify({'ok': False, 'error': 'Results were not in the expected format.'}), 400
 
         cloze    = _load_rule_cloze()
         sections = _build_sections(selected, cloze)
         today    = date.today().strftime('%Y-%m-%d')
 
         class_ids = _resolve_classes(cls)
-        saved, unmatched = 0, []
+        saved, unmatched = 0, []     # unmatched = initials labels only
 
+        # Load every class first so initials labels are clash-aware across the whole selection
+        # (the same list the sheets were printed from).
+        loaded = []
         for cid in class_ids:
             r2 = _req.get(
                 f'https://api.github.com/repos/{DATA_REPO}/contents/data/classes/{cid}.json',
                 headers=_HDR, timeout=10)
             if r2.status_code != 200: continue
             file_data = r2.json()
-            sha       = file_data['sha']
             class_obj = json.loads(base64.b64decode(file_data['content']).decode())
+            loaded.append((cid, file_data['sha'], class_obj))
+        entries = [(cid, p) for cid, _, o in loaded for p in o.get('pupils', [])]
+        label_by_key = {r['key']: r['label'] for r in scan_identity.roster(entries)}
+
+        for cid, sha, class_obj in loaded:
             changed   = False
 
             for p in class_obj.get('pupils', []):
-                name_key = (p.get('first','') + ' ' + (p.get('last') or '')).strip().lower()
-                if name_key not in pupil_results:
-                    unmatched.append((p.get('first','') + ' ' + (p.get('last') or '')).strip())
+                key   = scan_identity.pupil_key(cid, p)
+                entry = pupil_results.get(key)
+                if not isinstance(entry, dict) or not isinstance(entry.get('results'), dict):
+                    unmatched.append(label_by_key.get(key, ''))
                     continue
 
                 # Initialise all assessment words as False (incorrect),
@@ -370,9 +397,9 @@ def api_ha_confirm():
                 all_words = {word.lower(): False
                              for _, _, rows in sections
                              for _, word, _ in rows}
-                for k, v in pupil_results[name_key]['results'].items():
+                for k, v in entry['results'].items():
                     if k.lower() in all_words:
-                        all_words[k.lower()] = v
+                        all_words[k.lower()] = bool(v)
 
                 hm = set(p.get('homophone_mastered', []))
                 for w, correct in all_words.items():

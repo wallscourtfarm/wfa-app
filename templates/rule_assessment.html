@@ -110,7 +110,7 @@
     <h4 class="wa-results-title">Results — review before saving</h4>
     <table class="wa-results-table">
       <thead>
-        <tr><th>Name</th><th>Lessons</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
+        <tr><th>Pupil</th><th>Lessons</th><th>Fully mastered</th><th>Partial</th><th>Not mastered</th></tr>
       </thead>
       <tbody id="results-body"></tbody>
     </table>
@@ -210,10 +210,7 @@ function blob64(b64, mime) {
 async function generate() {
   const rules = selectedRules();
   if (!rules.length) { showStatus('Select at least one lesson.', 'error'); return; }
-  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
-  const ask = await WFAPrint.askNames(null);
-  if (ask.cancelled) return;
-  const namesPart = ask.names ? { names: ask.names } : {};
+  // Pupil sheets carry initials + code only; no names file is needed or sent.
   showSpin('generate', true);
   document.getElementById('generate-btn').disabled = true;
   document.getElementById('dl-pdf').classList.add('hidden');
@@ -221,7 +218,7 @@ async function generate() {
     const resp = await fetch('/api/rule-assessment/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS, rules, ...namesPart }),
+      body: JSON.stringify({ cls: CLS, rules }),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
@@ -243,7 +240,9 @@ async function generate() {
 }
 
 // ── Import: streaming ─────────────────────────────────────────────
-let _importResults  = {};
+let _importResults  = {};   // pupil key -> {label, status, results: {word: bool}}
+let _pagesPending   = {};   // page_num -> {results}  (code not recognised: teacher assigns by hand)
+let _roster         = [];   // [{key, label, has_code}]  initials labels only
 let _errorPages     = [];
 let _activeSource   = null;
 let _totalWords     = 0;
@@ -257,6 +256,8 @@ async function startImport() {
   if (!rules.length) { showStatus('Select the same lessons used when generating the sheet.', 'error'); return; }
 
   _importResults  = {};
+  _pagesPending   = {};
+  _roster         = [];
   _errorPages     = [];
   _totalWords     = 0;
   _pagesProcessed = 0;
@@ -287,6 +288,7 @@ async function startImport() {
     jobId       = d.job_id;
     nPages      = d.n_pages;
     _totalWords = d.total_words || 0;
+    _roster     = d.roster || [];
     _pagesTotal = nPages;
     setProgress(0, nPages, `Processing 0 of ${nPages} pages…`);
   } catch(e) {
@@ -309,13 +311,14 @@ async function startImport() {
       const done  = _pagesProcessed;
       const total = _pagesTotal || ev.total;
       if (ev.type === 'page') {
-        const nameKey = ev.name.trim().toLowerCase();
-        if (nameKey) {
-          if (!_importResults[nameKey])
-            _importResults[nameKey] = { name: ev.name, results: {} };
-          Object.assign(_importResults[nameKey].results, ev.results);
-          renderRow(ev.name, _importResults[nameKey].results);
+        if (ev.key) {
+          const cur = _importResults[ev.key] || (_importResults[ev.key] = { label: ev.label, status: ev.status, results: {} });
+          if (ev.status === 'fuzzy') cur.status = 'fuzzy';
+          Object.assign(cur.results, ev.results);
+        } else {
+          _pagesPending[ev.page_num] = { results: ev.results };
         }
+        renderRows();
       } else {
         _errorPages.push(`Page ${ev.page_num}: ${ev.message}`);
       }
@@ -330,8 +333,10 @@ async function startImport() {
         showStatus('Processing failed: ' + ev.message, 'error');
       } else {
         const n = Object.keys(_importResults).length;
-        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n !== 1 ? 's' : ''} found.`);
-        document.getElementById('confirm-btn').disabled = false;
+        const u = Object.keys(_pagesPending).length;
+        showStatus(`✅ Processed ${ev.total} pages — ${n} pupil${n !== 1 ? 's' : ''} found.` +
+          (u ? ` ${u} page${u !== 1 ? 's' : ''} need a pupil choosing below.` : '') + ' Review and save below.');
+        document.getElementById('confirm-btn').disabled = !n;
       }
       if (_errorPages.length) {
         const note = document.getElementById('errors-note');
@@ -356,22 +361,66 @@ function setProgress(done, total, label) {
   document.getElementById('progress-label').textContent = label;
 }
 
-function renderRow(name, wordResults) {
+function _cell(tr, text, colspan) {
+  const td = document.createElement('td');
+  td.textContent = text;
+  if (colspan) { td.colSpan = colspan; td.style.cssText = 'color:var(--muted);font-size:12px'; }
+  tr.appendChild(td);
+  return td;
+}
+
+function _summary(tr, wordResults) {
   const words   = Object.keys(wordResults).length;
   const correct = Object.values(wordResults).filter(Boolean).length;
-  const nameKey = name.trim().toLowerCase();
-  const rowId   = 'row-' + nameKey.replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-  let row = document.getElementById(rowId);
-  if (!row) {
-    row = document.createElement('tr');
-    row.id = rowId;
-    document.getElementById('results-body').appendChild(row);
-  }
   const lessonsTotal = Math.floor(words / 2);
-  row.innerHTML = `
-    <td>${name}</td>
-    <td>${lessonsTotal} lesson${lessonsTotal !== 1 ? 's' : ''}</td>
-    <td colspan="3" style="color:var(--muted);font-size:12px">${correct}/${words} words correct — lesson scores calculated on save</td>`;
+  _cell(tr, `${lessonsTotal} lesson${lessonsTotal !== 1 ? 's' : ''}`);
+  _cell(tr, `${correct}/${words} words correct — lesson scores calculated on save`, 3);
+}
+
+// Rows show only the initials label and a match status. Never a name.
+function renderRows() {
+  const body = document.getElementById('results-body');
+  body.innerHTML = '';
+  const taken = new Set(Object.keys(_importResults));
+
+  Object.entries(_importResults).forEach(([key, r]) => {
+    const tr = document.createElement('tr');
+    _cell(tr, r.label + (r.status === 'fuzzy' ? '  ⚠ check code' : ''));
+    _summary(tr, r.results);
+    body.appendChild(tr);
+  });
+
+  Object.entries(_pagesPending).forEach(([pageNum, pg]) => {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    const sel = document.createElement('select');
+    const o0 = document.createElement('option');
+    o0.value = ''; o0.textContent = `Page ${pageNum}: who is this?`;
+    sel.appendChild(o0);
+    _roster.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.key;
+      o.textContent = r.label + (taken.has(r.key) ? ' (already has results)' : '');
+      sel.appendChild(o);
+    });
+    sel.onchange = () => assignPage(pageNum, sel.value);
+    td.appendChild(sel);
+    tr.appendChild(td);
+    _summary(tr, pg.results);
+    body.appendChild(tr);
+  });
+}
+
+function assignPage(pageNum, key) {
+  if (!key) return;
+  const pg = _pagesPending[pageNum];
+  if (!pg) return;
+  const r = _roster.find(x => x.key === key);
+  const cur = _importResults[key] || (_importResults[key] = { label: r ? r.label : '', status: 'manual', results: {} });
+  Object.assign(cur.results, pg.results);
+  delete _pagesPending[pageNum];
+  document.getElementById('confirm-btn').disabled = false;
+  renderRows();
 }
 
 async function confirmImport() {
@@ -389,11 +438,12 @@ async function confirmImport() {
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
     let msg = `✅ Saved lesson confidence for ${d.saved} pupil${d.saved !== 1 ? 's' : ''}.`;
-    if (d.unmatched?.length) msg += ` No match: ${d.unmatched.join(', ')}.`;
+    if (d.unmatched?.length) msg += ` No result for: ${d.unmatched.join(', ')}.`;
     showStatus(msg);
     document.getElementById('import-results').classList.add('hidden');
     document.getElementById('pdf-upload').value = '';
     _importResults = {};
+    _pagesPending  = {};
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
     document.getElementById('confirm-btn').disabled = false;
@@ -412,6 +462,7 @@ function resetImport() {
   document.getElementById('import-results').classList.add('hidden');
   document.getElementById('pdf-upload').value = '';
   _importResults  = {};
+  _pagesPending   = {};
   _errorPages     = [];
   _totalWords     = 0;
   _pagesProcessed = 0;
