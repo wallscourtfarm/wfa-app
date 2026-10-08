@@ -3,6 +3,7 @@ import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
+from print_names import parse_names, display_pupils, PrintNamesError
 
 wa_bp = Blueprint('word_assessment', __name__)
 
@@ -109,6 +110,7 @@ def api_wa_generate():
         body     = request.get_json(force=True)
         cls      = body.get('cls', DEFAULT_CLASS)
         selected = body.get('sections', SECTION_KEYS)
+        names    = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
 
         pupils   = _load_pupils(cls)
         if not pupils:
@@ -128,6 +130,7 @@ def api_wa_generate():
                 cloze.update(generate_missing_cloze(missing, api_key))
 
         from assessment_builder import build_word_assessment_pdf, build_word_assessment_excel, build_word_assessment_teacher_pdf
+        pupils        = display_pupils(pupils, names)   # copies; stored objects untouched
         pdf_bytes     = build_word_assessment_pdf(pupils, sections, cloze, week_ref)
         teacher_bytes = build_word_assessment_teacher_pdf([], sections, cloze, week_ref)
         xl_bytes      = build_word_assessment_excel(pupils, sections)
@@ -145,6 +148,8 @@ def api_wa_generate():
             'n_words':   len(all_words),
             'flagged':   flagged,
         })
+    except PrintNamesError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
     except Exception as e:
         return _err(e)
 

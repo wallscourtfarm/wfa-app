@@ -245,13 +245,16 @@ function triggerDownload(b64, mime, filename) {
 }
 
 async function generateTTSheet() {
+  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
+  const ask = await WFAPrint.askNames(WFAPrint.pidsFrom('[data-pupil-id]'));
+  if (ask.cancelled) return;
   const spinEl = document.getElementById('spin-tt-sheet');
   if (spinEl) spinEl.classList.remove('hidden');
   try {
     const resp = await fetch('/api/print/tt-check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cls: CLS}),
+      body: JSON.stringify({cls: CLS, ...(ask.names ? {names: ask.names} : {})}),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus('Error: ' + d.error, 'error'); return; }

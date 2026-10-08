@@ -2,6 +2,7 @@ import base64
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group
 from word_bank import get_active_words
+from print_names import parse_names, display_pupils, PrintNamesError
 
 hl_bp = Blueprint('hl', __name__)
 CLASS_OPTIONS = get_class_options()
@@ -29,6 +30,24 @@ def _job_read(job_id):
             return _json.load(f)
     except Exception:
         return None
+
+# Results that carry pupil names (supplied from the teacher's names file) are held in THIS
+# PROCESS'S MEMORY ONLY, never written to /tmp/hl_jobs, and expire after 30 minutes.
+# (The app runs gunicorn with one worker, so the status poll reaches the same process.)
+_MEM_DONE = {}
+
+
+def _mem_put(job_id, data):
+    _MEM_DONE[job_id] = (_time.time(), data)
+
+
+def _mem_get(job_id):
+    cutoff = _time.time() - 1800
+    for k in [k for k, (t, _) in _MEM_DONE.items() if t < cutoff]:
+        _MEM_DONE.pop(k, None)
+    v = _MEM_DONE.get(job_id)
+    return v[1] if v else None
+
 
 def _prune_jobs():
     """Remove job files older than 30 minutes."""
@@ -116,7 +135,7 @@ def api_hl_ping():
 def api_hl_status(job_id):
     """Poll job status — returns immediately."""
     _prune_jobs()
-    job = _job_read(job_id)
+    job = _mem_get(job_id) or _job_read(job_id)
     if not job:
         return jsonify({'ok': False, 'status': 'error', 'error': 'Job not found or expired — please generate again'})
     return jsonify(job)
@@ -127,6 +146,10 @@ def api_hl_generate():
     body = request.get_json(force=True)
     if not body:
         return jsonify({'ok': False, 'error': 'Invalid or empty request body'})
+    try:
+        names = parse_names(body)   # optional {pupil_id: {first,last}}; memory only
+    except PrintNamesError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
     cls = body.get('cls', 'all')
     maths_topic      = body.get('maths_topic', '').strip()
     maths_notes      = body.get('maths_notes', '').strip()
@@ -158,8 +181,11 @@ def api_hl_generate():
     if not pupils:
         return jsonify({'ok': False, 'error': f'No pupils found for class {cls}'})
 
-    std_pupils = _get_hl_pupils(pupils, 'standard')
-    adp_pupils = _get_hl_pupils(pupils, 'adapted')
+    # Display copies (names from the file where supplied); `pupils` itself is never modified.
+    std_pupils = _get_hl_pupils(display_pupils(pupils, names), 'standard')
+    adp_pupils = _get_hl_pupils(display_pupils(pupils, names), 'adapted')
+    _has_names = bool(names)
+    names = None   # drop the reference; the display copies are all the thread needs
 
     key_words_map = {}
     for p in pupils:
@@ -246,7 +272,7 @@ def api_hl_generate():
         std_bytes = _pdfs.get('standard')
         adp_bytes = _pdfs.get('adapted')
 
-        _job_write(job_id, {
+        _done = {
             'status':   'done',
             'ok':       True,
             'week_ref': _week_ref,
@@ -254,7 +280,12 @@ def api_hl_generate():
             'adp_pdf':  base64.b64encode(adp_bytes).decode() if adp_bytes else None,
             'n_std':    len(_std_pupils),
             'n_adp':    len(_adp_pupils),
-        })
+        }
+        if _has_names:
+            _mem_put(job_id, _done)      # PDFs contain names: memory only, not /tmp
+            _job_write(job_id, {'status': 'pending'})
+        else:
+            _job_write(job_id, _done)
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({'ok': True, 'job_id': job_id, 'status': 'pending'})

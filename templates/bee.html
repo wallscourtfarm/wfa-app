@@ -90,7 +90,7 @@
     <div id="session-card" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="filter-sep" style="height:24px;width:1px;background:#e2e8f0;margin:0 2px"></div>
       <span id="sess-title" style="font-size:13px;font-weight:600;color:#1a3c6e"></span>
-      <a id="cards-link" class="btn btn-primary" style="font-size:13px" target="_blank">🖨 QR cards PDF</a>
+      <button type="button" id="cards-link" class="btn btn-primary" style="font-size:13px" onclick="downloadCards(_sessionId, WFAPrint.pidsFrom('.bee-row [data-pupil-id]'))">🖨 QR cards PDF</button>
       <button class="btn btn-secondary" id="process-btn" style="font-size:13px"
         onclick="processSession()" disabled>✅ Process results</button>
       <span class="print-spinner hidden" id="spin-process"></span>
@@ -203,6 +203,10 @@ function triggerDownload(b64, mime, filename) {
 
 // ── Download PDFs (paired lists ± recording sheet) ────────────────────────────
 async function generateWordListMaterials() {
+  // One ask covers both printouts. Names go in the request body only.
+  const ask = await WFAPrint.askNames(WFAPrint.pidsFrom('.bee-row [data-pupil-id]'));
+  if (ask.cancelled) return;
+  const namesPart = ask.names ? {names: ask.names} : {};
   showSpin('paired-lists', true);
   try {
     const includeRec  = document.getElementById('include-recording').checked;
@@ -210,13 +214,13 @@ async function generateWordListMaterials() {
     const fetches = [
       fetch('/api/print/paired-lists', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, print_order: printOrder}),
+        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, print_order: printOrder, ...namesPart}),
       }),
     ];
     if (includeRec) {
       fetches.push(fetch('/api/print/recording-sheet', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF}),
+        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, ...namesPart}),
       }));
     }
     const responses = await Promise.all(fetches);
@@ -233,6 +237,19 @@ async function generateWordListMaterials() {
     showStatus('Request failed: ' + e.message, 'error');
   } finally {
     showSpin('paired-lists', false);
+  }
+}
+
+
+// Download the QR cards: ask for the names file first, then POST {names} and save the returned PDF.
+// (Names go in the request body only; never in the URL.)
+async function downloadCards(sessionId, pids) {
+  const ask = await WFAPrint.askNames(pids);
+  if (ask.cancelled) return;
+  try {
+    await WFAPrint.downloadPdfPost(`/api/live/bee/cards-pdf/${sessionId}`, ask.names, `SpellingBee_${sessionId}.pdf`);
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
   }
 }
 
@@ -253,7 +270,6 @@ async function createSession() {
     const descEl = document.getElementById('sess-desc');
     descEl.textContent = `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
     descEl.style.display = 'block';
-    document.getElementById('cards-link').href = `/api/live/bee/cards-pdf/${d.session_id}`;
     document.getElementById('session-card').style.display = 'flex';
     document.getElementById('process-btn').disabled = false;
     showStatus(`Session ${d.session_id} created — download and print the QR cards.`);

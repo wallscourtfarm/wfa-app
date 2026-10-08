@@ -134,6 +134,10 @@ async function generate() {
     showStatus('Maths topic and reading text are both required.', 'error');
     return;
   }
+  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
+  const ask = await WFAPrint.askNames(null);
+  if (ask.cancelled) return;
+  const namesPart = ask.names ? { names: ask.names } : {};
   const btn = document.getElementById('generate-btn');
   btn.disabled = true;
   document.getElementById('results').classList.add('hidden');
@@ -150,6 +154,7 @@ async function generate() {
         reading_topic: reading_topic,
         vocab_word: getVal('vocab_word'),
         rule_explanation: getVal('rule_explanation'),
+        ...namesPart,
       })
     });
     const data = await res.json();

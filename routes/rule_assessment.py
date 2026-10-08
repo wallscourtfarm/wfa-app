@@ -5,6 +5,7 @@ from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from uls_lessons import ULS_LESSONS
+from print_names import parse_names, display_pupils, PrintNamesError
 
 ra_bp = Blueprint('rule_assessment', __name__)
 
@@ -125,6 +126,7 @@ def api_ra_generate():
         body         = request.get_json(force=True)
         cls          = body.get('cls', DEFAULT_CLASS)
         selected_ids = body.get('rules', [])
+        names        = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
 
         if not selected_ids:
             return jsonify({'ok': False, 'error': 'Select at least one rule'})
@@ -142,6 +144,7 @@ def api_ra_generate():
             return jsonify({'ok': False, 'error': 'No cloze sentences found for selected rules'})
 
         from assessment_builder import build_rule_assessment_pdf, build_rule_assessment_teacher_pdf
+        pupils        = display_pupils(pupils, names)   # copies; stored objects untouched
         pdf_bytes     = build_rule_assessment_pdf(pupils, sections, week_ref)
         teacher_bytes = build_rule_assessment_teacher_pdf([], sections, week_ref)
 
@@ -155,6 +158,8 @@ def api_ra_generate():
             'n_rules':   len(sections),
             'n_words':   len(sections) * WORDS_PER_LESSON,
         })
+    except PrintNamesError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
     except Exception as e:
         return _err(e)
 

@@ -47,7 +47,7 @@
     </div>
   </div>
   <div class="print-card-footer" style="gap:10px;flex-wrap:wrap">
-    <a id="cards-link" class="btn btn-primary" target="_blank">🖨 Download QR cards PDF</a>
+    <button type="button" id="cards-link" class="btn btn-primary" onclick="downloadCards(_sessionId, null)">🖨 Download QR cards PDF</button>
     <button class="btn btn-secondary" id="process-btn" onclick="processSession()" disabled>
       📥 Process results
     </button>
@@ -72,6 +72,19 @@ function showStatus(msg, type='ok') {
   if (type==='ok') setTimeout(()=>bar.classList.add('hidden'), 8000);
 }
 
+
+// Download the QR cards: ask for the names file first, then POST {names} and save the returned PDF.
+// (Names go in the request body only; never in the URL.)
+async function downloadCards(sessionId, pids) {
+  const ask = await WFAPrint.askNames(pids);
+  if (ask.cancelled) return;
+  try {
+    await WFAPrint.downloadPdfPost(`/api/live/bee/cards-pdf/${sessionId}`, ask.names, `SpellingBee_${sessionId}.pdf`);
+  } catch(e) {
+    showStatus('Request failed: '+e.message,'error');
+  }
+}
+
 async function createSession() {
   showSpin('create',true);
   document.getElementById('create-btn').disabled = true;
@@ -85,7 +98,6 @@ async function createSession() {
     _sessionId = d.session_id;
     document.getElementById('sess-title').textContent = `Session ${d.session_id}`;
     document.getElementById('sess-desc').textContent  = `${d.n_pupils} pupils · ${d.n_words} words each · ${d.week_ref}`;
-    document.getElementById('cards-link').href = `/api/live/bee/cards-pdf/${d.session_id}`;
     document.getElementById('session-card').classList.remove('hidden');
     document.getElementById('process-btn').disabled = false;
     showStatus(`✅ Session ${d.session_id} created — download and print the QR cards.`);

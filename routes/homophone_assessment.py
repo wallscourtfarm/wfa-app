@@ -5,6 +5,7 @@ from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from spelling_rules import SPELLING_RULES
+from print_names import parse_names, display_pupils, PrintNamesError
 
 ha_bp = Blueprint('homophone_assessment', __name__)
 
@@ -180,6 +181,7 @@ def api_ha_generate():
         body           = request.get_json(force=True)
         cls            = body.get('cls', DEFAULT_CLASS)
         selected       = [int(s) for s in body.get('stages', [])]
+        names          = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
         if not selected:
             return jsonify({'ok': False, 'error': 'Select at least one stage'})
 
@@ -194,6 +196,7 @@ def api_ha_generate():
 
         from assessment_builder import build_homophone_assessment_pdf, build_homophone_assessment_teacher_pdf
         ha_week_ref   = re.sub(r'W\d+', '', week_ref)  # T3W2 → T3
+        pupils        = display_pupils(pupils, names)   # copies; stored objects untouched
         pdf_bytes     = build_homophone_assessment_pdf(pupils, sections, ha_week_ref)
         teacher_bytes = build_homophone_assessment_teacher_pdf(sections, ha_week_ref)
 
@@ -206,6 +209,8 @@ def api_ha_generate():
             'teacher_pdf_name': f'Homophone_Assessment_{week_ref}_Teacher.pdf',
             'n_pupils': len(pupils), 'n_words': n_words,
         })
+    except PrintNamesError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
     except Exception as e:
         return _err(e)
 

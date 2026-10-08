@@ -210,6 +210,10 @@ function blob64(b64, mime) {
 async function generate() {
   const rules = selectedRules();
   if (!rules.length) { showStatus('Select at least one lesson.', 'error'); return; }
+  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
+  const ask = await WFAPrint.askNames(null);
+  if (ask.cancelled) return;
+  const namesPart = ask.names ? { names: ask.names } : {};
   showSpin('generate', true);
   document.getElementById('generate-btn').disabled = true;
   document.getElementById('dl-pdf').classList.add('hidden');
@@ -217,7 +221,7 @@ async function generate() {
     const resp = await fetch('/api/rule-assessment/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS, rules }),
+      body: JSON.stringify({ cls: CLS, rules, ...namesPart }),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }

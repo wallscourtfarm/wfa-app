@@ -7,6 +7,7 @@ from flask import current_app
 from data_manager import _week_snapshot, load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
+from print_names import parse_names, display_session_pupils, PrintNamesError
 
 live_bp = Blueprint('live', __name__)
 
@@ -154,6 +155,7 @@ def api_bee_create():
             all_wds = key_wds + rule_wds
             session_data['pupils'].append({
                 'id':           pid,
+                'pupil_id':     p.get('pupil_id', ''),   # additive: lets a print request match a names file
                 'first':        p.get('first', ''),
                 'last':         p.get('last', ''),
                 'cls':          p.get('cls', ''),
@@ -182,19 +184,34 @@ def api_bee_create():
         return _err(e)
 
 
-@live_bp.route('/api/live/bee/cards-pdf/<session_id>')
+@live_bp.route('/api/live/bee/cards-pdf/<session_id>', methods=['GET', 'POST'])
 def api_bee_cards_pdf(session_id):
-    """Generate 6-up QR card PDF for a bee session."""
+    """Generate 6-up QR card PDF for a bee session.
+
+    GET  : no names supplied (stored names, or initials if PRINT_NAMES_FROM_FILE_ONLY=1).
+    POST : JSON {"names": {pupil_id: {first, last}}} from the teacher's names file. Used in
+           memory to draw this one PDF; never stored, cached or logged.
+    """
     try:
+        names = None
+        if request.method == 'POST':
+            try:
+                names = parse_names(request.get_json(silent=True))
+            except PrintNamesError as e:
+                return str(e), 400
         sess = _load_session(session_id)
         if not sess:
             return 'Session not found', 404
 
         base_url = request.host_url.rstrip('/')
-        pdf_bytes = _build_bee_cards(sess, base_url)
+        # Copy of the session for drawing only: the loaded object is never modified or saved.
+        draw_sess = dict(sess)
+        draw_sess['pupils'] = display_session_pupils(sess.get('pupils', []), names)
+        pdf_bytes = _build_bee_cards(draw_sess, base_url)
         response  = make_response(pdf_bytes)
         response.headers['Content-Type']        = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename=SpellingBee_{session_id}.pdf'
+        response.headers['Cache-Control']       = 'no-store'
         return response
     except Exception:
         current_app.logger.exception('PDF build failed')
@@ -727,7 +744,8 @@ def api_assess_create():
             d = load_class(cid)
             if d:
                 for p in d.get('pupils', []):
-                    pupils.append({'id': p['id'], 'first': p.get('first', ''),
+                    pupils.append({'id': p['id'], 'pupil_id': p.get('pupil_id', ''),
+                                   'first': p.get('first', ''),
                                    'last': p.get('last', ''), 'cls': cid})
         pupils.sort(key=lambda p: (p['first'], p['last']))
 

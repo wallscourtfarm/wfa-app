@@ -135,7 +135,9 @@ function renderSessions() {
         ${s.n_items ? `<span>${s.n_items} words</span>` : ''}
       </div>
       <div class="session-card-actions">
-        <a href="${qrHref}" download class="btn btn-secondary btn-sm">${qrLabel}</a>
+        ${isBee
+          ? `<button type="button" class="btn btn-secondary btn-sm" onclick="downloadBeeCards('${s.session_id}')">${qrLabel}</button>`
+          : `<a href="${qrHref}" download class="btn btn-secondary btn-sm">${qrLabel}</a>`}
         ${pupilUrl ? `<a href="${pupilUrl}" target="_blank" class="btn btn-secondary btn-sm">🔗 Pupil URL</a>` : ''}
         ${!isBee
           ? `<button class="btn btn-primary btn-sm"
@@ -154,6 +156,18 @@ function renderSessions() {
 }
 
 // ── Archive ───────────────────────────────────────────────────────────────────
+// Bee QR cards carry pupils' names: ask for the names file, POST {names} (body only, never the URL),
+// save the returned PDF. This page has no pupil ids, so the whole file's map is sent.
+async function downloadBeeCards(sid) {
+  const ask = await WFAPrint.askNames(null);
+  if (ask.cancelled) return;
+  try {
+    await WFAPrint.downloadPdfPost(`/api/live/bee/cards-pdf/${sid}`, ask.names, `SpellingBee_${sid}.pdf`);
+  } catch(e) {
+    showStatus('Request failed: ' + e.message, 'error');
+  }
+}
+
 async function archiveSession(sid, archive) {
   try {
     const resp = await fetch('/api/sessions/archive', {
