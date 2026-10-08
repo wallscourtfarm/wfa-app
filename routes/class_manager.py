@@ -310,7 +310,8 @@ def api_pair():
                     p['pair_colour_name'] = colour_name
             name_a = id_map[pupil_a_id]['first']
             name_b = id_map[pupil_b_id]['first']
-            _save_class_file(cid, obj, sha, f'Pair {name_a} ↔ {name_b}')
+            if not _save_class_file(cid, obj, sha, f'Pair {name_a} ↔ {name_b}'):
+                return jsonify({'ok': False, 'error': 'The pair could not be saved. Please try again.'})
 
         return jsonify({'ok': True})
     except Exception as e:

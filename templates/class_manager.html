@@ -884,8 +884,9 @@ function populatePairList(filter) {
     item.innerHTML = `<span>${label}${cls_label}</span>`;
     item.onclick = () => {
       const colour = document.getElementById('pair-modal-colour').value;
+      const target = _pairTarget;   // closePairModal() clears _pairTarget
       closePairModal();
-      setPair(_pairTarget, p.id, colour);
+      setPair(target, p.id, colour);
     };
     list.appendChild(item);
   });
