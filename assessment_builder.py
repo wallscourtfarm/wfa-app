@@ -356,7 +356,7 @@ def generate_missing_cloze(words, api_key):
         "https://api.anthropic.com/v1/messages",
         headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
                  "content-type": "application/json"},
-        json={"model": "claude-sonnet-4-5", "max_tokens": 2000,
+        json={"model": "claude-sonnet-5-5", "max_tokens": 2000,
               "messages": [{"role": "user", "content": prompt}]},
         timeout=30,
     )
