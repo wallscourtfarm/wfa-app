@@ -8,6 +8,7 @@ old ones stay as silent fallbacks — nothing else needs to change.
 import anthropic
 
 MODEL_FALLBACKS = [
+    "claude-sonnet-5-5",
     "claude-sonnet-4-6",
     "claude-sonnet-4-5",
     "claude-3-5-sonnet-20241022",
