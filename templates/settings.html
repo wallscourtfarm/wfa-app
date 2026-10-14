@@ -75,6 +75,45 @@
        style="{% if active_year == '2' and programme != 'uls' %}display:none{% endif %}">
     <h3 class="settings-heading">Unlocking Spelling — Weekly Setup</h3>
 
+    <div class="settings-row">
+      <label class="settings-label">Words from</label>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="words_source" value="uls" id="src_uls"
+            {% if not wc.get('manual') %}checked{% endif %} onchange="onSourceChange()">
+          <span>Unlocking Spelling lesson</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="radio" name="words_source" value="manual" id="src_manual"
+            {% if wc.get('manual') %}checked{% endif %} onchange="onSourceChange()">
+          <span>Words I choose</span>
+          <span style="font-size:12px;color:#94a3b8">(revision weeks with no Unlocking Spelling rule)</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="uls_manual_block" style="{% if not wc.get('manual') %}display:none{% endif %}">
+      <div class="settings-row" style="margin-top:10px">
+        <label class="settings-label">Revision focus</label>
+        <input type="text" id="manual_title" class="hl-input" style="max-width:380px" maxlength="80"
+               placeholder="e.g. Revision: words ending -tion"
+               value="{{ wc.get('rule_title','') if wc.get('manual') else '' }}">
+      </div>
+      <div class="settings-row" style="align-items:flex-start">
+        <label class="settings-label">Words</label>
+        <div style="flex:1">
+          <textarea id="manual_words" class="hl-input" rows="3" style="max-width:380px;width:100%"
+                    placeholder="Up to 5 words, separated by commas or new lines"
+                    oninput="onManualWordsInput()">{{ (wc.get('selected_words', []) | join(', ')) if wc.get('manual') else '' }}</textarea>
+          <p style="font-size:12px;color:#94a3b8;margin:6px 0 0">
+            Choose the calendar week below, then save. Because there is no Unlocking Spelling rule for these weeks,
+            rule confidence is not recorded; key spellings and Home Learning work as normal.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div id="uls_lessons_block" style="{% if wc.get('manual') %}display:none{% endif %}">
     {% if this_week %}
     <div style="margin-bottom:14px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;display:flex;align-items:center;gap:12px">
       <span style="font-size:13px;color:#0369a1">
@@ -128,6 +167,7 @@
       <label class="settings-label">Select 5 words</label>
       <div id="mix_word_picker" style="display:flex;flex-wrap:wrap;gap:8px"></div>
     </div>
+    </div><!-- /uls_lessons_block -->
   </div>
   {% endif %}
 
@@ -208,7 +248,7 @@ let allWeeks = [];        // [{code, label, focuses, lessonIds}]
 let currentLessons = [];  // lesson dicts for selected week
 let selectedWords = {{ wc.get('selected_words', []) | tojson }};
 let currentHLLesson = null;
-const savedWeekCode = {{ (wc.get('term','') + 'W' + wc.get('week','').__str__()) | tojson }};
+const savedWeekCode = {{ ((wc.get('term','') + 'W' + (wc.get('week') | string)) if wc.get('term') and wc.get('week') else '') | tojson }};
 const savedHLLessonId = {{ wc.get('hl_lesson_id', '') | tojson }};
 
 // Phonics state
@@ -216,6 +256,30 @@ const PHONICS_SETS = {{ phonics_sets_json | safe }};
 const savedPhonicsSetId = {{ wc.get('phonics_set_id', '') | tojson }};
 const savedPhonicsWords = {{ (wc.get('selected_words', []) if wc.get('phonics_set_id') else []) | tojson }};
 let currentProgramme = {{ programme | tojson }};
+
+let manualMode = {{ (wc.get('manual') and programme == 'uls') | tojson }};
+
+function manualWordList() {
+  const raw = document.getElementById('manual_words')?.value || '';
+  const out = [];
+  raw.split(/[,\n;]+/).forEach(w => {
+    w = w.trim().toLowerCase();
+    if (w && !out.includes(w)) out.push(w);
+  });
+  return out;
+}
+
+function onManualWordsInput() {
+  selectedWords = manualWordList().slice(0, 5);
+  showSelectedWords();
+}
+
+function onSourceChange() {
+  manualMode = document.getElementById('src_manual')?.checked || false;
+  document.getElementById('uls_manual_block').style.display  = manualMode ? '' : 'none';
+  document.getElementById('uls_lessons_block').style.display = manualMode ? 'none' : '';
+  settleWordsPreview();
+}
 
 function onProgrammeChange() {
   const ulsRadio = document.getElementById('prog_uls');
@@ -233,6 +297,10 @@ function onProgrammeChange() {
 function settleWordsPreview() {
   if (currentProgramme === 'phonics') {
     applyPhonicsSet(true);
+    return;
+  }
+  if (manualMode) {
+    onManualWordsInput();
     return;
   }
   const mode = document.querySelector('input[name="hl_mode"]:checked')?.value;
@@ -517,6 +585,21 @@ async function saveSettings(evt) {
   if (currentProgramme === 'phonics') {
     payload.phonics_set_id = document.getElementById('phonics_set')?.value || '';
     payload.selected_words = selectedWords;
+  } else if (manualMode) {
+    const words = manualWordList();
+    if (!week_ref) {
+      btn.disabled = false; btn.textContent = '💾 Save settings';
+      showStatus('Choose the calendar week for these words first.', 'error');
+      return;
+    }
+    if (!words.length || words.length > 5) {
+      btn.disabled = false; btn.textContent = '💾 Save settings';
+      showStatus(words.length ? 'Please use no more than 5 words.' : 'Enter at least one word.', 'error');
+      return;
+    }
+    payload.manual         = true;
+    payload.manual_title   = document.getElementById('manual_title')?.value.trim() || '';
+    payload.selected_words = words;
   } else {
     const ulsWeekCode = document.getElementById('uls_week')?.value || '';
     const wk = allWeeks.find(w => w.code === ulsWeekCode) || {};
@@ -663,7 +746,7 @@ const AUTO_WEEK = {{ this_week | tojson }};
 
   if (document.getElementById('uls_week')) {   // not present for Year 1
     await loadULSWeeks();
-    if (!savedWeekCode && AUTO_WEEK && currentProgramme === 'uls') {
+    if (!savedWeekCode && AUTO_WEEK && currentProgramme === 'uls' && !manualMode) {
       document.getElementById('uls_week').value = AUTO_WEEK;
       await onWeekChange();
     }

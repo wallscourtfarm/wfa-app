@@ -27,6 +27,7 @@ def _snapshot_current_uls_week(wc):
         'hl_lesson_id':   wc.get('hl_lesson_id', ''),
         'selected_words': wc.get('selected_words', []),
         'rule_title':     wc.get('rule_title', ''),
+        'manual':         bool(wc.get('manual')),
         'year_group':     wc.get('year_group', ''),
         'saved_at':       datetime.now(timezone.utc).isoformat(),
     }
@@ -228,7 +229,35 @@ def api_settings_save():
             wc['hl_lesson_id'] = ''
             wc['lesson_ids']   = []
 
+    elif programme == 'uls' and body.get('manual'):
+        # Revision week with no Unlocking Spelling rule: the teacher types the
+        # words. No lesson ids, so the Bee/print code finds no rule groups and
+        # simply skips rule confidence (key spellings are unaffected).
+        import re
+        words = []
+        for w in body.get('selected_words', []):
+            w = str(w).strip().lower()
+            if w and re.fullmatch(r"[a-z][a-z'\- ]{0,29}", w) and w not in words:
+                words.append(w)
+        week_ref = body.get('week_ref', '').strip()
+        if not words or len(words) > 5:
+            return jsonify({'ok': False, 'error': 'Enter between 1 and 5 words (letters only).'})
+        if not week_ref:
+            return jsonify({'ok': False, 'error': 'Choose the calendar week for these words.'})
+        wc['programme']      = 'uls'
+        wc['manual']         = True
+        wc['term']           = ''
+        wc['week']           = None
+        wc['week_ref']       = week_ref
+        wc['lesson_ids']     = []
+        wc['hl_mode']        = 'manual'
+        wc['hl_lesson_id']   = ''
+        wc['selected_words'] = words
+        wc['rule_title']     = body.get('manual_title', '').strip()[:80] or 'Revision'
+        wc['phonics_set_id'] = ''
+
     elif programme == 'uls':
+        wc['manual'] = False
         term        = body.get('term', '').strip()
         lesson_ids  = body.get('lesson_ids', [])
         hl_mode     = body.get('hl_mode', 'single')
