@@ -43,13 +43,15 @@ def spelling_evidence(year_group):
 
     class_ids = _resolve_classes(f'{year_group}_all')
     result = {}
+    by_code = {}     # keyed by the pupil code (roster pupil_id): lets the Tracker join without any UPN
     for cid in class_ids:
         data = load_class(cid)
         if not data:
             continue
         for p in data.get('pupils', []):
             upn = (p.get('upn') or '').strip()
-            if not upn:
+            code = (p.get('pupil_id') or '').strip()
+            if not upn and not code:
                 continue
 
             mastered_set = set(p.get('mastered') or [])
@@ -64,9 +66,13 @@ def spelling_evidence(year_group):
                     scores.append(latest['score'])
             rule_confidence_pct = round(sum(scores) / len(scores)) if scores else None
 
-            result[upn] = {
+            entry = {
                 'mastered_pct': mastered_pct,
                 'rule_confidence_pct': rule_confidence_pct,
             }
+            if upn:
+                result[upn] = entry
+            if code:
+                by_code[code] = entry
 
-    return jsonify({'spelling': result})
+    return jsonify({'spelling': result, 'spelling_by_code': by_code})
