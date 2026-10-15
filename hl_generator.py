@@ -91,6 +91,10 @@ Instruction: one italic line saying which questions use the grid.
 
 Question rules:
   Never use "trickier", "easier", "harder". For 2D shapes: "side" not "edge".
+  Nothing can be drawn in a question except the coordinate grid. NEVER refer to a bar model, diagram, picture, chart,
+  table or number line "shown" or "below", and NEVER draw one with text such as [ 7,205 ] or | 4,918 | ? |.
+  Put every number the child needs into the sentence itself (e.g. "A total of 7,205 is split into two parts.
+  One part is 4,918. What is the other part?"). A bar-model STYLE question is fine if written in words only.
   Write clear, direct questions for age 8-9. Each question must be unambiguous.
 
 Column addition/subtraction topics (e.g. "column method", "written addition", "written subtraction"):
@@ -223,6 +227,10 @@ Grid: 6×6, 2-3 simple elements only. Omit if topic needs no grid (grid_elements
   Q3 — complete the sentence: provide a sentence starter. answer_lines:1
   Q4 — true or false: one statement, "Circle:  TRUE     FALSE" in the question text. answer_lines:0
 Simple vocabulary. Short sentences. No multi-step reasoning.
+Nothing can be drawn in a question except the coordinate grid. NEVER refer to a bar model, diagram, picture, chart,
+  table or number line "shown" or "below", and NEVER draw one with text such as [ 7,205 ] or | 4,918 | ? |.
+  Put every number the child needs into the sentence itself (e.g. "A total of 7,205 is split into two parts.
+  One part is 4,918. What is the other part?"). A bar-model STYLE question is fine if written in words only.
 
 """
 + """
@@ -365,6 +373,13 @@ def _validate(data, version, maths_topic=""):
         if not q.get("heading") or not q.get("text"):
             raise ValueError(f"Maths Q{i+1} missing heading or text")
 
+    # Questions must not refer to, or fake, a diagram that is not drawn
+    _bad = re.compile(r"\[[^\]]*[\d?][^\]]*\]|\bbar model (shows|below)|\b(diagram|picture|chart|number line) (shows|below)|shown below|\|\s*[\d?]", re.I)
+    for i, q in enumerate(data["questions"]):
+        if _bad.search(q["text"]):
+            raise ValueError(f"Maths Q{i+1} refers to or draws a diagram that is not on the page. "
+                             "Put all numbers in the sentence; do not use [ ] boxes or 'bar model shows'.")
+
     # Column method validation
     if _topic_needs_column(maths_topic) and version == "standard":
         errors = []
@@ -430,7 +445,10 @@ def generate_hl_content(
     # The prompt is strong enough; maths notes guide Claude directly.
     try:
         _validate(data, version, maths_topic)
-    except ValueError:
-        pass  # Return best-effort output rather than doubling the wait time
+    except ValueError as e:
+        # A fake diagram makes a question unanswerable, so that one error is worth a retry.
+        if "diagram that is not on the page" in str(e):
+            data = _call(system, user + "\n\nIMPORTANT: " + str(e))
+        # Any other error: return best-effort output rather than doubling the wait time
     return data
 
