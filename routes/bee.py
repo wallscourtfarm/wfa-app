@@ -1,3 +1,4 @@
+import re
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import week_needing_marking, load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee, update_pupil_rule_confidence_from_bee, get_bee_weeks, YEAR_GROUP_CLASSES, _resolve_classes, get_class_options_for_year
 
@@ -21,6 +22,23 @@ def spelling_bee():
     # Default to the week that still needs marking rather than today's
     # calendar week — see data_manager.week_needing_marking for why.
     selected_week = request.args.get('week', '') or week_needing_marking(cls, current_week_ref)
+
+    # Weeks of the current term get their own buttons; each finished term
+    # collapses into one "Term N" dropdown. The current term is the term of
+    # the live week (falls back to the newest saved week's term).
+    def _term_of(code):
+        m = re.match(r'T(\d+)W', code or '')
+        return int(m.group(1)) if m else None
+    cur_term = _term_of(current_week_ref)
+    if cur_term is None:
+        cur_term = max([_term_of(w['code']) or 0 for w in bee_weeks] or [0])
+    bee_current = [w for w in bee_weeks if (_term_of(w['code']) or cur_term) >= cur_term]
+    past = {}
+    for w in bee_weeks:
+        t = _term_of(w['code'])
+        if t is not None and t < cur_term:
+            past.setdefault(t, []).append(w)
+    bee_past = [{'term': t, 'weeks': past[t]} for t in sorted(past)]
 
     # Resolve _all to the actual classes for this year
     class_ids = _resolve_classes(cls)
@@ -47,7 +65,8 @@ def spelling_bee():
     return render_template('bee.html', pupils=pupils, rules_info=rules_info,
                            week_ref=week_ref, group_filter=group_filter,
                            cls=cls, class_options=class_options, active_year=yr,
-                           bee_weeks=bee_weeks, selected_week=selected_week)
+                           bee_weeks=bee_weeks, bee_current=bee_current, bee_past=bee_past,
+                           selected_week=selected_week)
 
 @bee_bp.route('/api/bee/save', methods=['POST'])
 def api_bee_save():

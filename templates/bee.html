@@ -23,9 +23,24 @@
     </div>
     {% if bee_weeks|length > 1 %}
     <div class="filter-sep"></div>
-    <div class="filter-group">
+    <div class="filter-group" style="flex-wrap:wrap">
       <span class="filter-label">Week</span>
-      {% for w in bee_weeks %}
+      {% for t in bee_past %}
+      {% set sel_here = (t.weeks | selectattr('code', 'equalto', selected_week) | list | length) > 0 %}
+      <details class="term-menu" style="position:relative;display:inline-block">
+        <summary class="btn {% if sel_here %}btn-primary{% else %}btn-ghost{% endif %}" style="cursor:pointer;list-style:none">
+          Term {{ t.term }}{% if sel_here %} · {{ selected_week }}{% endif %} ▾
+        </summary>
+        <div style="position:absolute;z-index:20;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:240px">
+          {% for w in t.weeks %}
+          <a href="?cls={{ cls }}&group={{ group_filter }}&week={{ w.code }}"
+             class="btn {% if selected_week==w.code %}btn-primary{% else %}btn-ghost{% endif %}"
+             style="justify-content:flex-start;text-align:left">{{ w.label }}</a>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+      {% for w in bee_current %}
       <a href="?cls={{ cls }}&group={{ group_filter }}&week={{ w.code }}"
          title="{{ w.label }}"
          class="btn {% if selected_week==w.code %}btn-primary{% else %}btn-secondary{% endif %}">
