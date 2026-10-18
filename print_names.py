@@ -15,9 +15,9 @@ Hard rules (see tests/test_print_names.py):
   * the loaded / stored pupil objects are never mutated and never saved;
   * error messages never contain a supplied value.
 
-Env switch PRINT_NAMES_FROM_FILE_ONLY (default off). When it is '1', a pupil who
-has no supplied name prints as their initials label (names_display) instead of the
-stored name. When off (today's behaviour), the stored name is used.
+Env switch PRINT_NAMES_FROM_FILE_ONLY (default ON since 18.10.26). A pupil who has no supplied
+name prints as their initials label (names_display), never as the stored name (which is only a
+3-letter stub). Set it to '0' to print stored names again.
 """
 import os
 import unicodedata
@@ -31,8 +31,10 @@ class PrintNamesError(ValueError):
 
 
 def file_only():
-    """True when stored names must NOT be printed (initials instead) unless supplied."""
-    return os.environ.get('PRINT_NAMES_FROM_FILE_ONLY', '').strip() == '1'
+    """True when stored names must NOT be printed (initials instead) unless supplied. ALWAYS the default since
+    18.10.26: the stored 'names' are 3-letter stubs, which must never reach a printout. Only an explicit
+    PRINT_NAMES_FROM_FILE_ONLY=0 turns it off (kept for tests / emergencies)."""
+    return os.environ.get('PRINT_NAMES_FROM_FILE_ONLY', '').strip() != '0'
 
 
 def _clean(s):

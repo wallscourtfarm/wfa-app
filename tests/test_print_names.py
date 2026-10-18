@@ -10,7 +10,7 @@ Fake pupils and fake names only. No network, no live services."""
 import os, sys, io, copy, json, base64, logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('GITHUB_TOKEN', 'x')
-os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 os.environ.pop('ANTHROPIC_API_KEY', None)
 
 import print_names as pn
@@ -72,7 +72,7 @@ assert [(p['first'], p['last']) for p in d] == [('ZeQu', ''), ('ZaQu', ''), ('WF
 assert STORED == before, 'display_pupils mutated its input'
 os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 assert [p['first'] for p in display_pupils(STORED, None)] == ['Zebulon', 'Zara', 'Wilbur']
-os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY')
+os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 print('print_names unit tests OK')
 
 # ── Flask app, fully offline ─────────────────────────────────────────────────
@@ -131,7 +131,7 @@ def b64pdf(d, key):
 def check(label, make):
     """make(names_or_None) -> pdf bytes. Checks the four cases."""
     # 1. names supplied -> file names on the sheet, stored names not
-    os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+    os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
     t = pdf_text(make(FILE_NAMES))
     assert has_all(t, ['Ottoline', 'Marigold', 'Barnaby']), f'{label}: supplied first names missing\n{t[:400]}'
     assert has_none(t, STORED_BITS), f'{label}: a stored name leaked despite names supplied'
@@ -146,7 +146,7 @@ def check(label, make):
     # 4. switch on and names supplied -> supplied names win
     t = pdf_text(make(FILE_NAMES))
     assert has_all(t, ['Ottoline', 'Barnaby']) and has_none(t, STORED_BITS)
-    os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+    os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
     print(f'{label}: OK (names from file / stored / initials-with-switch)')
 
 c = flask_app.test_client()
@@ -200,7 +200,7 @@ rds._load_session = lambda sid: OLD
 t = pdf_text(cards(FILE_NAMES))
 assert has_all(t, ['Zebulon']) and has_none(t, FILE_BITS)
 os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '1'
-t = pdf_text(cards(FILE_NAMES)); os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY')
+t = pdf_text(cards(FILE_NAMES)); os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 assert has_none(t, STORED_BITS + FILE_BITS)
 rds._load_session = lambda sid: SESSION
 print('bee cards: old sessions without pupil_id fall back safely')
@@ -210,11 +210,11 @@ print('bee cards: old sessions without pupil_id fall back safely')
 # so names supplied or stored must never appear on it. Only the Excel marking sheet uses the names file.
 for _names in (None, FILE_NAMES):
     for _env in (None, '1'):
-        os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+        os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
         if _env: os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = _env
         _t = pdf_text(b64pdf(post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], **({'names': _names} if _names else {})}).get_json(), 'pdf'))
         assert has_none(_t, STORED_BITS + FILE_BITS), 'word-assessment sheet carries a name'
-os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 print('word-assessment/generate: pupil sheet has no names')
 # the marking spreadsheet is also built from the displayed names
 import openpyxl
@@ -233,11 +233,11 @@ rra._load_rule_cloze = lambda: RULE_CLOZE
 def _no_names_sheet(label, path, body):
     for _names in (None, FILE_NAMES):
         for _env in (None, '1'):
-            os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+            os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
             if _env: os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = _env
             _t = pdf_text(b64pdf(post_json(path, {**body, **({'names': _names} if _names else {})}).get_json(), 'pdf'))
             assert has_none(_t, STORED_BITS + FILE_BITS), f'{label} sheet carries a name'
-    os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
+    os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
     print(f'{label}/generate: pupil sheet has no names')
 _no_names_sheet('rule-assessment', '/api/rule-assessment/generate', {'cls': '4IM', 'rules': ['y5-t1-w1-l1']})
 rha._load_rule_cloze = lambda: {}
@@ -273,7 +273,7 @@ st, disk = hl(None)
 t = pdf_text(base64.b64decode(st['std_pdf']))
 assert has_all(t, ['Zebulon']) and 'std_pdf' in disk            # unchanged behaviour without names
 os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '1'
-st, disk = hl(None); os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY')
+st, disk = hl(None); os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 t = pdf_text(base64.b64decode(st['std_pdf']))
 assert has_none(t, STORED_BITS + FILE_BITS) and 'ZeQu' in t, 'HL initials'
 print('home-learning generate: names from file (memory only), stored names without, initials with switch')
