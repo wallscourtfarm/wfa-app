@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 import io, base64, traceback
 from data_manager import _week_snapshot, load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes, record_issued_words
 from word_bank import get_active_words
-from print_names import parse_names, display_pupils, PrintNamesError
+from print_names import display_pupils
+import stamps
 
 print_bp = Blueprint('print_tools', __name__)
 
@@ -51,10 +52,6 @@ def _build_key_words_map(pupils):
         km[p['id']] = get_active_words(p.get('word_pos', 0), mastered, 5)
     return km
 
-
-def _names_err(e):
-    # Fixed text only: never echo anything the client supplied.
-    return jsonify({'ok': False, 'error': str(e)}), 400
 
 
 def _err(e):
@@ -120,7 +117,6 @@ def api_paired_lists():
         body  = request.get_json(force=True)
         cls   = body.get('cls', DEFAULT_CLASS)
         print_order = body.get('print_order', 'partner_pairs')
-        names = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
         pupils = _load_pupils(cls)
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
@@ -136,21 +132,21 @@ def api_paired_lists():
         except Exception:
             # Never let the pinning stop a teacher getting their printout.
             pass
-        pupils = display_pupils(pupils, names)   # copies; the stored objects are untouched
+        pupils = display_pupils(pupils, None)   # initials; real names are added in the teacher's browser (stamps.py)
+        stamps.begin()
         if print_order == 'double_sided':
             from pdf_builder import build_double_sided_bee_pdf
             data = build_double_sided_bee_pdf(pupils, main_words, rev_words, key_words_map, week_ref)
         else:
             from pdf_builder import build_paired_word_lists
             data = build_paired_word_lists(pupils, main_words, rev_words, key_words_map, week_ref, print_order)
+        data = stamps.finish(data)
         return jsonify({
             'ok': True, 'data': base64.b64encode(data).decode(),
             'mime': 'application/pdf',
             'filename': f'Paired_Lists_{week_ref}_{cls}.pdf',
             'n': len(pupils),
         })
-    except PrintNamesError as e:
-        return _names_err(e)
     except Exception as e:
         return _err(e)
 
@@ -162,21 +158,19 @@ def api_recording_sheet():
     try:
         body = request.get_json(force=True)
         cls = body.get('cls', DEFAULT_CLASS)
-        names = parse_names(body)
         pupils = _load_pupils(cls)
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
         _, _, week_ref = _get_rules(cls, body.get('week_ref'))
         from pdf_builder import build_recording_sheet
-        data = build_recording_sheet(display_pupils(pupils, names), week_ref)
+        stamps.begin()
+        data = stamps.finish(build_recording_sheet(display_pupils(pupils, None), week_ref))
         return jsonify({
             'ok': True, 'data': base64.b64encode(data).decode(),
             'mime': 'application/pdf',
             'filename': f'Recording_Sheet_{week_ref}_{cls}.pdf',
             'n': len(pupils),
         })
-    except PrintNamesError as e:
-        return _names_err(e)
     except Exception as e:
         return _err(e)
 
@@ -188,20 +182,18 @@ def api_tt_check():
     try:
         body = request.get_json(force=True)
         cls = body.get('cls', DEFAULT_CLASS)
-        names = parse_names(body)
         pupils = _load_pupils(cls)
         if not pupils:
             return jsonify({'ok': False, 'error': 'No pupils found'})
         _, _, week_ref = _get_rules(cls)
         from pdf_builder import build_tt_check_sheet
-        data = build_tt_check_sheet(display_pupils(pupils, names), week_ref, seed=None)
+        stamps.begin()
+        data = stamps.finish(build_tt_check_sheet(display_pupils(pupils, None), week_ref, seed=None))
         return jsonify({
             'ok': True, 'data': base64.b64encode(data).decode(),
             'mime': 'application/pdf',
             'filename': f'TT_Check_{week_ref}_{cls}.pdf',
             'n': len(pupils),
         })
-    except PrintNamesError as e:
-        return _names_err(e)
     except Exception as e:
         return _err(e)

@@ -7,7 +7,8 @@ from flask import current_app
 from data_manager import _week_snapshot, load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
 from word_bank import WORD_BANK
 from spelling_rules import SPELLING_RULES
-from print_names import parse_names, display_session_pupils, PrintNamesError
+from print_names import display_session_pupils
+import stamps
 
 live_bp = Blueprint('live', __name__)
 
@@ -188,17 +189,10 @@ def api_bee_create():
 def api_bee_cards_pdf(session_id):
     """Generate 6-up QR card PDF for a bee session.
 
-    GET  : no names supplied (stored names, or initials if PRINT_NAMES_FROM_FILE_ONLY=1).
-    POST : JSON {"names": {pupil_id: {first, last}}} from the teacher's names file. Used in
-           memory to draw this one PDF; never stored, cached or logged.
+    Cards are drawn with initials. The names are added in the teacher's browser (stamps.py / WFAPrint.stampPdf);
+    a names file is never sent to this server, so any 'names' in a POST body is ignored.
     """
     try:
-        names = None
-        if request.method == 'POST':
-            try:
-                names = parse_names(request.get_json(silent=True))
-            except PrintNamesError as e:
-                return str(e), 400
         sess = _load_session(session_id)
         if not sess:
             return 'Session not found', 404
@@ -206,8 +200,9 @@ def api_bee_cards_pdf(session_id):
         base_url = request.host_url.rstrip('/')
         # Copy of the session for drawing only: the loaded object is never modified or saved.
         draw_sess = dict(sess)
-        draw_sess['pupils'] = display_session_pupils(sess.get('pupils', []), names)
-        pdf_bytes = _build_bee_cards(draw_sess, base_url)
+        draw_sess['pupils'] = display_session_pupils(sess.get('pupils', []), None)
+        stamps.begin()
+        pdf_bytes = stamps.finish(_build_bee_cards(draw_sess, base_url))
         response  = make_response(pdf_bytes)
         response.headers['Content-Type']        = 'application/pdf'
         response.headers['Content-Disposition'] = f'attachment; filename=SpellingBee_{session_id}.pdf'
@@ -275,6 +270,8 @@ def _build_bee_cards(sess, base_url):
             c.setFont('Helvetica-Bold', 12)
             c.setFillColorRGB(1, 1, 1)
             c.drawCentredString(cx + col_w * 0.38, mid_y - 2, name)
+            stamps.log(c, cx + col_w * 0.38, mid_y - 2, name, 12, p_rec.get('pupil_id'), mode='n', align='c',
+                       cover=colour_rgb, color=(1, 1, 1), cover_h=HDR_H * 0.5)
             c.setFont('Helvetica', 8)
             c.setFillColorRGB(1, 1, 1)
             # Thin vertical separator
@@ -282,10 +279,14 @@ def _build_bee_cards(sess, base_url):
             c.setLineWidth(0.5)
             c.line(cx + col_w * 0.62, mid_y - 4 * mm, cx + col_w * 0.62, mid_y + 3 * mm)
             c.drawCentredString(cx + col_w * 0.81, mid_y - 2, f'Partner: {partner}')
+            stamps.log(c, cx + col_w * 0.81, mid_y - 2, partner, 8, p_rec.get('partner_pupil_id'), mode='f', bold=False,
+                       align='c', prefix='Partner: ', cover=colour_rgb, color=(1, 1, 1))
         else:
             c.setFont('Helvetica-Bold', 13)
             c.setFillColorRGB(1, 1, 1)
             c.drawCentredString(cx + col_w / 2, mid_y - 2, name)
+            stamps.log(c, cx + col_w / 2, mid_y - 2, name, 13, p_rec.get('pupil_id'), mode='n', align='c',
+                       cover=colour_rgb, color=(1, 1, 1), cover_h=HDR_H * 0.5)
 
         # ── QR code (smaller, more space for table) ───────────────────────────
         url     = f'{base_url}/live/bee/{session_id}/{p_rec["id"]}'

@@ -157,53 +157,9 @@ def post_json(url, body):
     r = c.post(url, json=body)
     return r
 
-# paired lists (both layouts), recording sheet, TT check
-for order in ('partner_pairs', 'double_sided'):
-    check(f'paired-lists/{order}', lambda names, order=order: b64pdf(
-        post_json('/api/print/paired-lists', {'cls': '4IM', 'print_order': order, **({'names': names} if names else {})}).get_json(), 'data'))
-# The recording sheet draws blank cards (build_recording_sheet is called with pupil=None for every card):
-# it prints no pupil names at all, so names supplied must not appear either.
-for names in (None, FILE_NAMES):
-    t = pdf_text(b64pdf(post_json('/api/print/recording-sheet', {'cls': '4IM', **({'names': names} if names else {})}).get_json(), 'data'))
-    assert has_none(t, STORED_BITS + FILE_BITS), 'recording sheet unexpectedly carries a name'
-print('recording-sheet: prints no names (blank cards), supplied names are not stored or printed')
-check('tt-check', lambda names: b64pdf(
-    post_json('/api/print/tt-check', {'cls': '4IM', **({'names': names} if names else {})}).get_json(), 'data'))
+# (paired lists, recording sheet, TT check, Bee cards and Home Learning no longer take names: see tests/test_name_stamps.py)
 
-# Bee cards: session file stores names + (new) pupil_id; GET still works; POST with names
-SESSION = {'session_id': 'ABCD1234', 'week_ref': 'T1W1', 'type': 'spelling_bee', 'items': [], 'pupils': [
-    {'id': p['id'], 'pupil_id': p['pupil_id'], 'first': p['first'], 'last': p['last'], 'cls': 'IM',
-     'pair_colour': '#1798d3', 'items': [{'word': 'about'}, {'word': 'above'}],
-     'partner_id': p['pair_id'], 'partner_name': next((q['first'] for q in STORED if q['id'] == p['pair_id']), '')}
-    for p in STORED]}
-SESSION_BEFORE = copy.deepcopy(SESSION)
-rds._load_session = lambda sid: SESSION if sid == 'ABCD1234' else None
-def cards(names):
-    if names is None:
-        r = c.get('/api/live/bee/cards-pdf/ABCD1234')
-    else:
-        r = c.post('/api/live/bee/cards-pdf/ABCD1234', json={'names': names})
-    assert r.status_code == 200 and r.mimetype == 'application/pdf', (r.status_code, r.get_data()[:200])
-    return r.get_data()
-check('bee cards (GET / POST)', cards)
-t = pdf_text(cards(FILE_NAMES))
-assert 'Partner: Marigold' in t or ('Partner' in t and 'Marigold' in t), 'partner name not taken from file'
-r = c.post('/api/live/bee/cards-pdf/ABCD1234', json={'names': 'nope'})
-assert r.status_code == 400 and 'nope' not in r.get_data(as_text=True)
-r = c.post('/api/live/bee/cards-pdf/ABCD1234', data='not json', content_type='application/json')
-assert r.status_code == 200          # unparseable body = no names, still prints
-assert SESSION == SESSION_BEFORE, 'bee session object was mutated'
-# old session without pupil_id: names cannot match -> stored names (switch off) / initials (switch on)
-OLD = copy.deepcopy(SESSION)
-for p in OLD['pupils']: p.pop('pupil_id')
-rds._load_session = lambda sid: OLD
-t = pdf_text(cards(FILE_NAMES))
-assert has_all(t, ['Zebulon']) and has_none(t, FILE_BITS)
-os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '1'
-t = pdf_text(cards(FILE_NAMES)); os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
-assert has_none(t, STORED_BITS + FILE_BITS)
-rds._load_session = lambda sid: SESSION
-print('bee cards: old sessions without pupil_id fall back safely')
+SESSION = None
 
 # Assessment generate routes
 # The word-assessment PUPIL SHEET is name-free (initials + pupil_id code; see tests/test_word_scan.py),
@@ -244,39 +200,6 @@ rha._load_rule_cloze = lambda: {}
 _no_names_sheet('homophone-assessment', '/api/homophone-assessment/generate', {'cls': '4IM', 'stages': [1, 2, 3]})
 r = post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], 'names': ['x']})
 assert r.status_code == 400 and r.get_json()['ok'] is False
-r = post_json('/api/print/paired-lists', {'cls': '4IM', 'names': 'oops'})
-assert r.status_code == 400 and 'oops' not in r.get_data(as_text=True)
-
-# Home learning (async job): with names, the finished PDFs live in process memory only, never in /tmp/hl_jobs
-import time, routes.home_learning as rhl, hl_generator
-rhl.load_class = lambda cid: CLASS
-rhl.load_weekly_config = lambda yr: {'week_ref': 'T1W1', 'selected_words': ['about', 'above']}
-rhl.get_year_group = lambda cls: '4'
-hl_generator.generate_hl_content = lambda **k: {'questions': [], 'grid_elements': [], 'grid_size': 10}
-def hl(names):
-    body = {'cls': '4IM', 'maths_topic': 'Fractions', 'reading_topic': 'A story'}
-    if names: body['names'] = names
-    r = c.post('/api/hl/generate', json=body).get_json()
-    assert r['ok'], r
-    for _ in range(100):
-        st = c.get('/api/hl/status/' + r['job_id']).get_json()
-        if st.get('status') in ('done', 'error'): break
-        time.sleep(0.1)
-    assert st['status'] == 'done', st
-    disk = rhl._job_read(r['job_id'])
-    return st, disk
-st, disk = hl(FILE_NAMES)
-t = pdf_text(base64.b64decode(st['std_pdf']))
-assert has_all(t, ['Ottoline', 'Marigold', 'Barnaby']) and has_none(t, STORED_BITS), 'HL names'
-assert 'std_pdf' not in disk and disk.get('status') == 'pending', 'HL result with names was written to disk'
-st, disk = hl(None)
-t = pdf_text(base64.b64decode(st['std_pdf']))
-assert has_all(t, ['Zebulon']) and 'std_pdf' in disk            # unchanged behaviour without names
-os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '1'
-st, disk = hl(None); os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
-t = pdf_text(base64.b64decode(st['std_pdf']))
-assert has_none(t, STORED_BITS + FILE_BITS) and 'ZeQu' in t, 'HL initials'
-print('home-learning generate: names from file (memory only), stored names without, initials with switch')
 
 # Session creation copies pupil_id (additive) so cards can be matched to a names file later
 SAVED = []

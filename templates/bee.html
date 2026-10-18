@@ -205,23 +205,19 @@ function showStatus(msg, type='ok') {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function triggerDownload(b64, mime, filename) {
+function triggerDownload(b64, mime, filename, names) {
   const bytes = atob(b64);
   const arr   = new Uint8Array(bytes.length);
   for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  const blob = new Blob([arr], {type: mime});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  // Real names are written onto the PDF here in the browser (WFAPrint.stampPdf); the server only draws initials.
+  return WFAPrint.deliverPdf(arr, names, filename);
 }
 
 // ── Download PDFs (paired lists ± recording sheet) ────────────────────────────
 async function generateWordListMaterials() {
-  // One ask covers both printouts. Names go in the request body only.
+  // One ask covers both printouts. Names stay in this browser: they are written onto the PDFs after download.
   const ask = await WFAPrint.askNames(WFAPrint.pidsFrom('.bee-row [data-pupil-id]'));
   if (ask.cancelled) return;
-  const namesPart = ask.names ? {names: ask.names} : {};
   showSpin('paired-lists', true);
   try {
     const includeRec  = document.getElementById('include-recording').checked;
@@ -229,13 +225,13 @@ async function generateWordListMaterials() {
     const fetches = [
       fetch('/api/print/paired-lists', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, print_order: printOrder, ...namesPart}),
+        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, print_order: printOrder}),
       }),
     ];
     if (includeRec) {
       fetches.push(fetch('/api/print/recording-sheet', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF, ...namesPart}),
+        body: JSON.stringify({cls: CLS, week_ref: WEEK_REF}),
       }));
     }
     const responses = await Promise.all(fetches);
@@ -243,10 +239,10 @@ async function generateWordListMaterials() {
 
     const lists = results[0];
     if (!lists.ok) { showStatus(lists.error, 'error'); return; }
-    triggerDownload(lists.data, lists.mime, lists.filename);
+    await triggerDownload(lists.data, lists.mime, lists.filename, ask.names);
 
     if (results[1]?.ok) {
-      triggerDownload(results[1].data, results[1].mime, results[1].filename);
+      await triggerDownload(results[1].data, results[1].mime, results[1].filename, ask.names);
     }
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');

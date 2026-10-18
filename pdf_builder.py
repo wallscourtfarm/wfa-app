@@ -11,6 +11,7 @@ Functions:
 
 import io
 import os
+import stamps as _stamps
 import zipfile
 import random
 from reportlab.lib.pagesizes import A4, A5, landscape
@@ -203,6 +204,8 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
         c.roundRect(pill_x, pill_y, pill_w, PILL_H, 3, fill=1, stroke=0)
         c.setFillColorRGB(*NAVY)
         c.drawString(pill_x + PILL_PAD, pill_y + PILL_H * 0.28, name)
+        _stamps.log(c, pill_x + PILL_PAD, pill_y + PILL_H * 0.28, name, 10, pupil.get('pupil_id'),
+                    color=NAVY, pill=(pill_x, pill_y, PILL_H, PILL_PAD, 3), cover_h=None)
 
         # Class badge pill — white rounded rect, navy text
         if cls_lbl:
@@ -421,6 +424,8 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
         c.roundRect(pill_x, pill_y, pill_w, PILL_H, 3, fill=1, stroke=0)
         c.setFillColorRGB(*NAVY)
         c.drawString(pill_x + PILL_PAD, pill_y + PILL_H * 0.28, name)
+        _stamps.log(c, pill_x + PILL_PAD, pill_y + PILL_H * 0.28, name, 11, pupil.get('pupil_id'),
+                    color=NAVY, pill=(pill_x, pill_y, PILL_H, PILL_PAD, 3))
 
         # Class badge pill
         if cls_lbl:
@@ -656,6 +661,7 @@ def build_recording_sheet(pupils, week_ref):
             c.setFont("Helvetica-Bold", 9)
             c.setFillColorRGB(0, 0, 0)
             c.drawString(bx + 30, hdr_y + HDR_H - 11, name)
+            _stamps.log(c, bx + 30, hdr_y + HDR_H - 11, name, 9, pupil.get('pupil_id'), cover=(0.95, 0.95, 0.95))
         # Mark header text
         c.setFont("Helvetica", 7)
         c.setFillColorRGB(0.3, 0.3, 0.3)
@@ -807,6 +813,7 @@ def build_tt_check_sheet(pupils, week_ref, seed=None, variant=None):
         c.setFont("Helvetica-Bold", 11)
         c.setFillColorRGB(0, 0, 0)
         c.drawString(bx + PAD + 32, hdr_y + HDR_H - 15, name)
+        _stamps.log(c, bx + PAD + 32, hdr_y + HDR_H - 15, name, 11, pupil.get('pupil_id'), mode='n')
         # Underline
         c.setStrokeColorRGB(0, 0, 0)
         c.setLineWidth(0.5)

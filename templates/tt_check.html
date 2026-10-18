@@ -233,19 +233,16 @@ advanceBtn.addEventListener('click', async () => {
 document.getElementById('btn-refresh').addEventListener('click', () => location.reload());
 
 // ── TT sheet download ─────────────────────────────────────────────────────────
-function triggerDownload(b64, mime, filename) {
+function triggerDownload(b64, mime, filename, names) {
   const bytes = atob(b64);
   const arr   = new Uint8Array(bytes.length);
   for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  const blob  = new Blob([arr], {type: mime});
-  const url   = URL.createObjectURL(blob);
-  const a     = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  // Real names are written onto the PDF here in the browser (WFAPrint.stampPdf); the server only draws initials.
+  return WFAPrint.deliverPdf(arr, names, filename);
 }
 
 async function generateTTSheet() {
-  // Names go on the printed sheet: ask for the names file first; sent in the request body only.
+  // Names go on the printed sheet: ask for the names file first; they are written onto the PDF in this browser, never sent.
   const ask = await WFAPrint.askNames(WFAPrint.pidsFrom('[data-pupil-id]'));
   if (ask.cancelled) return;
   const spinEl = document.getElementById('spin-tt-sheet');
@@ -254,11 +251,11 @@ async function generateTTSheet() {
     const resp = await fetch('/api/print/tt-check', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cls: CLS, ...(ask.names ? {names: ask.names} : {})}),
+      body: JSON.stringify({cls: CLS}),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus('Error: ' + d.error, 'error'); return; }
-    triggerDownload(d.data, d.mime, d.filename);
+    await triggerDownload(d.data, d.mime, d.filename, ask.names);
   } catch(e) {
     showStatus('Request failed: ' + e.message, 'error');
   } finally {

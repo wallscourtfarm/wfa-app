@@ -119,6 +119,7 @@ def display_session_pupils(session_pupils, names):
         partner = by_id.get(orig.get('partner_id'))
         if partner is not None:
             q['partner_name'] = partner.get('first', '')
+            q['partner_pupil_id'] = partner.get('pupil_id', '')
         elif file_only():
             q['partner_name'] = ''
     return shown
