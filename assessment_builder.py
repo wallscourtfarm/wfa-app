@@ -297,6 +297,10 @@ def build_word_assessment_excel(pupils, sections):
                 c.fill = PatternFill("solid", fgColor=alt)
 
     mg.freeze_panes = "D3"
+    xl_stamps = []   # name slots (initials are written here; the teacher's browser adds real names: stamps.py)
+    for r_idx, p in enumerate(pupils):
+        if p.get("pupil_id"):
+            xl_stamps.append({"sh": "Marking Grid", "r": r_idx + 3, "f": "B", "l": "C", "id": p["pupil_id"]})
 
     # Print setup
     mg.page_setup.orientation = "landscape"
@@ -325,6 +329,11 @@ def build_word_assessment_excel(pupils, sections):
     for col in ["C","D","E","F"]:
         rs.column_dimensions[col].width = 14
     rs.freeze_panes = "A2"
+    for r_idx, p in enumerate(pupils):
+        if p.get("pupil_id"):
+            xl_stamps.append({"sh": "Results", "r": r_idx + 2, "f": "A", "l": "B", "id": p["pupil_id"]})
+    import json as _json
+    wb.properties.keywords = "WFASTAMPS2X:" + _json.dumps(xl_stamps, separators=(",", ":"))
 
     buf = io.BytesIO()
     wb.save(buf)

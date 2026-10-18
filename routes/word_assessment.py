@@ -3,7 +3,7 @@ import requests as _req
 from flask import (Blueprint, render_template, request, jsonify,
                    session, redirect, url_for, Response, stream_with_context)
 from data_manager import load_class, load_weekly_config, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes
-from print_names import parse_names, display_pupils, PrintNamesError
+from print_names import display_pupils
 import scan_identity
 
 wa_bp = Blueprint('word_assessment', __name__)
@@ -115,7 +115,6 @@ def api_wa_generate():
         body     = request.get_json(force=True)
         cls      = body.get('cls', DEFAULT_CLASS)
         selected = body.get('sections', SECTION_KEYS)
-        names    = parse_names(body)   # optional {pupil_id: {first,last}}; memory only, never stored
 
         pupils   = _load_pupils(cls)
         if not pupils:
@@ -136,10 +135,11 @@ def api_wa_generate():
 
         from assessment_builder import build_word_assessment_pdf, build_word_assessment_excel, build_word_assessment_teacher_pdf
         # The scan sheet carries initials + code only: it is built from the STORED pupils, never
-        # from the names-file overlay. The names file is used only for the Excel marking sheet.
+        # from the names-file overlay. The marking sheet is also drawn with initials: the teacher's browser writes the
+        # real names into it (WFAPrint.stampXlsx), so a names file never reaches this server.
         pdf_bytes     = build_word_assessment_pdf(pupils, sections, cloze, week_ref)
         teacher_bytes = build_word_assessment_teacher_pdf([], sections, cloze, week_ref)
-        xl_pupils     = display_pupils(pupils, names)   # copies; stored objects untouched
+        xl_pupils     = display_pupils(pupils, None)   # initials; copies, stored objects untouched
         xl_bytes      = build_word_assessment_excel(xl_pupils, sections)
 
         flagged = [w for w in missing if w.lower() not in cloze]
@@ -156,8 +156,6 @@ def api_wa_generate():
             'n_words':   len(all_words),
             'flagged':   flagged,
         })
-    except PrintNamesError as e:
-        return jsonify({'ok': False, 'error': str(e)}), 400
     except Exception as e:
         return _err(e)
 

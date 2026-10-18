@@ -149,7 +149,6 @@ async function generate() {
   // Pupil sheets carry initials + code only. The names file is used ONLY for the Excel marking sheet.
   const ask = await WFAPrint.askNames(null);
   if (ask.cancelled) return;
-  const namesPart = ask.names ? { names: ask.names } : {};
   showSpin('generate', true);
   document.getElementById('generate-results').style.display = 'none';
   document.getElementById('generate-btn').disabled = true;
@@ -157,7 +156,7 @@ async function generate() {
     const resp = await fetch('/api/word-assessment/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS, sections, ...namesPart }),
+      body: JSON.stringify({ cls: CLS, sections }),
     });
     const d = await resp.json();
     if (!d.ok) { showStatus(d.error, 'error'); return; }
@@ -166,7 +165,11 @@ async function generate() {
     document.getElementById('dl-pdf').download       = d.pdf_name;
     document.getElementById('dl-teacher-pdf').href     = blob64(d.teacher_pdf, 'application/pdf');
     document.getElementById('dl-teacher-pdf').download = d.teacher_pdf_name;
-    document.getElementById('dl-excel').href         = blob64(d.excel, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    // Real names are written into the marking sheet here, in this browser (the server only wrote initials).
+    const xlBin = atob(d.excel), xlArr = new Uint8Array(xlBin.length);
+    for (let i = 0; i < xlBin.length; i++) xlArr[i] = xlBin.charCodeAt(i);
+    const xlOut = await WFAPrint.stampXlsx(xlArr, ask.names);
+    document.getElementById('dl-excel').href         = URL.createObjectURL(new Blob([xlOut], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     document.getElementById('dl-excel').download     = d.excel_name;
     document.getElementById('generate-results').style.display = 'flex';
 

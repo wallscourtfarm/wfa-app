@@ -115,6 +115,61 @@
     });
   }
 
+  // ── Names in the Excel marking sheets ─────────────────────────────────────────────────────
+  // The server writes initials and lists each pupil's name cells in the workbook's Keywords property
+  // ("WFASTAMPS2X:" + JSON). stampXlsx() rewrites those cells with the real names, in this browser.
+  var JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  var jszipPromise = null;
+  function loadJsZip() {
+    if (root.JSZip) return Promise.resolve(root.JSZip);
+    if (!jszipPromise) jszipPromise = new Promise(function (res, rej) {
+      var s = root.document.createElement('script');
+      s.src = JSZIP_URL; s.onload = function () { res(root.JSZip); };
+      s.onerror = function () { jszipPromise = null; rej(new Error('Could not load the zip library.')); };
+      root.document.head.appendChild(s);
+    });
+    return jszipPromise;
+  }
+  function xmlEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function setCell(xml, ref, text) {
+    var re = new RegExp('<c r="' + ref + '"([^>]*?)>[\\s\\S]*?</c>');
+    return xml.replace(re, function (m, attrs) {
+      attrs = attrs.replace(/\st="[^"]*"/, '');
+      return '<c r="' + ref + '"' + attrs + ' t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(text) + '</t></is></c>';
+    });
+  }
+  function stampXlsx(bytes, names) {
+    if (!names) return Promise.resolve(bytes);
+    return loadJsZip().then(function (JSZip) { return JSZip.loadAsync(bytes); }).then(function (zip) {
+      return Promise.all([zip.file('docProps/core.xml').async('string'), zip.file('xl/workbook.xml').async('string'),
+                          zip.file('xl/_rels/workbook.xml.rels').async('string')]).then(function (parts) {
+        var core = parts[0], wbx = parts[1], rels = parts[2];
+        var m = /<cp:keywords[^>]*>([\s\S]*?)<\/cp:keywords>/.exec(core);
+        var kw = m ? m[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') : '';
+        if (kw.indexOf('WFASTAMPS2X:') !== 0) return bytes;
+        var stamps = JSON.parse(kw.slice(12));
+        var sheetFile = {};
+        var sre = /<sheet\b[^>]*?name="([^"]*)"[^>]*?r:id="([^"]*)"/g, sm;
+        while ((sm = sre.exec(wbx))) {
+          var rm = new RegExp('<Relationship\\b[^>]*?Target="([^"]*)"[^>]*?Id="' + sm[2] + '"|<Relationship\\b[^>]*?Id="' + sm[2] + '"[^>]*?Target="([^"]*)"').exec(rels);
+          var tgt = rm && (rm[1] || rm[2]);
+          if (tgt) sheetFile[sm[1].replace(/&amp;/g, '&')] = tgt.charAt(0) === '/' ? tgt.slice(1) : 'xl/' + tgt;
+        }
+        var names2 = Object.keys(sheetFile), xmls = {};
+        return Promise.all(names2.map(function (n) { return zip.file(sheetFile[n]).async('string').then(function (x) { xmls[n] = x; }); })).then(function () {
+          stamps.forEach(function (st) {
+            var rec = names[st.id]; if (!rec || !xmls[st.sh]) return;
+            xmls[st.sh] = setCell(xmls[st.sh], st.f + st.r, rec.first || '');
+            xmls[st.sh] = setCell(xmls[st.sh], st.l + st.r, rec.last || '');
+          });
+          names2.forEach(function (n) { zip.file(sheetFile[n], xmls[n]); });
+          zip.file('docProps/core.xml', core.replace(/<cp:keywords[^>]*>[\s\S]*?<\/cp:keywords>/, ''));
+          return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+        });
+      });
+    });
+  }
+
   // Stamp (when names are given) and save a PDF supplied as bytes / a Blob.
   function deliverPdf(data, names, filename) {
     var p = data instanceof root.Blob ? data.arrayBuffer() : Promise.resolve(data);
@@ -134,5 +189,5 @@
   }
 
   root.WFAPrint = { pidsFrom: pidsFrom, askNames: askNames, postJson: postJson, downloadBlob: downloadBlob,
-                    downloadPdfPost: downloadPdfPost, stampPdf: stampPdf, deliverPdf: deliverPdf };
+                    downloadPdfPost: downloadPdfPost, stampPdf: stampPdf, stampXlsx: stampXlsx, deliverPdf: deliverPdf };
 })(typeof window !== 'undefined' ? window : this);

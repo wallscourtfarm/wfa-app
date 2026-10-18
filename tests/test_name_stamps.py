@@ -112,6 +112,21 @@ for r in (c.get('/api/live/bee/cards-pdf/ABCD1234'), c.post('/api/live/bee/cards
     assert {x['id'] for x in part} == {'p_aaa', 'p_bbb'} and all(x['m'] == 'f' for x in part), part   # partners of p01/p02
 print('bee cards: initials only; name + partner stamps (partner by pupil_id); request names ignored')
 
+# word-assessment Excel: initials only; name cells listed in the workbook Keywords
+import openpyxl
+rwa._load_cloze_bank = lambda: {}
+d = c.post('/api/word-assessment/generate', json={'cls': '4IM', 'sections': ['Y3'], 'names': FILE_NAMES}).get_json()
+assert d.get('ok'), d
+wbk = openpyxl.load_workbook(io.BytesIO(base64.b64decode(d['excel'])))
+cells = [str(cell.value) for ws in wbk for row in ws.iter_rows() for cell in row if cell.value]
+assert not any(x in ' '.join(cells) for x in STORED_BITS + FILE_BITS), 'a name reached the Excel sheet'
+kw = wbk.properties.keywords
+assert kw.startswith('WFASTAMPS2X:'), kw
+xs = _j.loads(kw[12:])
+assert [(x['sh'], x['id']) for x in xs] == [('Marking Grid', 'p_aaa'), ('Marking Grid', 'p_bbb'), ('Marking Grid', 'p_ccc'),
+                                          ('Results', 'p_aaa'), ('Results', 'p_bbb'), ('Results', 'p_ccc')], xs
+print('word-assessment Excel: initials only, name cells recorded')
+
 r = c.post('/api/hl/generate', json={'cls': '4IM'}); assert r.status_code == 404, r.status_code
 assert c.get('/home-learning').status_code == 302
 print('old home-learning routes gone; /home-learning still redirects')

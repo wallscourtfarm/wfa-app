@@ -172,13 +172,7 @@ for _names in (None, FILE_NAMES):
         assert has_none(_t, STORED_BITS + FILE_BITS), 'word-assessment sheet carries a name'
 os.environ['PRINT_NAMES_FROM_FILE_ONLY'] = '0'
 print('word-assessment/generate: pupil sheet has no names')
-# the marking spreadsheet is also built from the displayed names
-import openpyxl
-d = post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], 'names': FILE_NAMES}).get_json()
-wb = openpyxl.load_workbook(io.BytesIO(base64.b64decode(d['excel'])))
-cells = ' '.join(str(cell.value) for ws in wb for row in ws.iter_rows() for cell in row if cell.value)
-assert has_all(cells, ['Ottoline', 'Marigold']) and has_none(cells, STORED_BITS), 'excel names'
-print('word-assessment Excel: names from file')
+# (the marking spreadsheet now carries initials too: see tests/test_name_stamps.py)
 
 # rule + homophone generate: fake cloze banks, real section builders and PDF builders
 RULE_CLOZE = {'y5-t1-w1-l1': {'title': 'Rule one', 'sentences': [
@@ -198,8 +192,6 @@ def _no_names_sheet(label, path, body):
 _no_names_sheet('rule-assessment', '/api/rule-assessment/generate', {'cls': '4IM', 'rules': ['y5-t1-w1-l1']})
 rha._load_rule_cloze = lambda: {}
 _no_names_sheet('homophone-assessment', '/api/homophone-assessment/generate', {'cls': '4IM', 'stages': [1, 2, 3]})
-r = post_json('/api/word-assessment/generate', {'cls': '4IM', 'sections': ['Y3'], 'names': ['x']})
-assert r.status_code == 400 and r.get_json()['ok'] is False
 
 # Session creation copies pupil_id (additive) so cards can be matched to a names file later
 SAVED = []
