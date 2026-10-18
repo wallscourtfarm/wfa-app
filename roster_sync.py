@@ -155,7 +155,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
     summary['roster_count'] = len(pupils_roster)
 
     # Roster lookups
-    by_upn, by_name = {}, {}
+    by_upn, by_name, by_code = {}, {}, {}
     roster_classes = set()
     for r in pupils_roster:
         upn = (r.get('upn') or r.get('id') or '').strip()
@@ -170,6 +170,8 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
             'pupil_id': (r.get('pupilId') or '').strip(),
         }
         by_upn[upn] = rec
+        if rec['pupil_id']:
+            by_code[rec['pupil_id']] = rec
         by_name.setdefault(_norm(f"{rec['first']} {rec['last']}"), rec)
         roster_classes.add(rec['class'])
 
@@ -223,19 +225,20 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
         for p in f['obj'].get('pupils', []):
             name = f"{p.get('first','')} {p.get('last','')}".strip()
             upn  = (p.get('upn') or '').strip()
-            r    = by_upn.get(upn) if upn else None
-            if r is None and not upn:
+            code = (p.get('pupil_id') or '').strip()
+            # Match on the pupil code first. The roster's `upn` is an opaque token since 18.10.26 (UPN at rest),
+            # so it can no longer be compared with a real UPN held in a class file.
+            r    = by_code.get(code) if code else None
+            if r is None and upn:
+                r = by_upn.get(upn)
+            if r is None and not upn and not code:
                 cand = by_name.get(_norm(name))
                 if cand and cand['upn'] not in claimed:
                     r = cand
             if r is not None:
                 claimed.add(r['upn'])
                 touched = False
-                if not p.get('upn'):
-                    p['upn'] = r['upn']
-                    summary['upn_attached'].append({'cls': cid, 'name': name,
-                                                    'upn': r['upn']})
-                    touched = True
+                # No UPN is ever written into a class file any more (the roster's value is a token).
                 if r['pupil_id'] and r['pupil_id'] != p.get('pupil_id'):
                     p['pupil_id'] = r['pupil_id']
                     touched = True
@@ -259,8 +262,8 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
                     f['changed'] = True
                     summary['updated'].append({'cls': cid, 'id': p['id']})
                 kept.append(p)
-            elif upn:
-                # UPN'd pupil absent from roster → leaver
+            elif upn or code:
+                # a pupil with a UPN or a pupil code that is absent from the roster → leaver
                 if remove_leavers:
                     leavers.append({'cls': cid, 'pupil': p})
                     f['changed'] = True
@@ -353,7 +356,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
             'us_pin': '',
             'homophone_mastered': [],
             'homophone_history': {},
-            'upn': r['upn'],
+            'upn': '',                      # class files no longer carry a UPN
             'pupil_id': r['pupil_id'],
         }
         files[cid]['obj'].setdefault('pupils', []).append(new_pupil)

@@ -187,8 +187,8 @@ res = roster_sync.sync_roster(apply=True, remove_leavers=False, roster=full_rost
 assert res['ok'], res
 im = {p['id']: p for p in store['data/classes/5IM.json']['pupils']}
 assert im['p01']['pupil_id'] == 'p_k3m9x2q7ab' and im['p02']['pupil_id'] == 'p_newcode002'
-newp = [p for p in store['data/classes/5IM.json']['pupils'] if p['upn'] == 'A123456789888']
-assert len(newp) == 1 and newp[0]['pupil_id'] == 'p_newpupil88'
+newp = [p for p in store['data/classes/5IM.json']['pupils'] if p.get('pupil_id') == 'p_newpupil88']
+assert len(newp) == 1 and newp[0]['upn'] == ''      # class files no longer carry a UPN (18.10.26)
 print('roster sync pupil_id OK')
 
 # ── staff JSON: pid present, no first/last/name/upn anywhere ────────────────
