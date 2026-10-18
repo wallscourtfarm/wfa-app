@@ -92,7 +92,7 @@
             var nm = r.m === 'n' ? ((n.first || '') + ' ' + (n.last || '')).trim() : (n.first || '');
             nm = latin(nm); if (!nm) return;
             var page = pages[r.pg]; if (!page) return;
-            var font = r.b ? fonts[0] : fonts[1], full = (r.pre || '') + nm;
+            var font = r.b ? fonts[0] : fonts[1], full = (r.pre || '') + nm + (r.pst || '');
             var newW = font.widthOfTextAtSize(full, r.s);
             if (r.pill) {                                                 // white pill whose width follows the name
               var px = r.pill[0], py = r.pill[1], ph = r.pill[2], pad = r.pill[3], rad = r.pill[4];
@@ -103,9 +103,9 @@
               page.drawText(nm, { x: r.x, y: r.y, size: r.s, font: font, color: rgb(r.tc) });
               return;
             }
-            var span = Math.max(r.w, newW) + 4, x0 = r.a === 'c' ? r.x - span / 2 : r.x - 1;
+            var span = Math.max(r.w, newW) + 4, x0 = r.a === 'c' ? r.x - span / 2 : (r.a === 'r' ? r.x - span + 2 : r.x - 1);
             page.drawRectangle({ x: x0, y: r.y - 1, width: span, height: r.s * 0.95 + 1, color: rgb(r.cv) });
-            var tx = r.a === 'c' ? r.x - newW / 2 : r.x;
+            var tx = r.a === 'c' ? r.x - newW / 2 : (r.a === 'r' ? r.x - newW : r.x);
             page.drawText(full, { x: tx, y: r.y, size: r.s, font: font, color: rgb(r.tc) });
           });
           doc.setKeywords([]);
