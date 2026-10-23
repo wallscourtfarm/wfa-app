@@ -1,34 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard<div class="section-block" id="stuckBlock">
-  <h3 class="section-title">Stuck key spellings</h3>
-  <p class="section-caption">Children who have been given the same key spelling for more than two weeks and still haven't mastered it (from the words pinned at each paired-list print). Tick who needs a practise sheet: one per child in the handwriting format, half a page each where they fit.</p>
-  <div class="stuck-controls">
-    <label>Stuck for <select id="stuckMin"><option value="2">2+ weeks</option><option value="3" selected>3+ weeks</option><option value="4">4+ weeks</option><option value="5">5+ weeks</option></select></label>
-    <label>Font <select id="stuckFont"><option value="xccw">Cursive, dotted (XCCW)</option><option value="xccw_solid">Cursive, solid (XCCW)</option><option value="sassoon">Print, dotted (Sassoon)</option><option value="linkpen">Pre-cursive, dotted (Linkpen)</option></select></label>
-    <label>Empty lines per word <select id="stuckLines"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select></label>
-    <button type="button" class="btn btn-primary" id="stuckPrint" onclick="printStuckSheets()">🖨 Practise sheets (<span id="stuckCount">0</span>)</button>
-    <span id="stuckStatus" style="font-size:12px;color:var(--muted)"></span>
-  </div>
-  {% if stuck_pupils %}
-  <div class="tt-table-wrap" style="max-width:none;">
-    <table class="tt-table stuck-table" id="stuckTable">
-      <thead><tr><th style="width:28px"><input type="checkbox" id="stuckAll" checked onchange="stuckToggleAll(this.checked)"></th><th>Pupil</th>{% if cls.endswith('_all') or cls=='all' %}<th>Class</th>{% endif %}<th>Key spellings (weeks given)</th></tr></thead>
-      <tbody>
-        {% for sp in stuck_pupils %}
-        <tr class="stuck-row" data-key="{{ sp.key }}">
-          <td><input type="checkbox" class="stuck-pick" checked onchange="stuckRecount()"></td>
-          <td class="pupil-name"><span data-pupil-id="{{ sp.pid }}">{{ sp.label }}</span></td>
-          {% if cls.endswith('_all') or cls=='all' %}<td>{{ sp.cls }}</td>{% endif %}
-          <td><div class="stuck-words">{% for w in sp.words %}<span class="stuck-word" data-n="{{ w.n }}" title="{{ w.weeks|join(', ') }}">{{ w.word }}<small>×{{ w.n }}</small></span>{% endfor %}</div></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-  <div class="stuck-none hidden" id="stuckNone">No child has had the same key spelling for that many weeks.</div>
-</div>
-{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 
 {% block content %}
@@ -179,6 +150,35 @@
   </ol>
 </div>
 {% endif %}
+<div class="section-block" id="stuckBlock">
+  <h3 class="section-title">Stuck key spellings</h3>
+  <p class="section-caption">Children who have been given the same key spelling for more than two weeks and still haven't mastered it (from the words pinned at each paired-list print). Tick who needs a practise sheet: one per child in the handwriting format, half a page each where they fit.</p>
+  <div class="stuck-controls">
+    <label>Stuck for <select id="stuckMin"><option value="2">2+ weeks</option><option value="3" selected>3+ weeks</option><option value="4">4+ weeks</option><option value="5">5+ weeks</option></select></label>
+    <label>Font <select id="stuckFont"><option value="xccw">Cursive, dotted (XCCW)</option><option value="xccw_solid">Cursive, solid (XCCW)</option><option value="sassoon">Print, dotted (Sassoon)</option><option value="linkpen">Pre-cursive, dotted (Linkpen)</option></select></label>
+    <label>Empty lines per word <select id="stuckLines"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select></label>
+    <button type="button" class="btn btn-primary" id="stuckPrint" onclick="printStuckSheets()">🖨 Practise sheets (<span id="stuckCount">0</span>)</button>
+    <span id="stuckStatus" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+  {% if stuck_pupils %}
+  <div class="tt-table-wrap" style="max-width:none;">
+    <table class="tt-table stuck-table" id="stuckTable">
+      <thead><tr><th style="width:28px"><input type="checkbox" id="stuckAll" checked onchange="stuckToggleAll(this.checked)"></th><th>Pupil</th>{% if cls.endswith('_all') or cls=='all' %}<th>Class</th>{% endif %}<th>Key spellings (weeks given)</th></tr></thead>
+      <tbody>
+        {% for sp in stuck_pupils %}
+        <tr class="stuck-row" data-key="{{ sp.key }}">
+          <td><input type="checkbox" class="stuck-pick" checked onchange="stuckRecount()"></td>
+          <td class="pupil-name"><span data-pupil-id="{{ sp.pid }}">{{ sp.label }}</span></td>
+          {% if cls.endswith('_all') or cls=='all' %}<td>{{ sp.cls }}</td>{% endif %}
+          <td><div class="stuck-words">{% for w in sp.words %}<span class="stuck-word" data-n="{{ w.n }}" title="{{ w.weeks|join(', ') }}">{{ w.word }}<small>×{{ w.n }}</small></span>{% endfor %}</div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <div class="stuck-none hidden" id="stuckNone">No child has had the same key spelling for that many weeks.</div>
+</div>
 {% endblock %}
 
 {% block scripts %}
