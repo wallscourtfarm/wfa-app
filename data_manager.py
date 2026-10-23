@@ -317,6 +317,51 @@ def lowest_confidence_key_spellings(class_id='Y4_all', year=None, top_n=10):
              'pct': round(c / total * 100) if total else 0}
             for w, c in sorted_words]
 
+# ── Stuck key spellings (issued for several weeks, still not mastered) ────────
+
+def stuck_words_for_pupil(p, min_weeks=3):
+    """Key spellings this pupil has been handed in `min_weeks` or more different
+    weeks (issued_words, pinned by every paired-list print since 24.09.26) and
+    has still not mastered. Returns [{'word', 'weeks': [...], 'n'}], most weeks
+    first. Pure: safe to unit-test with a dict."""
+    mastered = {str(m).lower() for m in (p.get('mastered') or [])}
+    weeks_by_word = {}
+    for wk, words in (p.get('issued_words') or {}).items():
+        if not re.match(r'T\d+W\d+$', str(wk)):
+            continue        # 'TxWy' = printed before the week was configured; could be any week, so never counted
+        for w in (words or []):
+            if not isinstance(w, str) or not w.strip():
+                continue
+            weeks_by_word.setdefault(w.strip(), set()).add(wk)
+    out = []
+    for w, wks in weeks_by_word.items():
+        if len(wks) >= max(1, int(min_weeks)) and w.lower() not in mastered:
+            out.append({'word': w, 'weeks': sorted(wks, key=_week_sort_key), 'n': len(wks)})
+    out.sort(key=lambda s: (-s['n'], s['weeks'][0] if s['weeks'] else '', s['word'].lower()))
+    return out
+
+
+def stuck_key_spellings(class_id='Y4_all', min_weeks=3):
+    """Every pupil in the class (or year group) with at least one stuck key
+    spelling (see stuck_words_for_pupil). Each row: id, pupil_id, cls, first,
+    last, key (pupil_id, or cls:id when there is none), words. Callers must
+    strip first/last before anything reaches a browser."""
+    class_ids = _resolve_classes(class_id)
+    class_data = _load_classes_parallel(class_ids)
+    out = []
+    for cid in class_ids:
+        d = class_data.get(cid)
+        if not d:
+            continue
+        for p in d.get('pupils', []):
+            words = stuck_words_for_pupil(p, min_weeks)
+            if not words:
+                continue
+            out.append({'id': p.get('id', ''), 'pupil_id': p.get('pupil_id', ''), 'cls': cid,
+                        'first': p.get('first', ''), 'last': p.get('last', ''),
+                        'key': p.get('pupil_id') or f"{cid}:{p.get('id', '')}", 'words': words})
+    return out
+
 # ── TT Check ─────────────────────────────────────────────────────────────────
 
 def load_tt_pupils(class_id='4CK'):

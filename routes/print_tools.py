@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 import io, base64, traceback
-from data_manager import _week_snapshot, load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes, record_issued_words
+from data_manager import _week_snapshot, load_class, load_weekly_config, get_rule, get_uls_lesson, ALL_CLASSES, get_class_options, get_class_options_for_year, get_ref_class, get_year_group, _resolve_classes, record_issued_words, stuck_key_spellings
 from word_bank import get_active_words
 from print_names import display_pupils
 import stamps
@@ -194,6 +194,51 @@ def api_tt_check():
             'mime': 'application/pdf',
             'filename': f'TT_Check_{week_ref}_{cls}.pdf',
             'n': len(pupils),
+        })
+    except Exception as e:
+        return _err(e)
+
+
+# ── API: Key spelling practice sheets for stuck words ─────────────────────────
+
+@print_bp.route('/api/print/stuck-spellings', methods=['POST'])
+def api_stuck_spellings():
+    """Handwriting-format practice sheets for children who have had the same key spelling for several weeks.
+    Body: cls, min_weeks (default 3 = more than 2 weeks), pupil_keys (optional: pupil codes, or cls:id),
+    font (xccw | xccw_solid | sassoon | linkpen), practice_lines (0-3). Initials only; names are stamped in the browser."""
+    try:
+        body = request.get_json(force=True) or {}
+        cls = body.get('cls', DEFAULT_CLASS)
+        try:
+            min_weeks = max(2, min(10, int(body.get('min_weeks', 3) or 3)))
+        except (TypeError, ValueError):
+            min_weeks = 3
+        font = body.get('font', 'xccw')
+        if font not in ('xccw', 'xccw_solid', 'sassoon', 'linkpen'):
+            font = 'xccw'
+        try:
+            practice = max(0, min(3, int(body.get('practice_lines', 1))))
+        except (TypeError, ValueError):
+            practice = 1
+        wanted = set(body.get('pupil_keys') or [])
+        rows = stuck_key_spellings(cls, min_weeks)
+        if wanted:
+            rows = [r for r in rows if r['key'] in wanted]
+        if not rows:
+            return jsonify({'ok': False, 'error': 'No children have a key spelling stuck for that many weeks.'})
+        from names_display import label_list
+        labels = label_list([(r.get('first', ''), r.get('last', '')) for r in rows])
+        _, _, week_ref = _get_rules(cls)
+        children = [{'label': labels[i], 'pupil_id': r.get('pupil_id', ''), 'words': r['words']}
+                    for i, r in enumerate(rows)]
+        from spelling_practice_pdf import build_practice_sheets
+        stamps.begin()
+        data = stamps.finish(build_practice_sheets(children, font_key=font, practice_lines=practice, week_ref=week_ref))
+        return jsonify({
+            'ok': True, 'data': base64.b64encode(data).decode(),
+            'mime': 'application/pdf',
+            'filename': f'Key_Spellings_Practice_{cls}_{week_ref}.pdf',
+            'n': len(children),
         })
     except Exception as e:
         return _err(e)

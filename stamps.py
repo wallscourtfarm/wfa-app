@@ -26,21 +26,24 @@ def take():
 
 
 def log(c, x, y, text, size, pupil_id, mode='f', bold=True, align='l', cover=(1, 1, 1),
-        color=(0, 0, 0), prefix='', pill=None, cover_h=None):
+        color=(0, 0, 0), prefix='', pill=None, cover_h=None, post=''):
     """Record one name slot. mode 'f' = first name, 'n' = first + last. align 'l' (x = left edge) or 'c' (x = centre).
+    post = fixed text drawn straight after the name (e.g. "  |  Key spellings"), redrawn with it in the browser.
     cover = colour of the background behind the text (painted over the initials); pill = (x, y, h, pad, radius)
     when the text sits in a white pill whose width follows the name."""
     log_ = getattr(_T, 'log', None)
     if log_ is None or not pupil_id:
         return
     font = 'Helvetica-Bold' if bold else 'Helvetica'
-    full = (prefix or '') + (text or '')
+    full = (prefix or '') + (text or '') + (post or '')
     rec = {'pg': c.getPageNumber() - 1, 'id': pupil_id, 'x': round(x, 2), 'y': round(y, 2),
            'w': round(c.stringWidth(full, font, size), 2), 's': size, 'm': mode, 'a': align, 'b': 1 if bold else 0,
            'cv': [round(v, 3) for v in cover], 'tc': [round(v, 3) for v in color]}
     if prefix:
         rec['pre'] = prefix
         rec['pw'] = round(c.stringWidth(prefix, font, size), 2)
+    if post:
+        rec['pst'] = post
     if cover_h:
         rec['ch'] = cover_h
     if pill:
