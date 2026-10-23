@@ -204,15 +204,15 @@ def api_tt_check():
 @print_bp.route('/api/print/stuck-spellings', methods=['POST'])
 def api_stuck_spellings():
     """Handwriting-format practice sheets for children who have had the same key spelling for several weeks.
-    Body: cls, min_weeks (default 3 = more than 2 weeks), pupil_keys (optional: pupil codes, or cls:id),
+    Body: cls, min_weeks (default 2), pupil_keys (optional: pupil codes, or cls:id),
     font (xccw | xccw_solid | sassoon | linkpen), practice_lines (0-3). Initials only; names are stamped in the browser."""
     try:
         body = request.get_json(force=True) or {}
         cls = body.get('cls', DEFAULT_CLASS)
         try:
-            min_weeks = max(2, min(10, int(body.get('min_weeks', 3) or 3)))
+            min_weeks = max(2, min(10, int(body.get('min_weeks', 2) or 2)))
         except (TypeError, ValueError):
-            min_weeks = 3
+            min_weeks = 2
         font = body.get('font', 'xccw')
         if font not in ('xccw', 'xccw_solid', 'sassoon', 'linkpen'):
             font = 'xccw'

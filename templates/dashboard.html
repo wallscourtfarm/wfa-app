@@ -152,9 +152,9 @@
 {% endif %}
 <div class="section-block" id="stuckBlock">
   <h3 class="section-title">Stuck key spellings</h3>
-  <p class="section-caption">Children who have been given the same key spelling for more than two weeks and still haven't mastered it (from the words pinned at each paired-list print). Tick who needs a practise sheet: one per child in the handwriting format, half a page each where they fit.</p>
+  <p class="section-caption">Children who have been given the same key spelling for two weeks or more and still haven't mastered it (from the words pinned at each paired-list print). Tick who needs a practise sheet: one per child in the handwriting format, half a page each where they fit.</p>
   <div class="stuck-controls">
-    <label>Stuck for <select id="stuckMin"><option value="2">2+ weeks</option><option value="3" selected>3+ weeks</option><option value="4">4+ weeks</option><option value="5">5+ weeks</option></select></label>
+    <label>Stuck for <select id="stuckMin"><option value="2" selected>2+ weeks</option><option value="3">3+ weeks</option><option value="4">4+ weeks</option><option value="5">5+ weeks</option></select></label>
     <label>Font <select id="stuckFont"><option value="xccw">Cursive, dotted (XCCW)</option><option value="xccw_solid">Cursive, solid (XCCW)</option><option value="sassoon">Print, dotted (Sassoon)</option><option value="linkpen">Pre-cursive, dotted (Linkpen)</option></select></label>
     <label>Empty lines per word <select id="stuckLines"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select></label>
     <button type="button" class="btn btn-primary" id="stuckPrint" onclick="printStuckSheets()">🖨 Practise sheets (<span id="stuckCount">0</span>)</button>

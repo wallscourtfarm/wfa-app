@@ -35,7 +35,7 @@ def dashboard():
                           if k not in ('first', 'last', 'name', 'upn', 'pupil_id')},
                        'pid': lp.get('pupil_id', '')}
                       for lp in learner_pupils]
-    # Children who have had the same key spelling for 2+ weeks (the page filters to 3+ by default).
+    # Children who have had the same key spelling for 2+ weeks (the page's default; it can filter to 3+, 4+, 5+).
     # Privacy: initials label + pupil code only; first/last never leave the server.
     try:
         stuck_raw = stuck_key_spellings(cls, min_weeks=2)
