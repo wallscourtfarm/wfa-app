@@ -123,12 +123,7 @@ def _draw_child(c, slot_top, slot_bottom, child, spec, practice_lines, title, ri
             bottom = MARGIN
         word = item['word'] if isinstance(item, dict) else str(item)
         _ruled_row(c, y, spec, show_x, show_desc)
-        x = MARGIN + 2
-        w = spec['width'](word)
-        spec['draw'](c, x, y, word, spec['fs'])
-        # A short word is shown twice to trace when there is room, like the handwriting tool's join sheets.
-        if len(word) <= 4 and x + 2 * w + 9 * MM < MARGIN + USABLE_W * 0.5:
-            spec['draw'](c, x + w + 9 * MM, y, word, spec['fs'])
+        spec['draw'](c, MARGIN + 2, y, word, spec['fs'])     # once only: the child keeps writing it along the line
         y -= row_h
         for _ in range(practice_lines):
             _ruled_row(c, y, spec, show_x, show_desc)
