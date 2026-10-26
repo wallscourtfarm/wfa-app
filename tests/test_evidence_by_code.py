@@ -32,3 +32,19 @@ def test_keyed_by_upn_and_by_code(monkeypatch):
 
 def test_still_needs_the_token(monkeypatch):
     assert client(monkeypatch).get("/api/evidence/spelling/Y5?token=bad").status_code == 401
+
+
+def test_stuck_spellings_by_code_only(monkeypatch):
+    seen = {}
+    def fake(cls, min_weeks):
+        seen.update(cls=cls, min_weeks=min_weeks)
+        return [{'pupil_id': 'p_aaaaaaaaaa', 'first': 'Real', 'last': 'Name', 'words': [{'word': 'because', 'weeks': ['T1W2', 'T1W4'], 'n': 2}]},
+                {'pupil_id': '', 'first': 'No', 'last': 'Code', 'words': [{'word': 'said', 'weeks': ['T1W1', 'T1W2'], 'n': 2}]}]
+    monkeypatch.setattr(ev, "stuck_key_spellings", fake)
+    c = client(monkeypatch)
+    r = c.get("/api/evidence/stuck-spellings/Y5?token=h&min_weeks=3")
+    assert r.get_json() == {'by_code': {'p_aaaaaaaaaa': [{'word': 'because', 'n': 2}]}}
+    assert seen == {'cls': 'Y5_all', 'min_weeks': 3}
+    assert 'Real' not in r.get_data(as_text=True)
+    assert c.get("/api/evidence/stuck-spellings/Y5?token=bad").status_code == 401
+    assert c.get("/api/evidence/stuck-spellings/R?token=h").get_json() == {'by_code': {}}

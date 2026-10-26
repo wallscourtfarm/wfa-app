@@ -13,7 +13,7 @@ import os
 from flask import Blueprint, jsonify, request
 
 import word_bank
-from data_manager import _resolve_classes, load_class, latest_rule_confidence_entry
+from data_manager import _resolve_classes, load_class, latest_rule_confidence_entry, stuck_key_spellings
 
 evidence_bp = Blueprint('evidence', __name__)
 
@@ -76,3 +76,22 @@ def spelling_evidence(year_group):
                 by_code[code] = entry
 
     return jsonify({'spelling': result, 'spelling_by_code': by_code})
+
+
+@evidence_bp.route('/api/evidence/stuck-spellings/<year_group>')
+def stuck_spellings_evidence(year_group):
+    """Stuck key spellings per pupil code, for the Writing Targets tool (wfa-data calls this with the
+    hub token). Words only: no names, no UPNs."""
+    if not _evidence_token_ok(request.args.get('token')):
+        return jsonify({'error': 'unauthorised'}), 401
+    if year_group not in _SUPPORTED_YEARS:
+        return jsonify({'by_code': {}})
+    try:
+        min_weeks = max(1, min(10, int(request.args.get('min_weeks', 2))))
+    except ValueError:
+        min_weeks = 2
+    by_code = {}
+    for row in stuck_key_spellings(f'{year_group}_all', min_weeks):
+        if row.get('pupil_id'):
+            by_code[row['pupil_id']] = [{'word': w['word'], 'n': w['n']} for w in row['words']]
+    return jsonify({'by_code': by_code})
