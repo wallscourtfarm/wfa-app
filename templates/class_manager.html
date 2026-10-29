@@ -15,6 +15,7 @@
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
     <button class="btn btn-secondary" onclick="openStartModal()" title="Choose which year group's spelling set pupils start from — e.g. a new starter joining in Y6 from the start of Y4">🐝 Spelling start point</button>
+    <button class="btn btn-secondary" onclick="openSeatModal()" title="Set every child's Table number from a Seating Plan file, in hand-out order (snaking along the rows)">🪑 Import seating plan</button>
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
   </div>
 </div>
@@ -375,6 +376,34 @@
       <button class="btn btn-primary" id="mastery-btn" onclick="confirmMasteryImport()" disabled>Import</button>
       <button class="btn btn-secondary" onclick="closeMasteryModal()">Cancel</button>
       <span class="print-spinner hidden" id="spin-mastery"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Seating plan import modal ───────────────────────────────────────────── -->
+<div id="seat-modal" class="cm-modal-wrap" style="display:none">
+  <div class="cm-modal" style="max-width:620px">
+    <div class="cm-modal-hdr">
+      <h3>🪑 Import seating plan</h3>
+      <button onclick="closeSeatModal()" class="cm-close">&times;</button>
+    </div>
+    <div class="cm-modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0;line-height:1.6">
+        In the Seating Plan tool, press <strong>Save file</strong>, then choose that file here.
+        Each child's <strong>Table</strong> number becomes their place in hand-out order:
+        start top left, go along the first row, back along the second, and so on.
+        Names are matched in this browser with your names file; only the numbers are saved.
+      </p>
+      <div class="cm-field">
+        <input type="file" id="seat-file" accept=".json,application/json" onchange="readSeatFile(this)">
+      </div>
+      <div id="seat-msg" style="font-size:13px;display:none;border-radius:8px;padding:8px 12px;margin-bottom:8px"></div>
+      <div id="seat-list" style="max-height:52vh;overflow:auto"></div>
+    </div>
+    <div class="cm-modal-footer">
+      <button class="btn btn-primary" id="seat-apply-btn" onclick="applySeatImport()" disabled>Save order</button>
+      <button class="btn btn-secondary" onclick="closeSeatModal()">Cancel</button>
+      <span class="print-spinner hidden" id="spin-seat"></span>
     </div>
   </div>
 </div>
@@ -1288,6 +1317,157 @@ function populateReadingLevelSelect() {
       : (lvl === READING_LADDER[0] ? `Y${lvl} (Standard)` : `Y${lvl}`);
     return `<option value="${lvl}">${label}</option>`;
   }).join('');
+}
+
+// ── Seating plan import ───────────────────────────────────────────────────────
+// Reads a Seating Plan "Save file" (imcl75 seating-plan tool) in this browser,
+// puts the seated children in hand-out order (row 1 left→right, row 2 right→left,
+// …) and matches each seat name to a pupil using the teacher's names file. Only
+// {pupil id: seat number} is sent to the server.
+let _seat = null;   // {order: [plan names], pick: [pupil id|''], file, ownFile}
+
+function seatOrder(plan) {
+  const rows = {};
+  plan.seats.filter(s => s.p).forEach(s => (rows[s.r] = rows[s.r] || []).push(s));
+  return Object.keys(rows).map(Number).sort((a, b) => a - b)
+    .flatMap((r, i) => rows[r].sort((a, b) => i % 2 ? b.c - a.c : a.c - b.c))
+    .map(s => String(s.p));
+}
+
+const seatNorm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// Best pupil id for a seat name, or '' when none / more than one fits.
+function seatMatch(name, file) {
+  const s = seatNorm(name);
+  if (!s) return '';
+  const exact = [], loose = [];
+  _pupils.forEach(p => {
+    if (seatNorm(p.label) === s) { exact.push(p.id); return; }
+    const n = file && p.pid ? file.get(p.pid) : null;
+    if (!n) return;
+    const first = seatNorm(n.first), last = seatNorm(n.last);
+    if (s === seatNorm(n.name) || s === `${first} ${last}`.trim()) { exact.push(p.id); return; }
+    if (first && (s === first || s.startsWith(first + ' '))) {
+      const rest = s.slice(first.length).replace(/\s/g, '');
+      if (!rest || last.replace(/\s/g, '').startsWith(rest)) loose.push(p.id);
+    }
+  });
+  if (exact.length === 1) return exact[0];
+  return !exact.length && loose.length === 1 ? loose[0] : '';
+}
+
+function seatPupilText(p) {
+  const n = _seat && _seat.file && p.pid ? _seat.file.get(p.pid) : null;
+  return n && n.name ? `${n.name} (${p.label})` : p.label;
+}
+
+function seatMsg(text, kind) {
+  const m = document.getElementById('seat-msg');
+  m.textContent = text;
+  m.style.display = text ? 'block' : 'none';
+  m.style.background = kind === 'error' ? '#fef2f2' : '#eff6ff';
+  m.style.color = kind === 'error' ? '#b91c1c' : '#1e40af';
+}
+
+function openSeatModal() {
+  _seat = null;
+  document.getElementById('seat-file').value = '';
+  document.getElementById('seat-list').innerHTML = '';
+  document.getElementById('seat-apply-btn').disabled = true;
+  seatMsg('');
+  document.getElementById('seat-modal').style.display = 'flex';
+}
+
+function closeSeatModal() {
+  if (_seat && _seat.ownFile && _seat.file) { try { _seat.file.clear(); } catch (e) { /* nothing held */ } }
+  _seat = null;
+  document.getElementById('seat-list').innerHTML = '';
+  document.getElementById('seat-modal').style.display = 'none';
+}
+
+async function readSeatFile(input) {
+  const f = input.files[0];
+  if (!f) return;
+  let plan;
+  try {
+    plan = JSON.parse(await f.text()).plan;
+    if (!plan || !Array.isArray(plan.seats)) throw 0;
+  } catch (e) { seatMsg('That file is not a Seating Plan file. Use "Save file" in the Seating Plan tool.', 'error'); return; }
+  const order = seatOrder(plan);
+  if (!order.length) { seatMsg('Nobody is seated in that plan.', 'error'); return; }
+
+  let file = null, ownFile = false;
+  if (window.WFANames) {
+    if (WFANames.screen.active && WFANames.screen.file) file = WFANames.screen.file;
+    else {
+      try { file = await WFANames.pick({ purpose: 'Used only to match the names in your seating plan to the children here. Nothing is saved.' }); }
+      catch (e) { file = null; }
+      ownFile = !!file;
+    }
+  }
+  _seat = { order, file, ownFile, pick: [] };
+  const taken = new Set();
+  _seat.pick = order.map(n => {
+    const id = seatMatch(n, file);
+    if (!id || taken.has(id)) return '';
+    taken.add(id);
+    return id;
+  });
+  renderSeatList();
+}
+
+function seatChoose(i, id) { _seat.pick[i] = id; renderSeatList(); }
+
+function renderSeatList() {
+  const pupils = [..._pupils].sort((a, b) => seatPupilText(a).localeCompare(seatPupilText(b)));
+  const count = {};
+  _seat.pick.forEach(id => { if (id) count[id] = (count[id] || 0) + 1; });
+  const rows = _seat.order.map((n, i) => {
+    const id = _seat.pick[i], dup = id && count[id] > 1;
+    const opts = `<option value="">— choose —</option>` + pupils.map(p =>
+      `<option value="${esc(p.id)}" ${p.id === id ? 'selected' : ''}>${esc(seatPupilText(p))}</option>`).join('');
+    return `<tr style="${!id || dup ? 'background:#fef2f2' : ''}">
+      <td style="padding:4px 8px;font-weight:700">${i + 1}</td>
+      <td style="padding:4px 8px">${esc(n)}</td>
+      <td style="padding:4px 8px"><select class="cm-input" style="padding:4px 6px" onchange="seatChoose(${i}, this.value)">${opts}</select>
+        ${dup ? '<div style="color:#b91c1c;font-size:12px">Chosen for another seat too</div>' : ''}</td></tr>`;
+  }).join('');
+  const chosen = new Set(_seat.pick.filter(Boolean));
+  const left = pupils.filter(p => !chosen.has(p.id));
+  const unmatched = _seat.pick.filter(id => !id).length;
+  const dups = Object.values(count).some(c => c > 1);
+  document.getElementById('seat-list').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+      <tr style="color:#64748b;font-size:12px;text-align:left"><th style="padding:4px 8px">Seat</th><th style="padding:4px 8px">In the plan</th><th style="padding:4px 8px">Child</th></tr>
+      ${rows}</table>
+    ${left.length ? `<p style="font-size:13px;color:#92400e;margin:10px 0 0">Not in the seating plan, so their Table number will be cleared (they print last):
+      ${left.map(p => esc(seatPupilText(p))).join(', ')}</p>` : ''}`;
+  seatMsg(unmatched ? `${unmatched} seat${unmatched === 1 ? ' needs' : 's need'} a child choosing${_seat.file ? '' : ' (no names file loaded, so only initials could be matched)'}. Leave a seat on "— choose —" to skip it.`
+    : `All ${_seat.order.length} seats matched. Check the list, then save.`, unmatched ? 'error' : 'ok');
+  document.getElementById('seat-apply-btn').disabled = dups || !chosen.size;
+}
+
+async function applySeatImport() {
+  if (!_seat) return;
+  const tables = {};
+  _pupils.forEach(p => { tables[p.id] = ''; });
+  _seat.pick.forEach((id, i) => { if (id) tables[id] = String(i + 1); });
+  const btn = document.getElementById('seat-apply-btn');
+  btn.disabled = true; showSpin('seat', true);
+  try {
+    const resp = await fetch('/api/class/tables', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ cls: CLS_ID, tables }),
+    });
+    const d = await resp.json();
+    if (!d.ok) { seatMsg('Save failed: ' + d.error, 'error'); btn.disabled = false; return; }
+    _pupils.forEach(p => { p.table = tables[p.id]; });
+    closeSeatModal();
+    _sortKey = 'table'; _sortDir = 1; applySort(); updateSortArrows(); render();
+    showStatus(`Seating order saved (${d.changed} changed).`);
+  } catch (e) { seatMsg('Request failed: ' + e.message, 'error'); btn.disabled = false; }
+  finally { showSpin('seat', false); }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

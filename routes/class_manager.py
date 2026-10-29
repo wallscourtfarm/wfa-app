@@ -256,6 +256,49 @@ def api_pupil_update():
         return _err(e)
 
 
+# ── API: Set every Table number at once (seating plan import) ─────────────────
+
+@cm_bp.route('/api/class/tables', methods=['POST'])
+def api_class_tables():
+    """{cls, tables: {pupil_id: '1'..'999' | ''}} -> one save of the class file.
+    Only the pupils listed are changed; only the 'table' field is touched. The
+    browser matches seat names to pupils itself, so no name ever reaches here."""
+    try:
+        body   = request.get_json(force=True)
+        cls    = body.get('cls', '')
+        tables = body.get('tables', {})
+        if cls not in ALL_CLASSES:
+            return jsonify({'ok': False, 'error': f'Unknown class: {cls}'})
+        if not isinstance(tables, dict) or not tables:
+            return jsonify({'ok': False, 'error': 'No table numbers sent'})
+        for v in tables.values():
+            if not isinstance(v, str) or not (v == '' or (v.isdigit() and len(v) <= 3)):
+                return jsonify({'ok': False, 'error': 'Table numbers must be whole numbers or blank'})
+        used = [v for v in tables.values() if v]
+        if len(used) != len(set(used)):
+            return jsonify({'ok': False, 'error': 'Two pupils were given the same seat number'})
+
+        obj, sha = _load_class_file(cls)
+        if not obj:
+            return jsonify({'ok': False, 'error': f'Could not load {cls}'})
+        by_id = {p['id']: p for p in obj.get('pupils', [])}
+        missing = [pid for pid in tables if pid not in by_id]
+        if missing:
+            return jsonify({'ok': False, 'error': f'{len(missing)} pupil(s) not found in {cls}; reload and try again'})
+
+        changed = 0
+        for pid, v in tables.items():
+            if str(by_id[pid].get('table', '')) != v:
+                by_id[pid]['table'] = v
+                changed += 1
+        if not changed:
+            return jsonify({'ok': True, 'changed': 0})
+        ok = _save_class_file(cls, obj, sha, f'Seating order from seating plan ({changed} pupils)')
+        return jsonify({'ok': ok, 'changed': changed} if ok else {'ok': False, 'error': 'Save failed, try again'})
+    except Exception as e:
+        return _err(e)
+
+
 # ── API: Spelling start point ─────────────────────────────────────────────────
 
 @cm_bp.route('/api/class/spelling-start', methods=['POST'])
