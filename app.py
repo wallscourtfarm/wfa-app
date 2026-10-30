@@ -49,6 +49,11 @@ from routes.evidence import evidence_bp
 for bp in [dash_bp, tt_bp, bee_bp, hl_bp, settings_bp, rules_bp, stubs_bp, print_bp, wa_bp, ra_bp, ha_bp, insights_bp, live_bp, cm_bp, menu_bp, hw_bp, wp_bp, proxy_bp, evidence_bp]:
     app.register_blueprint(bp)
 
+# Runs the Class Manager's "Sync from Bromcom" by itself after a Roster
+# Import (on Railway only; see roster_autosync.py).
+import roster_autosync
+roster_autosync.start()
+
 # ── Year group session context ─────────────────────────────────────────────────
 from flask import session, request as _req, redirect as _redirect
 from data_manager import YEAR_GROUP_CLASSES as _YGC

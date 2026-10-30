@@ -23,9 +23,11 @@ Safety valve: if the roster has dropped below 80% of the current pupil
 count the sync aborts (likely a partial Bromcom export upstream).
 """
 
+import hashlib
 import json
 import os
 import re
+import threading
 import unicodedata
 from datetime import datetime, timezone
 
@@ -63,6 +65,10 @@ YEAR_GROUP_CLASSES = {
 ALL_CLASSES = [c for classes in YEAR_GROUP_CLASSES.values() for c in classes]
 
 MIN_ROSTER_RATIO = 0.8   # abort if roster < 80% of current pupils
+
+# One sync at a time in this process (the Class Manager button and the
+# automatic sync in roster_autosync.py both take it).
+SYNC_LOCK = threading.Lock()
 
 
 def _norm(s):
@@ -106,6 +112,21 @@ def fetch_classes():
         return []
 
 
+def roster_fingerprint(pupils, classes):
+    """A short hash of just the roster fields a sync uses, so the automatic
+    sync can tell whether anything has changed since the last run. Order of
+    pupils/classes does not matter."""
+    rows = sorted(
+        '|'.join(str(r.get(k) or '').strip() for k in
+                 ('upn', 'pupilId', 'first', 'last', 'class', 'yearGroup'))
+        for r in pupils or [])
+    cls = sorted(
+        '|'.join(str(c.get(k) or '').strip() for k in ('display', 'teacherInitials'))
+        for c in classes or [])
+    raw = json.dumps([rows, cls], ensure_ascii=False)
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:16]
+
+
 # ── GitHub I/O (fresh, uncached — sync writes need real shas) ────────────────
 
 def _gh_get(path):
@@ -133,10 +154,12 @@ def _gh_put(path, obj, sha, message):
 
 # ── Sync ──────────────────────────────────────────────────────────────────────
 
-def sync_roster(apply=True, remove_leavers=True, roster=None):
+def sync_roster(apply=True, remove_leavers=True, roster=None, classes=None, trigger='button'):
     """
     Merge the roster into every class file. Returns a summary dict.
     apply=False does the full match walk but writes nothing (dry run).
+    `classes` is the hub class list (fetched if not given); `trigger` is
+    recorded in roster_meta.json ('button' or 'auto').
     """
     summary = {
         'ok': True, 'applied': apply, 'when': _now(),
@@ -153,6 +176,8 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
         return summary
 
     summary['roster_count'] = len(pupils_roster)
+    hub_classes = classes if classes is not None else fetch_classes()
+    summary['roster_hash'] = roster_fingerprint(pupils_roster, hub_classes)
 
     # Roster lookups
     by_upn, by_name, by_code = {}, {}, {}
@@ -189,7 +214,7 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
     # Refresh teacher_name/class_display from the hub (matched by display
     # name, since that's how class files are keyed here) — self-healing,
     # replaces the old manual "Class settings" editor.
-    for hub_cls in fetch_classes():
+    for hub_cls in hub_classes:
         cid = str(hub_cls.get('display') or '').strip()
         f = files.get(cid)
         if not f:
@@ -429,6 +454,8 @@ def sync_roster(apply=True, remove_leavers=True, roster=None):
         'upn_attached': len(summary['upn_attached']),
         'unmatched': len(summary['unmatched']),
         'applied': apply,
+        'trigger': trigger,
+        'roster_hash': summary['roster_hash'],
     }
     if apply:
         meta_obj, meta_sha = _gh_get(META_PATH)

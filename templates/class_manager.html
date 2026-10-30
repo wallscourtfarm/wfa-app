@@ -10,7 +10,7 @@
       <option value="{{ val }}" {% if val==cls %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <button class="btn btn-secondary" onclick="syncRoster(this)" title="Pull the Bromcom roster (Pupil Tracker import): refresh names, add arrivals, remove leavers">⇄ Sync from Bromcom</button>
+    <button class="btn btn-secondary" onclick="syncRoster(this)" title="This now runs by itself within about 20 minutes of a Roster Import. Press it to sync straight away: refreshes names, adds arrivals, removes leavers">⇄ Sync from Bromcom</button>
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
     <button class="btn btn-secondary" onclick="openStartModal()" title="Choose which year group's spelling set pupils start from — e.g. a new starter joining in Y6 from the start of Y4">🐝 Spelling start point</button>
@@ -516,7 +516,7 @@ async function loadRosterStatus() {
                : ago < 60 ? `${ago} min ago`
                : ago < 60*24 ? `${Math.round(ago/60)} h ago`
                : `${Math.round(ago/1440)} days ago`;
-    const bits = [`📡 Roster: Bromcom · ${d.roster_count} pupils · last synced ${age}`];
+    const bits = [`📡 Roster: Bromcom · ${d.roster_count} pupils · last synced ${age}${d.trigger === 'auto' ? ' (automatic)' : ''}`];
     if (d.added)     bits.push(`+${d.added} added`);
     if (d.removed)   bits.push(`−${d.removed} removed`);
     if (d.renamed)   bits.push(`${d.renamed} renamed`);

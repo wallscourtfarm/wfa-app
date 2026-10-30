@@ -687,8 +687,9 @@ def api_roster_sync():
     every class file: refreshes names/classes, attaches UPNs to any
     not-yet-UPN'd pupils, adds new arrivals and removes (archiving) leavers."""
     try:
-        from roster_sync import sync_roster
-        result = sync_roster(apply=True)
+        from roster_sync import sync_roster, SYNC_LOCK
+        with SYNC_LOCK:
+            result = sync_roster(apply=True)
         return jsonify(_roster_summary_for_browser(result))
     except Exception as e:
         return _err(e)
