@@ -28,6 +28,7 @@ ISSUER = f'https://{TEAM}.cloudflareaccess.com'
 
 # Audience tags of the Access apps that cover app.* (identifiers, not secrets).
 KNOWN_AUDS = {
+    '9690495618c28b3c82ed51f81bdb84e0f38c869952e47cbf2190214c5da29eb9',   # WFA App Dashboard (whole domain)
     'f97d5389df08ef410bcbbc04a3602b69b7135108a4efb0150d4ae4b00b78931a',   # /menu
 }
 KNOWN_AUDS |= {a.strip() for a in os.environ.get('CF_ACCESS_AUDS', '').split(',') if a.strip()}
