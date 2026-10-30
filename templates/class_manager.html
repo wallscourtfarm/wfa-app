@@ -1330,9 +1330,12 @@ function seatOrder(plan) {
   const rows = {};
   plan.seats.filter(s => s.p).forEach(s => (rows[s.r] = rows[s.r] || []).push(s));
   return Object.keys(rows).map(Number).sort((a, b) => a - b)
-    .flatMap((r, i) => rows[r].sort((a, b) => i % 2 ? b.c - a.c : a.c - b.c))
-    .map(s => String(s.p));
+    .flatMap((r, i) => rows[r].sort((a, b) => i % 2 ? b.c - a.c : a.c - b.c));
 }
+
+// Every seat in the plan (empty ones too) as [row, col]: lets the spelling cards
+// be laid out so partners sit side by side.
+const seatSpots = plan => plan.seats.filter(s => Number.isInteger(s.r) && Number.isInteger(s.c)).map(s => [s.r, s.c]);
 
 const seatNorm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1394,7 +1397,7 @@ async function readSeatFile(input) {
     plan = JSON.parse(await f.text()).plan;
     if (!plan || !Array.isArray(plan.seats)) throw 0;
   } catch (e) { seatMsg('That file is not a Seating Plan file. Use "Save file" in the Seating Plan tool.', 'error'); return; }
-  const order = seatOrder(plan);
+  const seated = seatOrder(plan), order = seated.map(s => String(s.p));
   if (!order.length) { seatMsg('Nobody is seated in that plan.', 'error'); return; }
 
   let file = null, ownFile = false;
@@ -1406,7 +1409,7 @@ async function readSeatFile(input) {
       ownFile = !!file;
     }
   }
-  _seat = { order, file, ownFile, pick: [] };
+  _seat = { order, spots: seated.map(s => [s.r, s.c]), allSeats: seatSpots(plan), file, ownFile, pick: [] };
   const taken = new Set();
   _seat.pick = order.map(n => {
     const id = seatMatch(n, file);
@@ -1452,20 +1455,21 @@ async function applySeatImport() {
   if (!_seat) return;
   const tables = {};
   _pupils.forEach(p => { tables[p.id] = ''; });
-  _seat.pick.forEach((id, i) => { if (id) tables[id] = String(i + 1); });
+  const home = {};
+  _seat.pick.forEach((id, i) => { if (id) { tables[id] = String(i + 1); home[id] = _seat.spots[i]; } });
   const btn = document.getElementById('seat-apply-btn');
   btn.disabled = true; showSpin('seat', true);
   try {
     const resp = await fetch('/api/class/tables', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ cls: CLS_ID, tables }),
+      body: JSON.stringify({ cls: CLS_ID, tables, layout: { seats: _seat.allSeats, home } }),
     });
     const d = await resp.json();
     if (!d.ok) { seatMsg('Save failed: ' + d.error, 'error'); btn.disabled = false; return; }
     _pupils.forEach(p => { p.table = tables[p.id]; });
     closeSeatModal();
     _sortKey = 'table'; _sortDir = 1; applySort(); updateSortArrows(); render();
-    showStatus(`Seating order saved (${d.changed} changed).`);
+    showStatus(`Seating order saved. Spelling cards can now print in seat order (Spelling Bee → Seating plan).`);
   } catch (e) { seatMsg('Request failed: ' + e.message, 'error'); btn.disabled = false; }
   finally { showSpin('seat', false); }
 }

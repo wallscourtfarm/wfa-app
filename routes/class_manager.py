@@ -3,6 +3,7 @@ routes/class_manager.py
 Pupil and class management: add, edit, remove, move, pair.
 """
 import os, json, base64, traceback, random
+from datetime import datetime
 import requests as _req
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
@@ -291,9 +292,33 @@ def api_class_tables():
             if str(by_id[pid].get('table', '')) != v:
                 by_id[pid]['table'] = v
                 changed += 1
+
+        # Optional room shape: every seat [row, col] and each pupil's own seat.
+        # Used to print spelling cards so partners sit side by side (seat_pairs.py).
+        layout = body.get('layout')
+        if layout is not None:
+            def spot(v):
+                return (isinstance(v, list) and len(v) == 2
+                        and all(isinstance(n, int) and not isinstance(n, bool) and 0 <= n < 50 for n in v))
+            seats = layout.get('seats') if isinstance(layout, dict) else None
+            home = layout.get('home') if isinstance(layout, dict) else None
+            if (not isinstance(seats, list) or not 0 < len(seats) <= 200 or not all(map(spot, seats))
+                    or not isinstance(home, dict) or not all(pid in by_id and spot(v) for pid, v in home.items())):
+                return jsonify({'ok': False, 'error': 'The seating plan layout was not in the expected format'})
+            new_layout = {'seats': sorted({tuple(v) for v in seats}),
+                          'home': {pid: list(v) for pid, v in home.items()}}
+            new_layout['seats'] = [list(v) for v in new_layout['seats']]
+            if obj.get('seat_layout', {}).get('seats') != new_layout['seats'] or \
+                    obj.get('seat_layout', {}).get('home') != new_layout['home']:
+                new_layout['updated'] = datetime.now().strftime('%Y-%m-%d')
+                obj['seat_layout'] = new_layout
+                changed += 1
         if not changed:
             return jsonify({'ok': True, 'changed': 0})
-        ok = _save_class_file(cls, obj, sha, f'Seating order from seating plan ({changed} pupils)')
+        ok = _save_class_file(cls, obj, sha, 'Seating order from seating plan')
+        if ok:
+            import data_manager
+            data_manager._invalidate(f'data/classes/{cls}.json')   # the card print reads it straight away
         return jsonify({'ok': ok, 'changed': changed} if ok else {'ok': False, 'error': 'Save failed, try again'})
     except Exception as e:
         return _err(e)

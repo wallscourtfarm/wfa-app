@@ -1,6 +1,6 @@
 import re
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from data_manager import week_needing_marking, load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee, update_pupil_rule_confidence_from_bee, get_bee_weeks, YEAR_GROUP_CLASSES, _resolve_classes, get_class_options_for_year
+from data_manager import week_needing_marking, load_bee_pupils, save_bee_assessment, update_rule_confidence_from_bee, update_pupil_rule_confidence_from_bee, get_bee_weeks, YEAR_GROUP_CLASSES, _resolve_classes, get_class_options_for_year, load_class
 
 from names_display import labels_for_pupils
 
@@ -66,7 +66,8 @@ def spelling_bee():
                            week_ref=week_ref, group_filter=group_filter,
                            cls=cls, class_options=class_options, active_year=yr,
                            bee_weeks=bee_weeks, bee_current=bee_current, bee_past=bee_past,
-                           selected_week=selected_week)
+                           selected_week=selected_week,
+                           has_seat_layout=any((load_class(cid) or {}).get('seat_layout') for cid in class_ids))
 
 @bee_bp.route('/api/bee/save', methods=['POST'])
 def api_bee_save():

@@ -21,6 +21,45 @@ def _load_pupils(cls):
     return pupils
 
 
+def _seat_plans(cls):
+    """{class label: seat_pairs.plan()} for each class with a seating plan imported in Class Manager.
+    Returns (plans, problem) where problem is a message for the teacher or ''."""
+    import seat_pairs
+    plans, missing = {}, []
+    for cid in _resolve_classes(cls):
+        d = load_class(cid) or {}
+        ps = d.get('pupils', [])
+        if not ps:
+            continue
+        label = ps[0].get('cls') or ps[0].get('file_cls') or ''
+        layout = d.get('seat_layout') or {}
+        if not layout.get('seats'):
+            missing.append(cid)
+            continue
+        ids = {p['id'] for p in ps}
+        seen, pairs, singles = set(), [], []
+        for p in ps:
+            if p['id'] in seen:
+                continue
+            mate = p.get('pair_id', '')
+            if mate in ids and mate not in seen and mate != p['id']:
+                pairs.append((p['id'], mate))
+                seen.update((p['id'], mate))
+            else:
+                singles.append(p['id'])
+                seen.add(p['id'])
+        home = {k: tuple(v) for k, v in (layout.get('home') or {}).items() if k in ids}
+        plan = seat_pairs.plan(layout['seats'], home, pairs, singles)
+        if plan is None:
+            return {}, f'{cid} has more children than seats in its seating plan. Import the seating plan again in Class Manager.'
+        plan['home'] = home
+        plan['all_seats'] = layout['seats']
+        plans[label] = plan
+    if not plans:
+        return {}, 'Import your seating plan in Class Manager first (🪑 Import seating plan), then print again.'
+    return plans, (f"No seating plan for {', '.join(missing)}, so those cards print in the usual order." if missing else '')
+
+
 def _get_rules(cls, week_ref=None):
     """Return (main_rule_like, rev_rule_like, week_ref).
     Now uses ULS selected_words from weekly config; falls back to old Spelling Shed rule_id."""
@@ -133,8 +172,24 @@ def api_paired_lists():
             # Never let the pinning stop a teacher getting their printout.
             pass
         pupils = display_pupils(pupils, None)   # initials; real names are added in the teacher's browser (stamps.py)
+        note = ''
+        if print_order == 'seat_order':
+            plans, note = _seat_plans(cls)
+            if not plans:
+                return jsonify({'ok': False, 'error': note})
+            stayed = sum(p['stayed'] for p in plans.values())
+            kids = sum(len(c['seats']) for p in plans.values() for c in p['cards'])
+            apart = sum(1 for p in plans.values() for c in p['cards'] if c['back']) - \
+                sum(p['side_by_side'] for p in plans.values())
+            note = (f'{stayed} of {kids} children stay in their own seat.'
+                    + (f' {apart} pair{"s" if apart != 1 else ""} could not be side by side (see the map).' if apart else '')
+                    + (' ' + note if note else ''))
         stamps.begin()
-        if print_order == 'double_sided':
+        if print_order == 'seat_order':
+            from pdf_builder import build_double_sided_bee_pdf
+            data = build_double_sided_bee_pdf(pupils, main_words, rev_words, key_words_map, week_ref,
+                                              seat_plans=plans)
+        elif print_order == 'double_sided':
             from pdf_builder import build_double_sided_bee_pdf
             data = build_double_sided_bee_pdf(pupils, main_words, rev_words, key_words_map, week_ref)
         else:
@@ -146,6 +201,7 @@ def api_paired_lists():
             'mime': 'application/pdf',
             'filename': f'Paired_Lists_{week_ref}_{cls}.pdf',
             'n': len(pupils),
+            'note': note,
         })
     except Exception as e:
         return _err(e)

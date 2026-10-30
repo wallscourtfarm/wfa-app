@@ -89,10 +89,11 @@
     </label>
     <div class="filter-sep" style="height:24px;width:1px;background:#e2e8f0;margin:0 2px"></div>
     <span style="font-size:13px;color:#64748b">Print order:</span>
-    {% for val, label in [('partner_pairs','Partner pairs'), ('double_sided','Double sided'), ('by_class','By class'), ('all','All')] %}
+    {% for val, label in [('seat_order','Seating plan'), ('partner_pairs','Partner pairs'), ('double_sided','Double sided'), ('by_class','By class'), ('all','All')] %}
     <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#64748b;cursor:pointer;user-select:none">
       <input type="radio" name="print-order" value="{{ val }}"
-             {% if val == 'double_sided' %}checked{% endif %}
+             {% if val == ('seat_order' if has_seat_layout else 'double_sided') %}checked{% endif %}
+             {% if val == 'seat_order' %}title="Double-sided cards in hand-out order: one card on every other seat, partners side by side, most children in their own seat. Ends with a map of where each card goes."{% endif %}
              style="accent-color:#1798d3">
       {{ label }}
     </label>
@@ -240,6 +241,7 @@ async function generateWordListMaterials() {
     const lists = results[0];
     if (!lists.ok) { showStatus(lists.error, 'error'); return; }
     await triggerDownload(lists.data, lists.mime, lists.filename, ask.names);
+    if (lists.note) showStatus(lists.note);
 
     if (results[1]?.ok) {
       await triggerDownload(results[1].data, results[1].mime, results[1].filename, ask.names);

@@ -362,8 +362,12 @@ def build_paired_word_lists(pupils, main_rule_words, rev_rule_words,
 # ── Double-sided bee cards ─────────────────────────────────────────────────
 
 def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
-                                key_words_map, week_ref):
+                                key_words_map, week_ref, seat_plans=None):
     """
+    seat_plans: optional {class label: seat_pairs.plan() result}. A class with a plan
+    prints its cards in hand-out order (one card on every other seat, partners side by
+    side), numbers each card, and ends with a room map showing where each card goes.
+
     A4 portrait. 2 columns × 4 rows = 8 cards per side.
 
     Front pages: partner-A cards.
@@ -485,8 +489,12 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
         # Footer text
         c.setFont('Helvetica-Oblique', 6.5)
         c.setFillColorRGB(0.5, 0.5, 0.5)
-        c.drawCentredString(x + half_w, y + 2.2 * mm,
-                            "Your partner's words are on the other side")
+        if not pupil.get('_solo'):
+            c.drawCentredString(x + half_w, y + 2.2 * mm,
+                                "Your partner's words are on the other side")
+        if pupil.get('_card'):
+            c.setFont('Helvetica-Bold', 8)
+            c.drawRightString(x + w - 2.5 * mm, y + 2.2 * mm, f"Card {pupil['_card']}")
 
     # ── Cut lines ─────────────────────────────────────────────────────────
     def draw_cut_lines_ds():
@@ -576,9 +584,89 @@ def build_double_sided_bee_pdf(pupils, main_rule_words, rev_rule_words,
 
         c.showPage()
 
+    # ── Room map: where each card goes (seat-order printing) ─────────────
+    def draw_seat_map(cls_key, seat_plan, numbered):
+        from reportlab.lib.pagesizes import landscape
+        LW, LH = landscape(A4)
+        c.setPageSize((LW, LH))
+        spots = [s for card in seat_plan['cards'] for s in card['seats'].values()]
+        spots += [tuple(s) for s in seat_plan.get('all_seats', [])]
+        r0, r1 = min(s[0] for s in spots), max(s[0] for s in spots)
+        c0, c1 = min(s[1] for s in spots), max(s[1] for s in spots)
+        TOP, MM = 24 * mm, 12 * mm
+        cw = min(34 * mm, (LW - 2 * MM) / (c1 - c0 + 1))
+        rh = min(30 * mm, (LH - TOP - MM) / (r1 - r0 + 1))
+        sw, sh = cw - 2 * mm, min(rh * 0.62, 16 * mm)
+        ox = (LW - cw * (c1 - c0 + 1)) / 2
+        def box(s):
+            return ox + (s[1] - c0) * cw + mm, LH - TOP - (s[0] - r0) * rh - sh
+        c.setFillColorRGB(*NAVY)
+        c.setFont('Helvetica-Bold', 15)
+        c.drawString(MM, LH - 13 * mm, f'Spelling partners: where the cards go  ({week_ref}  {cls_key})')
+        c.setFont('Helvetica', 9.5)
+        c.setFillColorRGB(0.35, 0.35, 0.35)
+        c.drawString(MM, LH - 19 * mm, 'Same view as your seating plan. Lay the cards in number order along the '
+                     'snake; each card covers two seats side by side. Underlined = in their own seat.')
+        taken = {s for s in spots if any(s in card['seats'].values() for card in seat_plan['cards'])}
+        for s in sorted(set(spots) - taken):
+            bx, by = box(s)
+            c.setStrokeColorRGB(0.8, 0.8, 0.8)
+            c.setDash(2, 2)
+            c.rect(bx, by, sw, sh, fill=0, stroke=1)
+            c.setDash()
+        home = seat_plan.get('home', {})
+        for card, no in numbered:
+            colour, _ = _get_colour(pupil_map[card['front']])
+            col = _hex_to_rgb(colour) if colour else BLUE
+            cells = []
+            for pid, s in card['seats'].items():
+                bx, by = box(s)
+                cells.append((bx, by))
+                c.setFillColorRGB(*[v + (1 - v) * 0.82 for v in col])
+                c.setStrokeColorRGB(*col)
+                c.setLineWidth(1.6)
+                c.rect(bx, by, sw, sh, fill=1, stroke=1)
+                p = pupil_map[pid]
+                label = p.get('first', '')
+                c.setFillColorRGB(*NAVY)
+                c.setFont('Helvetica-Bold', 11)
+                tx, ty = bx + sw / 2, by + sh * 0.3
+                c.drawCentredString(tx, ty, label)
+                _stamps.log(c, tx, ty, label, 11, p.get('pupil_id'), align='c',
+                            cover=tuple(v + (1 - v) * 0.82 for v in col), color=NAVY)
+                if tuple(home.get(pid) or ()) == tuple(s):
+                    c.setStrokeColorRGB(*NAVY)
+                    c.setLineWidth(0.8)
+                    c.line(bx + sw * 0.3, by + sh * 0.2, bx + sw * 0.7, by + sh * 0.2)
+            # card number in a circle at the top of the first seat
+            nx, ny = cells[0][0] + 4.5 * mm, cells[0][1] + sh - 4.5 * mm
+            c.setFillColorRGB(*col)
+            c.circle(nx, ny, 3.6 * mm, fill=1, stroke=0)
+            c.setFillColorRGB(1, 1, 1)
+            c.setFont('Helvetica-Bold', 9)
+            c.drawCentredString(nx, ny - 3.2, str(no))
+        c.showPage()
+        c.setPageSize(A4)
+
     # ── Emit pages per class so each class starts on a fresh sheet ───────
     for cls_key in class_order:
         cls_pupils = by_class[cls_key]
+        seat_plan = (seat_plans or {}).get(cls_key)
+        if seat_plan:
+            fronts, backs, numbered = [], [], []
+            for no, card in enumerate(seat_plan['cards'], 1):
+                f = dict(pupil_map[card['front']], _card=no, _solo=not card['back'])
+                fronts.append(f)
+                backs.append(dict(pupil_map[card['back']], _card=no) if card['back'] else None)
+                numbered.append((card, no))
+            for i in range(0, len(fronts), PER_PG):
+                draw_page(fronts[i:i + PER_PG], mirror_cols=False, cut_lines=True)
+                if any(backs[i:i + PER_PG]):
+                    draw_page(backs[i:i + PER_PG], mirror_cols=True, cut_lines=False)
+                else:
+                    c.showPage()
+            draw_seat_map(cls_key, seat_plan, numbered)
+            continue
         seen = set()
         pa, pb, unpaired = [], [], []
         for p in cls_pupils:
