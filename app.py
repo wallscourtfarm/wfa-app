@@ -26,6 +26,11 @@ def handle_any_exception(e):
 
 app.secret_key = os.environ.get('SECRET_KEY') or _secrets.token_hex(32)
 
+# Only answer requests that came through Cloudflare Access (the Railway
+# address skips it); see access_gate.py.
+import access_gate
+access_gate.install(app)
+
 from routes.dashboard     import dash_bp
 from routes.tt            import tt_bp
 from routes.bee           import bee_bp
