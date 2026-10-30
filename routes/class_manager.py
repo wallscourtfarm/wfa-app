@@ -692,24 +692,6 @@ def api_roster_sync():
         return _err(e)
 
 
-@cm_bp.route('/api/class/attach-pupil-ids', methods=['POST'])
-def api_attach_pupil_ids():
-    """Add each pupil's roster pupil code (`pupil_id`) to the class files.
-    Dry run unless the body says {"dry_run": false}. Only that one field is
-    ever written; the report has counts and initials labels, never names."""
-    try:
-        from roster_sync import attach_pupil_ids
-        body = request.get_json(silent=True) or {}
-        dry = body.get('dry_run', True)
-        if isinstance(dry, str):
-            dry = dry.strip().lower() != 'false'
-        else:
-            dry = dry is not False
-        return jsonify(attach_pupil_ids(dry_run=dry))
-    except Exception as e:
-        return _err(e)
-
-
 @cm_bp.route('/api/class/roster-status')
 def api_roster_status():
     """Last roster-sync metadata from data/roster_meta.json for the status chip."""

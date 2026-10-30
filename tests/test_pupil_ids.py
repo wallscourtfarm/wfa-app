@@ -1,6 +1,6 @@
 """Run with plain python:  python3 tests/test_pupil_ids.py
-Proves attach_pupil_ids (dry run + real run, conflict retry) against an
-in-memory fake of the GitHub helpers, the roster-sync pupil_id handling, and
+Proves, against an in-memory fake of the GitHub helpers, the roster-sync
+pupil_id handling and
 that staff JSON carries `pid` but never first/last/name/upn. Fake names only."""
 import os, sys, json, copy
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -85,93 +85,6 @@ def install(store):
     roster_sync._gh_put = fake.put
     return fake
 
-
-def strip_pid(store):
-    out = copy.deepcopy(store)
-    for obj in out.values():
-        for p in obj['pupils']:
-            p.pop('pupil_id', None)
-    return out
-
-
-# ── dry run: reports, writes nothing ─────────────────────────────────────────
-store = make_store()
-before = copy.deepcopy(store)
-fake = install(store)
-rep = roster_sync.attach_pupil_ids(dry_run=True, roster=ROSTER)
-assert rep['ok'] and rep['dry_run'] is True
-assert store == before and fake.puts == [], 'dry run must not write'
-assert rep['to_add'] == 2, rep            # p01 (new) and p02 (changed code)
-assert rep['already_set'] == 1, rep       # p06
-assert rep['added'] == 0 and rep['files_changed'] == 0
-assert rep['skipped_count'] == 3, rep     # p03 no UPN, p04 not on roster, p05 no roster code
-reasons = sorted(s['reason'] for s in rep['skipped'])
-assert reasons == ['no UPN', 'not on roster', 'roster has no pupil code'], reasons
-assert all(set(s) == {'cls', 'label', 'reason'} for s in rep['skipped'])
-assert_clean(json.dumps(rep), 'dry-run report')
-labels = {s['reason']: s['label'] for s in rep['skipped']}
-assert labels['no UPN'] == 'WF' and labels['not on roster'] == 'OP', labels
-print('dry run OK:', {k: rep[k] for k in ('to_add', 'already_set', 'skipped_count')})
-
-# ── real run: only pupil_id changes ──────────────────────────────────────────
-store = make_store()
-orig = copy.deepcopy(store)
-fake = install(store)
-rep = roster_sync.attach_pupil_ids(dry_run=False, roster=ROSTER)
-assert rep['ok'] and rep['dry_run'] is False, rep
-assert rep['added'] == 2 and rep['files_changed'] == 1, rep   # 5LS had nothing to change
-assert fake.puts == [('data/classes/5IM.json', 'Add pupil codes (no other change)')], fake.puts
-assert_clean(fake.puts[0][1], 'commit message')
-im = {p['id']: p for p in store['data/classes/5IM.json']['pupils']}
-assert im['p01']['pupil_id'] == 'p_k3m9x2q7ab'
-assert im['p02']['pupil_id'] == 'p_newcode002'
-assert 'pupil_id' not in im['p03'] and 'pupil_id' not in im['p04']      # unmatched untouched
-assert store['data/classes/5LS.json'] == orig['data/classes/5LS.json']   # file not rewritten
-# nothing but pupil_id differs anywhere
-assert strip_pid(store) == strip_pid(orig), 'a field other than pupil_id changed'
-for cid in store:
-    for new, old in zip(store[cid]['pupils'], orig[cid]['pupils']):
-        for k in ('id', 'first', 'last', 'upn', 'cls', 'us_pin', 'mastered'):
-            assert new.get(k) == old.get(k), (cid, k)
-assert_clean(json.dumps(rep), 'real-run report')
-# idempotent: running again changes nothing
-n_puts = len(fake.puts)
-rep2 = roster_sync.attach_pupil_ids(dry_run=False, roster=ROSTER)
-assert rep2['ok'] and rep2['added'] == 0 and len(fake.puts) == n_puts
-print('real run OK: only pupil_id added; rerun is a no-op')
-
-# ── stale sha: re-read, re-apply, never clobber a concurrent edit ───────────
-store = make_store()
-fake = install(store)
-def concurrent_edit(f):
-    # someone else saves the file (new table number) between our read and write
-    obj = f.store['data/classes/5IM.json']
-    obj['pupils'][0]['table'] = '9'
-    f.shas['data/classes/5IM.json'] += 1
-fake.fail_next_put = 1
-fake.on_conflict = concurrent_edit
-rep = roster_sync.attach_pupil_ids(dry_run=False, roster=ROSTER)
-assert rep['ok'] and rep['added'] == 2, rep
-p1 = store['data/classes/5IM.json']['pupils'][0]
-assert p1['table'] == '9', 'concurrent edit was overwritten'
-assert p1['pupil_id'] == 'p_k3m9x2q7ab'
-print('conflict retry OK')
-
-# persistent failure is reported, not hidden
-store = make_store()
-fake = install(store)
-fake.fail_next_put = 99
-rep = roster_sync.attach_pupil_ids(dry_run=False, roster=ROSTER)
-assert not rep['ok'] and rep['files_failed'] == ['5IM'], rep
-print('persistent failure reported OK')
-
-# roster fetch failure: no URL/token in the message
-def boom():
-    raise RuntimeError('https://x/?token=SECRET')
-roster_sync.fetch_roster = boom
-rep = roster_sync.attach_pupil_ids(dry_run=True)
-assert not rep['ok'] and 'SECRET' not in json.dumps(rep)
-print('fetch failure OK')
 
 # ── normal sync sets pupil_id on matched pupils and new pupils ──────────────
 store = make_store()
@@ -291,19 +204,6 @@ with flask_app.test_client() as c:
     by_id = {p['id']: p for p in d['pupils']}
     assert by_id['p01']['partner_pid'] == CODES['p02'] and by_id['p02']['partner_pid'] == CODES['p01']
     print('class list pid OK')
-
-    # attach route: default is dry run, body honoured
-    calls = []
-    def fake_attach(dry_run=True, roster=None):
-        calls.append(dry_run)
-        return {'ok': True, 'dry_run': dry_run}
-    roster_sync.attach_pupil_ids = fake_attach
-    c.post('/api/class/attach-pupil-ids', json={})
-    c.post('/api/class/attach-pupil-ids')
-    c.post('/api/class/attach-pupil-ids', json={'dry_run': True})
-    c.post('/api/class/attach-pupil-ids', json={'dry_run': False})
-    assert calls == [True, True, True, False], calls
-    print('attach route OK')
 
 # pupil-facing live pages must not load the names helper
 for t in ('live_assess.html', 'live_bee_pupil.html', 'live_error.html'):
