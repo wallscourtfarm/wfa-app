@@ -4,6 +4,7 @@ bad input refused, nothing saved when nothing changed. Fake data only."""
 import os, sys, copy
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('GITHUB_TOKEN', 'x')
+os.environ.setdefault('ACCESS_GATE', 'off')   # test client has no Cloudflare sign-in
 
 import app as appmod
 import routes.class_manager as cm

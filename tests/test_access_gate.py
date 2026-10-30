@@ -42,7 +42,7 @@ def status(path, token=None, method='get'):
     return getattr(c, method)(path, headers=headers).status_code
 
 
-os.environ['ACCESS_GATE'] = 'enforce'
+os.environ.pop('ACCESS_GATE', None)                               # default is enforce
 assert status('/ping') == 200
 assert status('/api/class/roster-status') == 403
 assert status('/api/class/roster-sync', method='post') == 403

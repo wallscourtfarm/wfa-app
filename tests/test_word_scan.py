@@ -10,6 +10,7 @@ Fake pupils/names only. No network, no live services."""
 import os, sys, io, re, json, copy, base64
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('GITHUB_TOKEN', 'x')
+os.environ.setdefault('ACCESS_GATE', 'off')   # test client has no Cloudflare sign-in
 os.environ['ANTHROPIC_API_KEY'] = 'test-key-not-real'
 
 import fitz

@@ -4,6 +4,7 @@ Printed sheets are drawn with INITIALS; real names are never sent to the server.
 import os, sys, io, copy, json, base64, logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('GITHUB_TOKEN', 'x')
+os.environ.setdefault('ACCESS_GATE', 'off')   # test client has no Cloudflare sign-in
 os.environ.pop('PRINT_NAMES_FROM_FILE_ONLY', None)
 os.environ.pop('ANTHROPIC_API_KEY', None)
 

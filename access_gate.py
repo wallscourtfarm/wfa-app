@@ -12,8 +12,9 @@ Paths Cloudflare deliberately lets through without a sign-in (its bypass
 apps) stay open here too: the pupil live-session pages, the evidence API
 (it has its own token) and /ping.
 
-ACCESS_GATE setting: 'report' (default for now) logs what would be refused
-and lets everything through; 'enforce' refuses; 'off' does nothing.
+ACCESS_GATE setting: 'enforce' (default since 30.10.26g) refuses; 'report'
+logs what would be refused and lets everything through; 'off' does nothing.
+Report mode ran first and a real staff sign-in through app.* passed.
 """
 
 import logging
@@ -70,8 +71,8 @@ def check_token(token):
 
 
 def mode():
-    m = os.environ.get('ACCESS_GATE', 'report').strip().lower()
-    return m if m in ('report', 'enforce', 'off') else 'report'
+    m = os.environ.get('ACCESS_GATE', 'enforce').strip().lower()
+    return m if m in ('report', 'enforce', 'off') else 'enforce'
 
 
 def _before():
