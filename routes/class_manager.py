@@ -12,6 +12,7 @@ from data_manager import (ALL_CLASSES, YEAR_GROUP_CLASSES, load_class,
 from word_bank import next_active_index, year_at_index
 from phonics_bank import PHONICS_SETS
 from names_display import label_list, labels_for_pupils
+from seat_pairs import SEAT_PLAN_TEACHERS
 
 cm_bp = Blueprint('class_manager', __name__)
 
@@ -139,7 +140,8 @@ def class_manager():
         cls=cls, class_options=opts,
         tt_sets=TT_SETS, pair_colours=PAIR_COLOURS,
         phonics_sets_json=json.dumps(PHONICS_SETS),
-        reading_ladder_json=json.dumps(reading_ladder_for_year(yr)))
+        reading_ladder_json=json.dumps(reading_ladder_for_year(yr)),
+        seat_tools=(load_class(cls) or {}).get('teacher') in SEAT_PLAN_TEACHERS)
 
 
 # ── API: List pupils ──────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@
 <button class="btn btn-secondary" onclick="openMasteryModal()" title="Match pupils to spelling mastery data — never creates a pupil, only updates an existing match">📊 Import mastery</button>
 <button class="btn btn-secondary" onclick="openUsModal()" title="Sync Unlocking Spelling ID/PIN from the roster sheet">🔑 Import Unlocking Spelling</button>
     <button class="btn btn-secondary" onclick="openStartModal()" title="Choose which year group's spelling set pupils start from — e.g. a new starter joining in Y6 from the start of Y4">🐝 Spelling start point</button>
-    <button class="btn btn-secondary" onclick="openSeatModal()" title="Set every child's Table number from a Seating Plan file, in hand-out order (snaking along the rows)">🪑 Import seating plan</button>
+    {% if seat_tools %}<button class="btn btn-secondary" onclick="openSeatModal()" title="Set every child's Table number from a Seating Plan file, in hand-out order (snaking along the rows)">🪑 Import seating plan</button>{% endif %}
     <button class="btn btn-secondary" id="pair-mode-btn" onclick="togglePairMode()">🔗 Manage pairs</button>
   </div>
 </div>

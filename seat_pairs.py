@@ -14,6 +14,10 @@ other, and only as a last resort further apart. Pure functions, no I/O; determin
 import math
 import random
 
+# Only these teachers' classes see the seating plan tools (Innes's own Seating Plan tool; class
+# file "teacher" initials, so it follows his class from year to year).
+SEAT_PLAN_TEACHERS = {'IM'}
+
 MOVE = 10        # cost of a child leaving their own seat (plus the distance walked)
 NO_HOME = 12     # a child the seating plan did not place
 BEHIND = 40      # partners one in front of the other instead of side by side
